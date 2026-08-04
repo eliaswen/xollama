@@ -759,21 +759,22 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		}
 
 		if err := r.Completion(ctx, llm.CompletionRequest{
-			Prompt:             prompt,
-			Media:              media,
-			Format:             req.Format,
-			Options:            opts,
-			Shift:              req.Shift == nil || *req.Shift,
-			Truncate:           req.Truncate == nil || *req.Truncate,
-			Logprobs:           req.Logprobs,
-			TopLogprobs:        req.TopLogprobs,
-			PreservedTokens:    preservedTokensForCompletion(builtinParser),
-			LeadingBOS:         leadingBOS,
-			ThinkingClose:      thinkingClose,
-			ThinkBudget:        thinkBudget,
-			ThinkBudgetMessage: opts.ThinkBudgetMessage,
-			ThinkingStartTag:   thinkStartTag,
-			ThinkingEndTag:     thinkEndTag,
+			Prompt:              prompt,
+			Media:               media,
+			Format:              req.Format,
+			Options:             opts,
+			Shift:               req.Shift == nil || *req.Shift,
+			Truncate:            req.Truncate == nil || *req.Truncate,
+			Logprobs:            req.Logprobs,
+			TopLogprobs:         req.TopLogprobs,
+			PreservedTokens:     preservedTokensForCompletion(builtinParser),
+			LeadingBOS:          leadingBOS,
+			ThinkingClose:       thinkingClose,
+			ThinkBudget:         thinkBudget,
+			ThinkBudgetMessage:  opts.ThinkBudgetMessage,
+			ThinkingStartTag:    thinkStartTag,
+			ThinkingEndTag:      thinkEndTag,
+			ThinkBudgetResetTag: thinkBudgetResetTagForCompletion(builtinParser),
 		}, func(cr llm.CompletionResponse) {
 			res := api.GenerateResponse{
 				Model:     req.Model,
@@ -2938,6 +2939,13 @@ func optionAsInt(value any) (int, bool) {
 	}
 }
 
+// thinkBudgetResetTagForCompletion reports the tag whose appearance forgives the
+// thinking spent so far, which is the tag a tool call opens with. Parsers that
+// do not name one leave the budget cumulative with nothing to forgive it.
+func thinkBudgetResetTagForCompletion(builtinParser parsers.Parser) string {
+	return parsers.ToolCallStartTagForParser(builtinParser)
+}
+
 func toolCallTagForCompletion(toolParser *tools.Parser) string {
 	if toolParser == nil {
 		return ""
@@ -3410,22 +3418,23 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		var parserErr error
 
 		err := r.Completion(ctx, llm.CompletionRequest{
-			Prompt:             prompt,
-			Media:              media,
-			Format:             req.Format,
-			Options:            opts,
-			Shift:              req.Shift == nil || *req.Shift,
-			Truncate:           truncate,
-			Logprobs:           req.Logprobs,
-			TopLogprobs:        req.TopLogprobs,
-			PreservedTokens:    preservedTokensForCompletion(builtinParser),
-			ToolCallTag:        toolCallTagForCompletion(toolParser),
-			LeadingBOS:         leadingBOSForModel(m),
-			ThinkingClose:      thinkingCloseForCompletion(builtinParser, thinkTagParser),
-			ThinkBudget:        thinkBudget,
-			ThinkBudgetMessage: opts.ThinkBudgetMessage,
-			ThinkingStartTag:   thinkStartTag,
-			ThinkingEndTag:     thinkEndTag,
+			Prompt:              prompt,
+			Media:               media,
+			Format:              req.Format,
+			Options:             opts,
+			Shift:               req.Shift == nil || *req.Shift,
+			Truncate:            truncate,
+			Logprobs:            req.Logprobs,
+			TopLogprobs:         req.TopLogprobs,
+			PreservedTokens:     preservedTokensForCompletion(builtinParser),
+			ToolCallTag:         toolCallTagForCompletion(toolParser),
+			LeadingBOS:          leadingBOSForModel(m),
+			ThinkingClose:       thinkingCloseForCompletion(builtinParser, thinkTagParser),
+			ThinkBudget:         thinkBudget,
+			ThinkBudgetMessage:  opts.ThinkBudgetMessage,
+			ThinkingStartTag:    thinkStartTag,
+			ThinkingEndTag:      thinkEndTag,
+			ThinkBudgetResetTag: thinkBudgetResetTagForCompletion(builtinParser),
 		}, func(r llm.CompletionResponse) {
 			res := api.ChatResponse{
 				Model:     req.Model,
