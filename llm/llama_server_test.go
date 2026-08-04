@@ -4096,6 +4096,8 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 		wantStart            any
 		wantEnd              any
 		wantMessage          any
+		wantScope            any
+		wantResetTag         any
 		wantGenerationPrompt any
 	}{
 		{
@@ -4107,6 +4109,7 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 				ThinkingEndTag:   "<channel|>",
 			},
 			wantBudget:  float64(512),
+			wantScope:   "response",
 			wantStart:   "<|channel>",
 			wantEnd:     "<channel|>",
 			wantMessage: "",
@@ -4120,6 +4123,7 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 				ThinkingEndTag:   "</think>",
 			},
 			wantBudget:           float64(512),
+			wantScope:            "response",
 			wantStart:            "<think>",
 			wantEnd:              "</think>",
 			wantMessage:          "",
@@ -4137,6 +4141,7 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 				ThinkingEndTag:   "<channel|>",
 			},
 			wantBudget:           float64(512),
+			wantScope:            "response",
 			wantStart:            "<|channel>",
 			wantEnd:              "<channel|>",
 			wantMessage:          "",
@@ -4151,6 +4156,7 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 				ThinkingEndTag:   "<channel|>",
 			},
 			wantBudget:  float64(512),
+			wantScope:   "response",
 			wantStart:   "<|channel>",
 			wantEnd:     "<channel|>",
 			wantMessage: "",
@@ -4166,6 +4172,7 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 				ThinkingEndTag:   "</think>",
 			},
 			wantBudget:  float64(512),
+			wantScope:   "response",
 			wantStart:   "<think>",
 			wantEnd:     "</think>",
 			wantMessage: "",
@@ -4180,9 +4187,28 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 				ThinkingEndTag:     "<channel|>",
 			},
 			wantBudget:  float64(512),
+			wantScope:   "response",
 			wantStart:   "<|channel>",
 			wantEnd:     "<channel|>",
 			wantMessage: "\n\nTime to answer now.\n",
+		},
+		{
+			// the budget bounds the whole response, and a tool call forgives
+			// what the thinking before it spent
+			name: "tool call tag rides along as the budget reset",
+			req: CompletionRequest{
+				Prompt:              "<bos><|turn>user\nhi<turn|>\n<|turn>model\n",
+				ThinkBudget:         512,
+				ThinkingStartTag:    "<|channel>",
+				ThinkingEndTag:      "<channel|>",
+				ThinkBudgetResetTag: "<|tool_call>",
+			},
+			wantBudget:   float64(512),
+			wantStart:    "<|channel>",
+			wantEnd:      "<channel|>",
+			wantMessage:  "",
+			wantScope:    "response",
+			wantResetTag: "<|tool_call>",
 		},
 		{
 			name: "no budget",
@@ -4258,6 +4284,8 @@ func TestLlamaServerCompletionReasoningBudget(t *testing.T) {
 				// message+end_tag, and only when this field is present, so an
 				// empty message still has to reach the wire
 				{"reasoning_budget_message", tt.wantMessage},
+				{"reasoning_budget_scope", tt.wantScope},
+				{"reasoning_budget_reset_tag", tt.wantResetTag},
 				{"generation_prompt", tt.wantGenerationPrompt},
 			}
 
