@@ -39,6 +39,26 @@ func mustMarshal(t *testing.T, v any) []byte {
 	return data
 }
 
+// requirePermissionsApply skips a test whose subject is a permission bit
+// refusing something. Two runners do not refuse: Windows, where the mode a
+// chmod writes is not the ACL that decides; and root, which carries
+// CAP_DAC_OVERRIDE and so writes into a 0444 directory and reads a 0000 file
+// quite happily. Both return the nil error where the test demands a non-nil
+// one, so the assertion is about the runner rather than about WriteWithBackup.
+// Building in a container as root is the common case for the second.
+//
+// Only the tests that actually assert a refusal use this. The others keep the
+// plain Windows guard, because root does not change what they measure.
+func requirePermissionsApply(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("permission tests unreliable on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: CAP_DAC_OVERRIDE bypasses the mode bits under test")
+	}
+}
+
 func isolatedTempDir(t *testing.T) string {
 	t.Helper()
 	return t.TempDir()
@@ -271,9 +291,7 @@ func TestWriteWithBackup(t *testing.T) {
 // TestWriteWithBackup_FailsIfBackupFails documents critical behavior: if backup fails, we must not proceed.
 // User could lose their config with no way to recover.
 func TestWriteWithBackup_FailsIfBackupFails(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission tests unreliable on Windows")
-	}
+	requirePermissionsApply(t)
 
 	tmpDir := isolatedTempDir(t)
 	path := filepath.Join(tmpDir, "config.json")
@@ -306,9 +324,7 @@ func TestWriteWithBackup_FailsIfBackupFails(t *testing.T) {
 // TestWriteWithBackup_PermissionDenied verifies clear error when target file has wrong permissions.
 // Common issue when config owned by root or wrong perms.
 func TestWriteWithBackup_PermissionDenied(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission tests unreliable on Windows")
-	}
+	requirePermissionsApply(t)
 
 	tmpDir := isolatedTempDir(t)
 
@@ -496,9 +512,7 @@ func TestWriteWithBackup_EmptyData(t *testing.T) {
 // TestWriteWithBackup_FileUnreadableButDirWritable verifies behavior when existing file
 // cannot be read (for backup comparison) but directory is writable.
 func TestWriteWithBackup_FileUnreadableButDirWritable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission tests unreliable on Windows")
-	}
+	requirePermissionsApply(t)
 
 	tmpDir := isolatedTempDir(t)
 	path := filepath.Join(tmpDir, "unreadable.json")
