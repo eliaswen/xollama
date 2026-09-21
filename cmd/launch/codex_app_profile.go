@@ -108,6 +108,18 @@ func codexAppRegularProfileRoutingModels(configPath string) map[string]struct{} 
 	return models
 }
 
+// codexAppSessionMTimeSlack absorbs the gap between the clock time.Now()
+// reads and the coarser clock a filesystem stamps mtime from. tmpfs takes
+// mtime from the kernel's coarse clock, which trails by up to a tick -- 4ms at
+// CONFIG_HZ=250 -- so a rollout file written just after the session start is
+// recorded as older than it, and would be skipped for the life of the session.
+// ext3 and several network filesystems are coarser still, at a full second.
+//
+// Being generous here costs nothing: this check only avoids opening files that
+// are plainly older than the session. Which lines actually count is decided by
+// their own timestamps in codexAppLineIsUserRequest below, which is exact.
+const codexAppSessionMTimeSlack = 2 * time.Second
+
 func (c *codexAppRequestCursor) scan(root string, start time.Time, allowedModels map[string]struct{}) uint64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -137,7 +149,7 @@ func (c *codexAppRequestCursor) scanLocked(root string, start time.Time, allowed
 	slices.Sort(paths)
 	for _, path := range paths {
 		info, err := os.Stat(path)
-		if err != nil || info.ModTime().Before(start) {
+		if err != nil || info.ModTime().Add(codexAppSessionMTimeSlack).Before(start) {
 			continue
 		}
 		offset := c.files[path]
