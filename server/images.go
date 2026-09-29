@@ -633,7 +633,12 @@ func (m *Model) String() string {
 		})
 	}
 
-	if m.Template != nil {
+	// Only a template the model carries. With no template layer m.Template
+	// is template.DefaultTemplate, and writing it out invented a
+	// `TEMPLATE {{ .Prompt }}` that a create from this Modelfile then stored
+	// as a real layer -- a Go template the model never had, which changes how
+	// it is prompted.
+	if m.Template != nil && m.HasGoTemplate {
 		modelfile.Commands = append(modelfile.Commands, parser.Command{
 			Name: "template",
 			Args: m.Template.String(),
