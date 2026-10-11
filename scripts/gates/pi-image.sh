@@ -11,6 +11,8 @@
 #
 # TAG names the context, the test image and the output directory; BASE is the
 # image the engine is put into (default: the published :dev).
+# When the gate ends the test image, the base image and the context are removed
+# (KEEP=1 keeps them): the Pi's disk is small and left-overs filled solidPC's.
 TAG=${TAG:?TAG=<name of ctx-<TAG> in /root/xollama-arm64>}
 BASE=${BASE:-ghcr.io/mann1x/xollama:dev}
 cd /root/xollama-arm64
@@ -23,7 +25,10 @@ RUN rm -f /usr/lib/ollama/opencoti-* /usr/lib/ollama/oc-*.so /usr/lib/ollama/ggm
 COPY engine/ /usr/lib/ollama/
 RUN chmod 755 /usr/lib/ollama/opencoti-llamafile-*
 EOD
+OLD=$(docker image inspect $I --format '{{.Id}}' 2>/dev/null)
 docker build -q -t $I ctx-$TAG || exit 1
+[ -n "$OLD" ] && [ "$OLD" != "$(docker image inspect $I --format '{{.Id}}')" ] && docker rmi "$OLD" >/dev/null 2>&1
+trap 'docker rm -f $N >/dev/null 2>&1; [ -n "${KEEP:-}" ] || { docker rmi $I $BASE >/dev/null 2>&1; find ctx-$TAG -type f -delete; find ctx-$TAG -depth -type d -delete; }' EXIT
 docker rm -f $N >/dev/null 2>&1
 echo "before: temp=$(vcgencmd measure_temp 2>/dev/null | cut -d= -f2) $(vcgencmd get_throttled 2>/dev/null)"
 docker run -d --name $N -p 127.0.0.1:22498:22434 -e OLLAMA_DEBUG=1 \

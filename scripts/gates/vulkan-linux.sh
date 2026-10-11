@@ -8,6 +8,8 @@
 #   IMAGE=<xollama image> [NODE=/dev/dri/renderD129] [VKSTORE=<dir>] scripts/gates/vulkan-linux.sh
 # The container's /root/.ollama is VKSTORE (default /srv/ml/gates/vkstore, its
 # own store: the image runs as root). Port 22498 on the host's loopback.
+# The image is removed when the gate ends (about 6 GB; a left-over filled
+# solidPC's root disk, 2026-10-11); KEEP=1 keeps it.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 IMAGE=${IMAGE:?the image under test, for example mannixita/xollama:dev}
@@ -16,7 +18,7 @@ NODE=${NODE:-/dev/dri/renderD129}; VKSTORE=${VKSTORE:-/srv/ml/gates/vkstore}; H=
 ss -ltn | grep -q "$H " && { echo "22498 busy"; exit 1; }
 mkdir -p "$VKSTORE"
 docker run -d --name $C --device "$NODE" -e OLLAMA_DEBUG=1 -e OLLAMA_KEEP_ALIVE=60s -p $H:22434 -v "$VKSTORE":/root/.ollama "$IMAGE" >/dev/null || exit 1
-trap 'docker rm -f $C >/dev/null 2>&1' EXIT
+trap 'docker rm -f $C >/dev/null 2>&1; [ -n "${KEEP:-}" ] || docker rmi "$IMAGE" >/dev/null 2>&1' EXIT
 for i in $(seq 120); do curl -s --max-time 2 http://$H/api/version >/dev/null && break; sleep 0.5; done
 echo "image $IMAGE, server $(curl -s http://$H/api/version)"
 curl -s http://$H/api/xollama/devices | python3 -c 'import json,sys

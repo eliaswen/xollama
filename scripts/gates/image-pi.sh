@@ -1,9 +1,16 @@
 #!/bin/bash
 # G10 on arm64: the published image on the Pi 5, in its own container, port
 # and model directory. The owner's containers are never touched. IMG=<image>.
+# The image is removed when the gate ends, and so is the one its tag pointed at
+# before the pull: each is about 6 GB and a left-over filled solidPC's root
+# disk (2026-10-11). KEEP=1 keeps the image for a gate that follows on it.
 IMG=${IMG:-mannixita/xollama:dev}; N=xollama-test; H=http://127.0.0.1:22498
 cd /root/xollama-arm64 && mkdir -p out-gate
+OLD=$(docker image inspect $IMG --format '{{.Id}}' 2>/dev/null)
 docker pull -q $IMG || exit 1
+NEW=$(docker image inspect $IMG --format '{{.Id}}')
+[ -n "$OLD" ] && [ "$OLD" != "$NEW" ] && docker rmi "$OLD" >/dev/null 2>&1
+trap 'docker rm -f $N >/dev/null 2>&1; [ -n "${KEEP:-}" ] || docker rmi $IMG >/dev/null 2>&1' EXIT
 docker image inspect $IMG --format '{{.Architecture}}/{{.Os}} {{.Id}}'
 docker rm -f $N >/dev/null 2>&1
 docker run -d --name $N -p 127.0.0.1:22498:22434 -e OLLAMA_DEBUG=1 -v /root/xollama-arm64/models:/root/.ollama/models $IMG >/dev/null || exit 1

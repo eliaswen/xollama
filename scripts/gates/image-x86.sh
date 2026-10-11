@@ -4,10 +4,17 @@
 # writable: since upstream v0.40.0 a store that cannot be written lists no
 # models (it creates manifests-v2 on first use), and the shared stores are
 # never served by a version that converts them.
+# The image is removed when the gate ends, and so is the one its tag pointed at
+# before the pull: each is about 6 GB and a left-over filled solidPC's root
+# disk (2026-10-11). KEEP=1 keeps the image for a gate that follows on it.
 IMG=${IMG:-mannixita/xollama:dev}; N=xollama-image-gate; H=http://127.0.0.1:22498
 LLM=${LLM:?a scratch model store with llama3}; MEDIA=${MEDIA:?a scratch media store}
 ss -ltnp | grep -q '127.0.0.1:22498 ' && { echo "22498 busy"; exit 1; }
+OLD=$(docker image inspect $IMG --format '{{.Id}}' 2>/dev/null)
 docker pull -q $IMG || exit 1
+NEW=$(docker image inspect $IMG --format '{{.Id}}')
+[ -n "$OLD" ] && [ "$OLD" != "$NEW" ] && docker rmi "$OLD" >/dev/null 2>&1
+trap 'docker rm -f $N >/dev/null 2>&1; [ -n "${KEEP:-}" ] || docker rmi $IMG >/dev/null 2>&1' EXIT
 docker image inspect $IMG --format '{{.Architecture}}/{{.Os}} {{.Id}}'
 up() { docker rm -f $N >/dev/null 2>&1; docker run -d --name $N --gpus all -p 127.0.0.1:22498:22434 -e OLLAMA_MODELS=/models -e OLLAMA_DEBUG=1 "$@" $IMG >/dev/null || exit 1
   for i in $(seq 60); do curl -s --max-time 2 $H/api/version >/dev/null && return; sleep 0.5; done; echo "server did not come up"; docker logs $N 2>&1 | tail -20; exit 1; }
