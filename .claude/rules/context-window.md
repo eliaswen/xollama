@@ -31,7 +31,11 @@ paths:
   reaches it. A negotiating request gets the engine's 429 at once, checked
   BEFORE `neverFits` (the client can grow its owner), with `Retry-After` (at
   least 1 s, rounded up) and `X-Context-Largest-Admissible` only when the
-  engine named one. Everything else keeps ollama's queue:
+  engine named one. **A named 0 is sent**: `llm.NoLargestAdmissible` (-1) is
+  "the engine did not say", 0 is "nothing is free", and a client releases a
+  window of its own on the second (unsent, Cerebriline waited five minutes on
+  pandorum, 2026-10-11). Guards: `TestARefusalWithNothingFreeSaysZero`,
+  `TestARefusalWithoutALargestWindowSaysNone`. Everything else keeps ollama's queue:
   `postWaitingForAdmission` waits.
 - **A queued engine request gives up.** `engineRequestQueued`
   (`llm/engine_council.go`) waits out the engine's 429s for at most
