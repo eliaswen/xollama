@@ -220,9 +220,25 @@ func TestARefusalWithoutALargestWindowSaysNone(t *testing.T) {
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	exposeContextWindow(c)
-	llm.ReportWindowRefusal(c.Request.Context(), 0, 2*time.Second)
+	llm.ReportWindowRefusal(c.Request.Context(), llm.NoLargestAdmissible, 2*time.Second)
 	c.Writer.WriteString("x")
 	if _, ok := rec.Header()[llm.LargestAdmissibleHeader]; ok || rec.Header().Get("Retry-After") != "2" {
 		t.Fatalf("headers %v", rec.Header())
+	}
+}
+
+// "largest admissible 0" is a figure: the window is full, and a client that
+// reads it releases a booking of its own instead of waiting. Unsent, the
+// Cerebriline client on pandorum waited five minutes for one side call
+// (2026-10-11): the lead session held 96000 of 96000 cells.
+func TestARefusalWithNothingFreeSaysZero(t *testing.T) {
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	exposeContextWindow(c)
+	llm.ReportWindowRefusal(c.Request.Context(), 0, 2*time.Second)
+	c.Writer.WriteString("x")
+	if got, ok := rec.Header()[llm.LargestAdmissibleHeader]; !ok || len(got) != 1 || got[0] != "0" || rec.Header().Get("Retry-After") != "2" {
+		t.Fatalf("headers %v, want X-Context-Largest-Admissible: 0", rec.Header())
 	}
 }

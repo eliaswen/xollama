@@ -43,9 +43,17 @@ func WithContextWindow(ctx context.Context) (context.Context, *ContextWindow) {
 // Get is the granted window, or 0 when none was reported.
 func (w *ContextWindow) Get() int { return int(w.n.Load()) }
 
+// NoLargestAdmissible is a refusal in which the engine named no largest
+// window. It is not 0: "largest admissible 0" is the engine saying nothing is
+// free, which a client acts on (it releases a window of its own), and a
+// client told nothing waits instead (pandorum, 2026-10-11: five minutes for
+// one side call).
+const NoLargestAdmissible = -1
+
 // Refusal is the engine's refusal of a negotiating request: the largest
-// window it would admit now (0 when it did not say), and when to ask again.
-// ok is false when the request was not refused.
+// window it would admit now (NoLargestAdmissible when it did not say; 0 is a
+// figure), and when to ask again. ok is false when the request was not
+// refused.
 func (w *ContextWindow) Refusal() (largest int, retryAfter time.Duration, ok bool) {
 	r := w.retry.Load()
 	return int(w.largest.Load()), time.Duration(r), r > 0
@@ -102,24 +110,30 @@ func refusalMessage(body []byte) string {
 // (at least a second).
 func ReportWindowRefusal(ctx context.Context, largest int, retryAfter time.Duration) {
 	if w, ok := ctx.Value(contextWindowKey{}).(*ContextWindow); ok {
-		w.largest.Store(int64(max(largest, 0)))
+		w.largest.Store(int64(max(largest, NoLargestAdmissible)))
 		w.retry.Store(int64(max(retryAfter, time.Second)))
 	}
 }
 
 // largestAdmissible reads largest_admissible from a refusal, at the top level
-// or inside "error", as the engine sends it.
+// or inside "error", as the engine sends it. A refusal that carries neither is
+// NoLargestAdmissible; one that says 0 is 0.
 func largestAdmissible(body []byte) int {
 	var r struct {
-		LargestAdmissible int `json:"largest_admissible"`
+		LargestAdmissible *int `json:"largest_admissible"`
 		Error             struct {
-			LargestAdmissible int `json:"largest_admissible"`
+			LargestAdmissible *int `json:"largest_admissible"`
 		} `json:"error"`
 	}
-	if json.Unmarshal(body, &r) != nil {
-		return 0
+	// A plain-string "error" fails the unmarshal after the top level is read.
+	_ = json.Unmarshal(body, &r)
+	largest := NoLargestAdmissible
+	for _, v := range []*int{r.LargestAdmissible, r.Error.LargestAdmissible} {
+		if v != nil {
+			largest = max(largest, *v, 0)
+		}
 	}
-	return max(r.LargestAdmissible, r.Error.LargestAdmissible, 0)
+	return largest
 }
 
 // ReportContextWindow records n as the request's window, unless one is

@@ -266,6 +266,64 @@ the 9070 XT and the iGPU with their PCI IDs. Guards:
 `discover/backend_copies_test.go`, `server/backend_copies_test.go`, each
 verified by removal.
 
+## Eviction is the last resort
+
+Where opencoti serves a load, a loaded model is evicted for it only when the
+new model's weights do not fit; the KV cache never evicts.
+
+Upstream predicts a load as its file plus an f16 KV cache on every block at
+the whole context and evicts when that exceeds 80 % of the free memory. That
+is neither the cache type the load runs with nor the blocks that hold a cache.
+On eleven2go (2026-10-11), with `v9-agentic_std12_tb:q4km-64k` on the RTX 3090
+and the RX 9070 XT empty (15.1 GiB free), it said 42.7 GiB for
+`omnimerge-v6-mtp_tb:27b-q4km-128k`, which takes 21.5 GiB, and 16.2 GiB for the
+v9 model, which takes 14.5 and had run on the 9070 XT that morning. Each
+request for one evicted the other from the 3090: a reload before every turn,
+a minute a request, for two clients.
+
+**The prediction** (`llm.PredictOpencotiVRAM`, `llm/engine_vram_estimate.go`)
+is the engine's arithmetic on the GGUF:
+
+| Part | From |
+| --- | --- |
+| weights | the model file |
+| KV cache | the blocks that keep one (`full_attention_interval`, `shared_kv_layers`, minus `nextn_predict_layers`), their `head_count_kv`, `key_length` / `value_length`, the whole context, in the load's cache type (the model's `kv.k` / `kv.v`, else the server's, else f16; `kvarnN` is N + 0.375 bits) |
+| sliding-window cache | the blocks `sliding_window_pattern` marks, `key_length_swa` / `value_length_swa`, one window per sequence the engine may admit plus the batch |
+| drafter | the NextN blocks' cache, f16, unless the drafter is off |
+| reserve | 1 GiB for compute buffers and the runtime margin, which the GGUF does not give |
+
+Checked against the engine's own lines on the two loads above:
+
+| Load | KV, engine | KV, predicted | Total taken | Total predicted | Upstream's |
+| --- | --- | --- | --- | --- | --- |
+| qwen35 27B Q4_K_M, q8_0, 128000 cells | 4250 MiB + drafter 500 | 4250 + 500 | 21972 MiB | 21852 MiB | 42.1 GiB |
+| gemma4 A4B Q4_K_M, q8_0, 96000 cells | 996 MiB + window 531 | 996 + 531 | 14864 MiB | 15146 MiB | 16.2 GiB |
+
+The predicted totals use each model's file size as the server logged it (15.7 and 12.3 GiB); they are within 2 % of what the engine took. The reserve is a
+constant fitted to these two loads, not derived; a plan the engine computes
+itself without loading is asked of opencoti (mail #1056, a c12 candidate).
+
+**The rule** (`needsEviction`, `server/evict_last.go`): a load that has to
+share its GPUs evicts only when more than 20 % of its weights would not fit
+the card it is placed on (`maxWeightsOffCardPercent`; owner, 2026-10-11:
+"eviction must be the last resort"). Below that it loads, and the engine keeps
+the part of the cache the card cannot hold in host memory (the rolling
+window). A load that does not fit whole says so at Info.
+
+When something does have to go, `findRunnerToUnloadOn` evicts a runner on the
+GPUs the load can use (idle first, as upstream orders them); `busyGPUs` knows
+which runner is on which card by PCI ID, so the CUDA and Vulkan copies of one
+card are one card. Upstream takes the runner idle the longest wherever it is,
+which for a model pinned to one card can unload a model on the other and free
+nothing.
+
+A load stock llama.cpp serves, or could serve on one of the backends the
+placement may pick, keeps upstream's prediction and upstream's 80 % rule, and
+`XOLLAMA_ENGINE=llamacpp` changes nothing. Registry row `evict-last`. Guards:
+`llm/engine_vram_estimate_test.go` (the engine's figures to the MiB),
+`server/evict_last_test.go` (the same request loads on opencoti and evicts on
+stock).
+
 ## A model only opencoti can serve
 
 A model that states a KV cache type stock llama.cpp does not know (`kv.k` /

@@ -53,6 +53,48 @@ Baseline: **2026-10-04**, tree `4db0bcedb`, engine `2610041714001`, vulkan
 `2610041656001`, cuda `2610040656001`, media `2610040945001`, macos
 `2610041000001`; candidate rows from `v0.35.1-rc.1.xollama`.
 
+**`v0.40.2-xollama`** (2026-10-11, merge `6fa4ba9da`, run 38100508640; the
+tree of `v0.40.2-rc.1.xollama`, short check). G12: 8 files match, payload id
+unchanged. G9: the small installer over the candidate exit 0 in 4 s; 3090
+125.1 to 125.4 tok/s. G11, the update path: the Mac's installed app updated
+itself, 130.0 to 130.2 tok/s. Promoted.
+
+**`v0.40.2-rc.1.xollama`** (2026-10-10, merge `5df6f674a`, run 38077518531;
+the first build on upstream v0.40.2, dry run 38075545766 first). G2: every
+hosted leg passes. G12: 8 files match on the draft and the candidate, payload
+id `3e97e1de…` on both, the tag's image equals `:dev`, `:latest` unmoved. G9:
+the full installer over `0.40.1-xollama.1` exit 0 in 30 s, the small one over
+the draft exit 0 in 4 s; 3090 124.7 to 125.2 tok/s, 9070 XT 102.9 to 103.2,
+integrated 5.1; stock llama.cpp on upstream's v0.40.2 CUDA backend 125.0 to
+125.3. G11 on the draft's app: `qwen2.5:1.5b` 128.2 to 128.8, `llama3` 31.7
+to 32.2, speech 7/7; MLX (`qwen3.5:2b-nvfp4`) 78.1 to 78.3. G10 on the tag:
+amd64 86.0 to 86.3 and 86.1 to 86.3, speech 4/4; arm64 10.1 against 10.9 to
+11.1, speech 3/3.
+
+**The c11 r4 pin** (2026-10-11, engine `2610111946001`, only the engine's
+bytes moved; working directory `/srv/ml/xc11/r4`). G3 on the assembled
+payload: compat 8/8, `llama3` 77.3 to 77.6 tok/s, four slots 307.4, overflow
+2.13. G4: decision and chat paths pass. G5: the PolyKV tag 4 of 4 (145 to
+265 s, 5 pools, 0 refusals), the no-PolyKV tag passes; the idle tag had the
+planner answer the sum itself once (17 s, correct) and convened in 3 of 3 of
+a second run (4 to 19 room refusals, answered). G6: speech 8/8, video 33/33.
+The fix the pin is for, through xollama (`/srv/ml/xc11/r4/ckpt/run.sh`:
+`gemma4:e4b`, kvarn3, unified, 4 slots, 96000, batch 512, opencoti's
+five-request shape): on r2 both checkpoint restores fail and re-read 54784
+and 50220 tokens; on r4 both restore and re-read 13185 and 301.
+
+**The upstream v0.40.3 sync** (2026-10-11, `dev` at `619f58d2d`, engine and
+runtimes unchanged; working directory `/srv/ml/xc11/sync403`). G1: gofmt
+silent, vet clean, 71 ok on the sync branch (70 in the main tree, whose one
+failure is the Metal-only MLX wired-limit test on a CUDA host), lint 0, 44
+hooks, compat-origin 0 foreign. G3 on the assembled payload: compat 8/8,
+`llama3` 77.0 to 77.8 tok/s, four slots 308.0, overflow 3.29. G4: decision
+and chat paths pass. G5: the PolyKV tag convened in 3 of 4 runs of the suite
+(in the first the planner answered the sum itself, correctly, in 17 s) and
+in 4 of 4 of a second run right after (112 to 212 s, 5 pools, 0 refusals, 0
+crashes each); the no-PolyKV tag and the idle tag pass. G6: speech 8/8,
+video 33/33. Not run yet: G10 on `:dev`, and G2, G9 on the candidate.
+
 **The upstream v0.40.2 sync** (2026-10-10, `dev` at `4c0dfdd33`, engine and
 runtimes unchanged; working directory `/srv/ml/xc11/sync402`). An upstream
 sync: G1 to G5, G10, and G2, G9 on the candidate. G1: gofmt silent, vet

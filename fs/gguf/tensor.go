@@ -224,7 +224,7 @@ func (tt TensorType) typeSize() int64 {
 	case TensorTypeQ1_0:
 		return 2 + tt.blockSize()/8
 	default:
-		return 0
+		return ternaryTypeSize(tt) // xollama-hook: ternary-types
 	}
 }
 
@@ -253,7 +253,7 @@ func (tt TensorType) blockSize() int64 {
 		TensorTypeMXFP4:
 		return 32
 	default:
-		return 256
+		return ternaryBlockSize(tt) // xollama-hook: ternary-types
 	}
 }
 
@@ -344,7 +344,7 @@ func (tt TensorType) String() string {
 	case TensorTypeQ1_0:
 		return "q1_0"
 	default:
-		return "unknown"
+		return ternaryTensorName(tt) // xollama-hook: ternary-types
 	}
 }
 

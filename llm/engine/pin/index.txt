@@ -15,7 +15,24 @@
 # Moving a component is one line here plus its pin file, on a MEASUREMENT
 # (scripts/phase2-engine-ab.py, as the `ollama` user), never on a changelog.
 #
-# THIS PIN (2026-10-10, opencoti mails #950, #956; index 322fae03, pins
+# THIS PIN (2026-10-11, opencoti mail #1103; index a2a0a0d6, pins 4965d9c5,
+# payload f28ab19d): opencoti's c11 RELEASE, re-cut r4. Only the engine's
+# bytes differ from r2 (engine 2610111946001; every library is the same file,
+# its pin has the new payload commit and, for cuda and vulkan, the r3 and r4
+# engines in `gated-with`). r4 = r2 + 0618 (drafter_state_v1, a new feature
+# row), 0619 (bug-4002, a wake fix) + 0635 (bug-4030): under --kv-unified the
+# context checkpoint of an iSWA model's KVarN cell ring was written in a form
+# the reader could only place by luck, so a rewind past the sliding window
+# failed with "KVarN selective state is missing a required live stage row"
+# and re-read the whole prompt (pandorum, 32 of 41 restores, 2026-10-11).
+# MEASURED through xollama on the 3090 (gemma4:e4b, kvarn3, unified, 4 slots,
+# 96000, batch 512, opencoti's five-request shape): r2 fails both restores and
+# re-reads 54784 and 50220 tokens; r4 restores both and re-reads 13185 and
+# 301. After a restore the greedy continuation can differ from a full re-read
+# in its first token (opencoti's known near-tie residual, fixed in c12).
+# r3 (engine 2610110544001) was never pinned here.
+#
+# THE r2 PIN (2026-10-10, opencoti mails #950, #956; index 322fae03, pins
 # b14e609d, payload 455b729b): opencoti's c11 RELEASE, re-cut r2. Every
 # component but media moved from c10 (media is the c10 r3 file set); the ggml
 # ABI is ea73e6b2 on the engine and every GPU library, so a c10 library is
@@ -40,10 +57,10 @@
 format   2
 channel  release
 tag      c11
-engine   pin/engine.txt  rev b14e609d513d4ddb2788f77eb26e9a5c79d44a8c  sha256 c59404390fb7f67d5aadad0b11f21577d005452ff9250ce1429402333f6097aa  version 2610101328001
-cuda     pin/cuda.txt  rev b14e609d513d4ddb2788f77eb26e9a5c79d44a8c  sha256 33b531799790d7253438a6c8c26b090e0da5fa5ecc4183343cf3ec857048d22a  version 2610100758001
-cuda12   pin/cuda12.txt  rev b14e609d513d4ddb2788f77eb26e9a5c79d44a8c  sha256 1372479eeb52f246bd321d42df3830ad7650630c91dd01546b14a2c33b628cc2  version 2610100758002
-sbsa     pin/sbsa.txt  rev b14e609d513d4ddb2788f77eb26e9a5c79d44a8c  sha256 a91c67b50bf7aef15499235556092e786301c755f4868351238492c0f08083bc  version 2610100758003
-vulkan   pin/vulkan.txt  rev b14e609d513d4ddb2788f77eb26e9a5c79d44a8c  sha256 dc63104c3c9e4a66794a208818d080c680394c3562f128edc87222e12d0979df  version 2610100032004
-macos    pin/macos.txt  rev b14e609d513d4ddb2788f77eb26e9a5c79d44a8c  sha256 7cc054fa2f81a341178a23c25e7c5fbae591d021e30194388de0eea64ee8a8bf  version 2610100032005
-media    pin/media.txt  rev b14e609d513d4ddb2788f77eb26e9a5c79d44a8c  sha256 1a4a53b0293ac24a8084d5415d142b6115f68c9cb114f79e060392101bffcc3c  version 2610071902001
+engine   pin/engine.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 ee6b9b9f429293f159b1d83a8386f060c8e4bc606ad69e67edd68490c5a10e01  version 2610111946001
+cuda     pin/cuda.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 f3d3f620b01eab0080f1a147c1a5e2b44428de65352b0553ff8d71922dfeaa4e  version 2610100758001
+cuda12   pin/cuda12.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 f19ee4f8f5866580b8c9216c798fe08c4d93860593cea531926f52b9c8bb6235  version 2610100758002
+sbsa     pin/sbsa.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 d8097ce364444fa42638fa144f3e3454d638f61977c71488f08749b492d8e9b5  version 2610100758003
+vulkan   pin/vulkan.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 7dd4d8d770bf8b4201e26970aa8b0b689de35b6cb8625190f1c48b2baf60824e  version 2610100032004
+macos    pin/macos.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 6fab08d16cd109a0263ab0549ea5d1b7b32fe4bd86d0e712776292f8cf1b7377  version 2610100032005
+media    pin/media.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 c21ea4c3138c0555831b6dc145e8c4978df7104be57060ac77fe1210fd22a471  version 2610071902001

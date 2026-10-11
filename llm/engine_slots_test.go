@@ -612,10 +612,13 @@ func TestANegotiatingClientGetsTheRefusalAtOnce(t *testing.T) {
 
 func TestLargestAdmissibleIsReadWhereverTheEngineSaysIt(t *testing.T) {
 	for body, want := range map[string]int{
-		`{"largest_admissible":256}`:           256,
-		`{"error":{"largest_admissible":768}}`: 768,
-		`{"error":"no room"}`:                  0,
-		`not json`:                             0,
+		`{"largest_admissible":256}`:            256,
+		`{"error":{"largest_admissible":768}}`:  768,
+		`{"largest_admissible":0}`:              0,
+		`{"error":{"largest_admissible":0}}`:    0,
+		`{"error":"no room"}`:                   NoLargestAdmissible,
+		`{"largest_admissible":64,"error":"x"}`: 64,
+		`not json`:                              NoLargestAdmissible,
 	} {
 		if got := largestAdmissible([]byte(body)); got != want {
 			t.Errorf("%s: %d, want %d", body, got, want)
@@ -692,7 +695,7 @@ func TestASessionFullRefusal(t *testing.T) {
 	if !errors.As(err, &se) || se.StatusCode != http.StatusTooManyRequests || !strings.Contains(se.ErrorMessage, "session allocation full") {
 		t.Fatalf("negotiating: err = %#v, want the engine's 429 and reason", err)
 	}
-	if largest, retry, ok := w.Refusal(); !ok || largest != 0 || retry != time.Second {
+	if largest, retry, ok := w.Refusal(); !ok || largest != NoLargestAdmissible || retry != time.Second {
 		t.Fatalf("refusal = %d %v %v", largest, retry, ok)
 	}
 

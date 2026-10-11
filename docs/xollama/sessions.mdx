@@ -146,9 +146,12 @@ X-Context-Largest-Admissible: 4096
 {"error":"admission rejected: context allocation exhausted (largest admissible 4096 < num_ctx_min 8192) …"}
 ```
 
-Retry with a smaller window, or later. A worker refused because its owner's
-window is full ("session allocation full …", no
-`X-Context-Largest-Admissible`) is the client's cue to grow or move its owner.
+Retry with a smaller window, or later. `X-Context-Largest-Admissible: 0` is a
+figure too: nothing is free, so waiting only helps once another session lets
+go of its window, and a client holding one of its own can release it. The
+header is absent only when the engine named no figure: a worker refused because
+its owner's window is full ("session allocation full …") is the client's cue to
+grow or move its owner.
 A request that states neither keeps ollama's contract, and waits for room. If
 such a request could never fit its window, it gets a `400` naming the numbers
 instead of waiting.

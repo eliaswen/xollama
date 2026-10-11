@@ -38,3 +38,15 @@ paths.
 | `mac-engine.sh` (`D=` a directory with `src/`, this tree, and `stage/`, from `stage-engine.sh macos-aarch64`): builds the server there and runs it in a copy of the installed app's Resources; `bench.sh`, `speech-mac.sh` | G11 before an app exists for the tree | Mac mini |
 | `mac-ci.sh` | G11 on the app the release workflow built (the draft's zip and DMG) | Mac mini |
 | `mac-update.sh` (`T=` the published version): the installed app updates itself to it with pre-releases allowed, a hidden start applies it; signature, staple, bench | G11, the update path, before promoting | Mac mini |
+
+## Disk: a gate removes what it brought
+
+An image is about 6 GB. Every image gate (`image-x86.sh`, `image-pi.sh`,
+`vulkan-linux.sh`, `pi-image.sh`) removes the image it pulled or built when it
+ends, and the image its tag pointed at before the pull, which Docker would
+otherwise keep untagged. Left-overs of earlier gates filled solidPC's root
+disk on 2026-10-11 and stopped builds for every session on the host. `KEEP=1`
+keeps the image for a gate that follows on the same one (G10 then G7); the
+last gate of the pair runs without it. After a session of gates
+`docker images | grep xollama` on the host must list nothing that session
+brought, and `df -h /` is read before a pull, not after a failure.
