@@ -71,6 +71,18 @@ to 32.2, speech 7/7; MLX (`qwen3.5:2b-nvfp4`) 78.1 to 78.3. G10 on the tag:
 amd64 86.0 to 86.3 and 86.1 to 86.3, speech 4/4; arm64 10.1 against 10.9 to
 11.1, speech 3/3.
 
+**The c11 r4 pin** (2026-10-11, engine `2610111946001`, only the engine's
+bytes moved; working directory `/srv/ml/xc11/r4`). G3 on the assembled
+payload: compat 8/8, `llama3` 77.3 to 77.6 tok/s, four slots 307.4, overflow
+2.13. G4: decision and chat paths pass. G5: the PolyKV tag 4 of 4 (145 to
+265 s, 5 pools, 0 refusals), the no-PolyKV tag passes; the idle tag had the
+planner answer the sum itself once (17 s, correct) and convened in 3 of 3 of
+a second run (4 to 19 room refusals, answered). G6: speech 8/8, video 33/33.
+The fix the pin is for, through xollama (`/srv/ml/xc11/r4/ckpt/run.sh`:
+`gemma4:e4b`, kvarn3, unified, 4 slots, 96000, batch 512, opencoti's
+five-request shape): on r2 both checkpoint restores fail and re-read 54784
+and 50220 tokens; on r4 both restore and re-read 13185 and 301.
+
 **The upstream v0.40.3 sync** (2026-10-11, `dev` at `619f58d2d`, engine and
 runtimes unchanged; working directory `/srv/ml/xc11/sync403`). G1: gofmt
 silent, vet clean, 71 ok on the sync branch (70 in the main tree, whose one
