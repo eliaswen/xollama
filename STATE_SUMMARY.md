@@ -5,6 +5,20 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-11 — `v0.40.2-xollama` is released and promoted (owner, 03:00: "cut v0.40.2-xollama and promote it").**
+> - The cut: `dev` carried the record of the candidate's checks (`e5877c66b`, docs only), so its tree was not the candidate's and the workflow would have refused. `8f5f561a3` takes it off (tree `e7aede4e…`, equal to `v0.40.2-rc.1.xollama`); this commit puts it back. PR #22, "tree matches v0.40.2-rc.1.xollama", merge `6fa4ba9da`, run 38100508640 green.
+> - Short check: 8 files match `sha256sum.txt`; payload id `3e97e1de…` unchanged, so `xOllamaUpdate.exe` over the candidate on eleven2go: exit 0 in 4 s, version right, 11434 untouched, 3090 CUDA 124.4 cold and 125.1 to 125.4 tok/s at 512 tokens, 37/37 layers. Mac mini (`mac-update.sh`, `T=0.40.2-xollama`): the installed `0.40.1-xollama.1` app found it, checksum verified, bundle passed verification, a hidden start applied it; notarized, staple valid, 130.0 to 130.2 tok/s.
+> - Promoted at 03:22 (`--prerelease=false --latest`); the image workflow was run on the tag again so `:latest` moves.
+> - Next time: the record of a candidate's checks is committed with the release's cut or after it, not between the two.
+
+> **2026-10-10 — `v0.40.2-rc.1.xollama` is built and published (a candidate, never promoted): upstream v0.40.2 on the engine and runtimes of `v0.40.1-xollama.1`.**
+> - PR #21, every hosted leg passes (G2). Dry run first, as the protocol asks for a new upstream base (run 38075545766, a draft, deleted after its checks), then merge `5df6f674a`, run 38077518531 green.
+> - G12: 8 files match `sha256sum.txt` on the draft and on the candidate; payload id `3e97e1de…` on both (the build repeats), changed against `v0.40.1-xollama.1` because upstream rebuilt its Windows GPU backends, so the update from it is the full installer. Image `0.40.2-rc.1.xollama` = `:dev` (`60caa883…`), `:latest` stays on `0.40.1-xollama.1`.
+> - G9 on eleven2go: the draft's `xOllamaSetup.exe` over `0.40.1-xollama.1` exit 0 in 30 s; the candidate's `xOllamaUpdate.exe` over the draft exit 0 in 4 s (same payload id). Installed server: 3090 CUDA 124.7 to 125.2 tok/s; 9070 XT Vulkan 102.9 to 103.2; integrated 5.1; all display devices OK; 11434 untouched. Stock llama.cpp on upstream's v0.40.2 CUDA backend (the Windows bytes that changed), 3090: 125.0 to 125.3 warm, 37/37 layers.
+> - G11 on the Mac mini, the draft's app: notarized Developer ID, staple valid on app and DMG; `qwen2.5:1.5b` 128.2 to 128.8, `llama3` 31.7 to 32.2, speech 7/7 answered, 0 crash lines. The rebuilt MLX archive (the macOS bytes that changed): `qwen3.5:2b-nvfp4` on the MLX runner, 256 tokens twice, 78.1 to 78.3 tok/s, 0 crash lines.
+> - G10 on the tag: amd64 opencoti 86.0 to 86.3, llama.cpp 86.1 to 86.3, speech 4/4; arm64 on the Pi 10.1 against 10.9 to 11.1, speech 3/3, the owner's containers up.
+> - Left: the release `v0.40.2-xollama` from this candidate's tree (short check), on the owner's word. The drafter-dropped field waits for opencoti c12.
+
 > **2026-10-10 — Upstream v0.40.2 synced (fork manifest `5a7be425`, llama.cpp still b11351, no runtime rebuilt, engine c11 r2 unchanged).**
 > - Owner: "promote it, then move to v0.40.2". `sync/upstream-v0.40.2`, in its own worktree (no branch in two worktrees).
 >   - `9402f3a5` merged the tag (6 commits, 5 files). One conflict: `README.md` keeps ours.
