@@ -5,6 +5,11 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-11 — `create` reads the ternary Bonsai 2 files (`ternary-types` hook; owner: put Bonsai 2 27B in the online library).**
+> - `xollama create` refused all four Bonsai 2 GGUFs with `unsupported tensor "output.weight" size overflows`: upstream's `fs/gguf` tables have no size for ggml types 142 (PQ2_0) and 143 (PTQ1_0), so a tensor's size read as 0. The engine has run these files since c11; only our Go reader stood in the way.
+> - `fs/gguf/xollama_ternary.go` adds the two tensor types (128 weights a group: 34 bytes for PQ2_0, 28 for PTQ1_0, each with its f16 scale) and the file types 141, 142 (the pre-rename value still in published files) and 143, reached from the `default:` of upstream's four switches. Any other unlisted type keeps upstream's answer and is still refused.
+> - Checked against the real files, not only the unit test: every tensor range of `Ternary-Bonsai-2-27B-{PQ2_0,PTQ1_0}{,-MTP}.gguf` validates (851 / 866 tensors) and they are named `PQ2_0` / `PTQ1_0`.
+
 > **2026-10-11 — A refusal with nothing free says so: `X-Context-Largest-Admissible: 0` (fork mail #1075; owner: fix it before eleven2go is reinstalled).**
 > - `windowWriter.apply` sent the header only for a figure above 0, and the collector kept 0 for "the engine did not say", so "largest admissible 0" reached the client as no figure. On pandorum (`0.40.2-xollama`, 16:47 to 16:52) Cerebriline's side call was refused three times with no figure while its own lead session held 96000 of 96000 cells; it got in after the lead's idle timeout, five minutes later.
 > - Now `llm.NoLargestAdmissible` (-1) is "not said" and 0 is a figure: `largestAdmissible` reads the field as present or absent (the engine sends `null` outside a guaranteed pool), `server/context_window.go` sends every stated figure. Guards: `TestARefusalWithNothingFreeSaysZero`, `TestARefusalWithoutALargestWindowSaysNone`, the parser's table.

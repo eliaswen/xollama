@@ -122,6 +122,6 @@ func (t FileType) String() string {
 	case fileTypeQ1_0:
 		return "Q1_0"
 	default:
-		return "unknown"
+		return ternaryFileTypeName(t) // xollama-hook: ternary-types
 	}
 }
