@@ -322,7 +322,7 @@ func (s *Scheduler) processPending(ctx context.Context) {
 					// Update free memory from currently loaded models
 					logutil.Trace("updating free space", "gpu_count", len(gpus), "model", pending.model.ModelPath)
 					s.updateFreeSpace(gpus)
-					busy := s.busyGPUs(gpus) // xollama-hook: free-gpu-first
+					busy := s.busyGPUs(gpus) // xollama-hook: evict-last
 
 					// xollama-hook: device-select — see docs/features/device-selection.md
 					if pending.opts.NumGPU != 0 {
@@ -359,14 +359,6 @@ func (s *Scheduler) processPending(ctx context.Context) {
 						break
 					}
 
-					// xollama-hook: free-gpu-first — a GPU no runner is on
-					// takes the load before anything is evicted.
-					if free := freeGPUFirst(pending, gpus, busy); len(free) > 0 && !pending.oomRetryAttempted {
-						if !s.loadFn(pending, systemInfo, free, false) {
-							break
-						}
-					}
-
 					// OOM retry path: load() crashed post-spawn and we still
 					// have other models resident. Evict all of them, wait for
 					// every unload, then loop back to retry the load once.
@@ -379,7 +371,7 @@ func (s *Scheduler) processPending(ctx context.Context) {
 						continue
 					}
 
-					runnerToExpire = s.findRunnerToUnloadOn(pending, gpus, busy) // xollama-hook: free-gpu-first
+					runnerToExpire = s.findRunnerToUnloadOn(pending, gpus, busy) // xollama-hook: evict-last
 				}
 
 				if runnerToExpire == nil {
@@ -604,7 +596,7 @@ func (s *Scheduler) load(req *LlmRequest, systemInfo ml.SystemInfo, gpus []ml.De
 			}
 
 			predictedCtx := effectiveLlamaServerContext(req.opts.NumCtx, f, numParallel, req.contextUnlocked(f, gpus))
-			predicted := llm.PredictServerVRAM(req.model.ModelPath, f, predictedCtx) + slotCeilingVRAM(req, f, gpus, numParallel)
+			predicted := predictVRAM(req, f, gpus, predictedCtx, numParallel) // xollama-hook: evict-last
 			loadGpus, launchOpts = selectLlamaServerPlacement(systemInfo, gpus, predicted, req.opts)
 			availableForBatch, _, _ := availableMemoryForPlacement(systemInfo, loadGpus, launchOpts)
 			flashAttention := llm.LlamaServerFlashAttention(llamaServerConfigForModel(req.model), loadGpus)
@@ -618,7 +610,7 @@ func (s *Scheduler) load(req *LlmRequest, systemInfo ml.SystemInfo, gpus []ml.De
 			if requireFull && !explicitPartialGPUOffload(launchOpts, f) && len(s.loaded) > 0 && len(loadGpus) > 0 {
 				freeMemory, gpuFreeMemory, systemLimited := availableMemoryForPlacement(systemInfo, loadGpus, launchOpts)
 				// Use 80% of free memory as threshold to leave headroom.
-				if predictedForLoad > freeMemory*80/100 {
+				if needsEviction(req, f, loadGpus, predictedForLoad, freeMemory) { // xollama-hook: evict-last
 					slog.Info("llama-server model predicted to exceed available memory, evicting",
 						"predicted", format.HumanBytes2(predictedForLoad),
 						"predicted_num_ctx", predictedCtx,
@@ -857,7 +849,7 @@ func (req *LlmRequest) reduceAutoNumCtxForLoadOOM(f *gguf.Model, numParallel int
 
 	req.opts.NumCtx = newNumCtx
 	predictedCtx := effectiveLlamaServerContext(req.opts.NumCtx, f, numParallel, req.contextUnlocked(f, gpus))
-	predictedVRAM := llm.PredictServerVRAM(req.model.ModelPath, f, predictedCtx) + slotCeilingVRAM(req, f, gpus, numParallel)
+	predictedVRAM := predictVRAM(req, f, gpus, predictedCtx, numParallel) // xollama-hook: evict-last
 	available, _, _ := availableMemoryForPlacement(systemInfo, gpus, launchOpts)
 	req.applyAutomaticGenerationBatch(completion, predictedCtx, predictedVRAM, available, llm.LlamaServerFlashAttention(llamaServerConfigForModel(req.model), gpus), gpus)
 	newNumBatch = req.opts.NumBatch
@@ -1258,7 +1250,7 @@ func logSelectedGPUGroup(all, selected []ml.DeviceInfo) {
 
 func (s *Scheduler) applyLlamaServerMmapDefaults(req *LlmRequest, launchOpts api.Options, systemInfo ml.SystemInfo, gpus []ml.DeviceInfo, f *gguf.Model, numParallel int) api.Options {
 	predictedCtx := effectiveLlamaServerContext(req.opts.NumCtx, f, numParallel, req.contextUnlocked(f, gpus))
-	predictedVRAM := llm.PredictServerVRAM(req.model.ModelPath, f, predictedCtx) + slotCeilingVRAM(req, f, gpus, numParallel)
+	predictedVRAM := predictVRAM(req, f, gpus, predictedCtx, numParallel) // xollama-hook: evict-last
 	availableVRAM, _, _ := availableMemoryForPlacement(systemInfo, gpus, launchOpts)
 
 	if reason := disableMmapDefaultReason(runtime.GOOS, req.opts, gpus, f.KV().BlockCount(), predictedVRAM, availableVRAM); reason != "" {
@@ -1322,7 +1314,7 @@ func (s *Scheduler) maybeDisableMmapForHostPressure(req *LlmRequest, launchOpts 
 	modelSize := modelFileSize(req.model.modelPaths()...)
 	loadedMmapSize := s.loadedMmapModelSizeLocked()
 	predictedCtx := effectiveLlamaServerContext(req.opts.NumCtx, f, numParallel, req.contextUnlocked(f, gpus))
-	predictedVRAM := llm.PredictServerVRAM(req.model.ModelPath, f, predictedCtx) + slotCeilingVRAM(req, f, gpus, numParallel)
+	predictedVRAM := predictVRAM(req, f, gpus, predictedCtx, numParallel) // xollama-hook: evict-last
 	availableVRAM, _, _ := availableMemoryForPlacement(systemInfo, gpus, launchOpts)
 	placementGpus := gpusForPlacement(gpus, launchOpts)
 
