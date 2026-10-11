@@ -71,6 +71,18 @@ to 32.2, speech 7/7; MLX (`qwen3.5:2b-nvfp4`) 78.1 to 78.3. G10 on the tag:
 amd64 86.0 to 86.3 and 86.1 to 86.3, speech 4/4; arm64 10.1 against 10.9 to
 11.1, speech 3/3.
 
+**The upstream v0.40.3 sync** (2026-10-11, `dev` at `619f58d2d`, engine and
+runtimes unchanged; working directory `/srv/ml/xc11/sync403`). G1: gofmt
+silent, vet clean, 71 ok on the sync branch (70 in the main tree, whose one
+failure is the Metal-only MLX wired-limit test on a CUDA host), lint 0, 44
+hooks, compat-origin 0 foreign. G3 on the assembled payload: compat 8/8,
+`llama3` 77.0 to 77.8 tok/s, four slots 308.0, overflow 3.29. G4: decision
+and chat paths pass. G5: the PolyKV tag convened in 3 of 4 runs of the suite
+(in the first the planner answered the sum itself, correctly, in 17 s) and
+in 4 of 4 of a second run right after (112 to 212 s, 5 pools, 0 refusals, 0
+crashes each); the no-PolyKV tag and the idle tag pass. G6: speech 8/8,
+video 33/33. Not run yet: G10 on `:dev`, and G2, G9 on the candidate.
+
 **The upstream v0.40.2 sync** (2026-10-10, `dev` at `4c0dfdd33`, engine and
 runtimes unchanged; working directory `/srv/ml/xc11/sync402`). An upstream
 sync: G1 to G5, G10, and G2, G9 on the candidate. G1: gofmt silent, vet
