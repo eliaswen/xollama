@@ -8,7 +8,7 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 > **2026-10-11 — `v0.40.2-xollama` is released and promoted (owner, 03:00: "cut v0.40.2-xollama and promote it").**
 > - The cut: `dev` carried the record of the candidate's checks (`e5877c66b`, docs only), so its tree was not the candidate's and the workflow would have refused. `8f5f561a3` takes it off (tree `e7aede4e…`, equal to `v0.40.2-rc.1.xollama`); this commit puts it back. PR #22, "tree matches v0.40.2-rc.1.xollama", merge `6fa4ba9da`, run 38100508640 green.
 > - Short check: 8 files match `sha256sum.txt`; payload id `3e97e1de…` unchanged, so `xOllamaUpdate.exe` over the candidate on eleven2go: exit 0 in 4 s, version right, 11434 untouched, 3090 CUDA 124.4 cold and 125.1 to 125.4 tok/s at 512 tokens, 37/37 layers. Mac mini (`mac-update.sh`, `T=0.40.2-xollama`): the installed `0.40.1-xollama.1` app found it, checksum verified, bundle passed verification, a hidden start applied it; notarized, staple valid, 130.0 to 130.2 tok/s.
-> - Promoted at 03:22 (`--prerelease=false --latest`); the image workflow was run on the tag again so `:latest` moves.
+> - Promoted at 03:22 (`--prerelease=false --latest`), Discord announced. The image workflow ran on the tag again (run 38101549360): `:latest` = `0.40.2-xollama` on Docker Hub (`9b0ef3d9…`) and GHCR (`a024c71c…`). `mannixita/xollama:latest` on solidPC with the 3090: opencoti 85.2 to 85.4 tok/s, llama.cpp 85.0 to 85.4, speech 4/4, 0 crash lines.
 > - Next time: the record of a candidate's checks is committed with the release's cut or after it, not between the two.
 
 > **2026-10-10 — `v0.40.2-rc.1.xollama` is built and published (a candidate, never promoted): upstream v0.40.2 on the engine and runtimes of `v0.40.1-xollama.1`.**
