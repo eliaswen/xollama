@@ -384,7 +384,7 @@ func TestClaudeRunDisablesClaudeAiConnectors(t *testing.T) {
 	for _, model := range []string{"llama3.2", "kimi-k3:cloud"} {
 		t.Run(model, func(t *testing.T) {
 			t.Setenv("ENABLE_CLAUDEAI_MCP_SERVERS", "true")
-			t.Setenv("OLLAMA_HOST", "http://127.0.0.1:12345")
+			t.Setenv("XOLLAMA_HOST", "http://127.0.0.1:12345")
 			t.Setenv("ANTHROPIC_API_KEY", "test-api-key")
 			t.Setenv("ANTHROPIC_AUTH_TOKEN", "test-auth-token")
 
