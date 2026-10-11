@@ -322,6 +322,7 @@ func (s *Scheduler) processPending(ctx context.Context) {
 					// Update free memory from currently loaded models
 					logutil.Trace("updating free space", "gpu_count", len(gpus), "model", pending.model.ModelPath)
 					s.updateFreeSpace(gpus)
+					busy := s.busyGPUs(gpus) // xollama-hook: free-gpu-first
 
 					// xollama-hook: device-select — see docs/features/device-selection.md
 					if pending.opts.NumGPU != 0 {
@@ -358,6 +359,14 @@ func (s *Scheduler) processPending(ctx context.Context) {
 						break
 					}
 
+					// xollama-hook: free-gpu-first — a GPU no runner is on
+					// takes the load before anything is evicted.
+					if free := freeGPUFirst(pending, gpus, busy); len(free) > 0 && !pending.oomRetryAttempted {
+						if !s.loadFn(pending, systemInfo, free, false) {
+							break
+						}
+					}
+
 					// OOM retry path: load() crashed post-spawn and we still
 					// have other models resident. Evict all of them, wait for
 					// every unload, then loop back to retry the load once.
@@ -370,7 +379,7 @@ func (s *Scheduler) processPending(ctx context.Context) {
 						continue
 					}
 
-					runnerToExpire = s.findRunnerToUnload()
+					runnerToExpire = s.findRunnerToUnloadOn(pending, gpus, busy) // xollama-hook: free-gpu-first
 				}
 
 				if runnerToExpire == nil {

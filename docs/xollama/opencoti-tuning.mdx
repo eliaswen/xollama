@@ -118,6 +118,37 @@ performance feature.
 While a window is spilled, context shift and prompt-cache reuse are guarded off
 and requests are bounded at the context length.
 
+### What the window costs on a slow link
+
+Measured by opencoti on an RTX 3090 on a PCIe gen4 x4 link (6.4 GB/s), with
+Ternary Bonsai 2 27B, engine c11 (`2610101328001`), a 131072-cell context,
+`q4_0` keys and values, the drafter off, 256 generated tokens per depth. The
+small card is simulated with `--vram-target`; the window arm adds
+`--kv-rolling-window 256`, the resident arm has no cap and keeps the whole
+cache on the card. Decode time in ms per token, lower is better:
+
+| Card simulated | Prompt depth (tokens) | Window | Resident | Window against resident |
+| --- | --- | --- | --- | --- |
+| 8 GB, PTQ1_0 | 36.6k | 13.36 | 13.37 | 0 % |
+| | 38.8k | 13.81 | 13.42 | +3 % |
+| | 40.6k | 14.74 | 13.52 | +9 % |
+| | 42.8k | 19.88 | 13.60 | +46 % |
+| 10 GB, PQ2_0 | 95.7k | 17.69 | 17.70 | 0 % |
+| | 97.7k | 18.06 | 17.79 | +2 % |
+| | 99.4k | 18.50 | 17.82 | +4 % |
+| | 101.8k | 20.46 | 17.92 | +14 % |
+
+The first depth of each block is where the prompt just passes the part of the
+cache the window keeps on the card (35584 cells at 8 GB, 94464 at 10 GB); each
+further row is 2048 tokens deeper into the host part. The cost grows with that
+depth and with the link: the 8 GB arm pays 46 % three steps in. Prompt
+processing speed is the same on both arms.
+
+The two arms do not hold the same memory. The window arm took 6474 MiB (8 GB)
+and 8656 MiB (10 GB), the resident arm 8122 and 9268 MiB, so the resident
+column is what a card with that much room gives, not a second way to fit the
+simulated one.
+
 ## DCA — long context beyond the model's training length
 
 Dual Chunk Attention splits attention into intra-chunk, successive and

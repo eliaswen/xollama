@@ -266,6 +266,41 @@ the 9070 XT and the iGPU with their PCI IDs. Guards:
 `discover/backend_copies_test.go`, `server/backend_copies_test.go`, each
 verified by removal.
 
+## A free GPU before an eviction
+
+A load that does not fit beside the loaded models takes a GPU no runner is on
+before anything is evicted, when opencoti serves that GPU.
+
+Upstream predicts a load as its file plus an f16 KV cache at the whole context
+and evicts when that exceeds 80 % of the free memory. opencoti does not load
+that way: it fits itself to the card, with the cache in the type the model
+states and its tail in host memory when the card is small. On eleven2go
+(2026-10-11), with `v9-agentic_std12_tb:q4km-64k` on the RTX 3090 and the
+RX 9070 XT empty (15.1 GiB free), the prediction was 42.7 GiB for
+`omnimerge-v6-mtp_tb:27b-q4km-128k`, which takes 21.5 GiB, and 16.2 GiB for the
+v9 model, which takes 14.5 and had run on the 9070 XT that morning. Each
+request for one evicted the other from the 3090: a reload before every turn, a
+minute a request, for two clients.
+
+`server/free_gpu_first.go`, registry row `free-gpu-first`:
+
+- `busyGPUs` reads which runners are on which GPU from the whole device list,
+  by PCI ID, so the CUDA and Vulkan copies of one card are one card.
+- When the full-fit try says "evict", `freeGPUFirst` looks for a discrete GPU
+  with no runner that opencoti serves and that can hold at least 75 % of the
+  model file (`freeGPUFloorPercent`); the load is tried there with no full-fit
+  demand, and the engine places what the card cannot hold. Below 75 % most of
+  the model would run from host memory, and evicting is the better deal.
+- A request that names `main_gpu`, an integrated GPU, a load stock llama.cpp
+  serves and `XOLLAMA_ENGINE=llamacpp` keep upstream's decision.
+- When something does have to go, `findRunnerToUnloadOn` evicts a runner on
+  the GPUs the load can use (idle first, as upstream orders them). Upstream
+  takes the runner idle the longest wherever it is, which for a model pinned
+  to one card can unload a model on the other and free nothing.
+
+Guards: `server/free_gpu_first_test.go` (the scheduler test fails without the
+hook).
+
 ## A model only opencoti can serve
 
 A model that states a KV cache type stock llama.cpp does not know (`kv.k` /

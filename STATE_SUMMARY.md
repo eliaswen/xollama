@@ -5,6 +5,12 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-11 — A load takes a free GPU before it evicts (owner, 14:14: "it evicted the one running on the 3090 instead of loading it on the 9070xt … critical").**
+> - Seen on eleven2go at 13:50 (`server.log`, mail #1055): `v9-agentic_std12_tb:q4km-64k` on the 3090, the 9070 XT empty with 15.1 GiB free. Upstream's prediction (file + f16 KV at the whole context, against 80 % of free) said 42.7 GiB for `omnimerge-v6-mtp_tb:27b-q4km-128k` (it takes 21.5) and 16.2 GiB for the v9 model (14.5, and it ran on the 9070 XT at 09:16), so each request evicted the other model from the 3090: 15 reloads between 13:50 and 13:58, about a minute a request.
+> - Fix, `free-gpu-first` hook (`server/free_gpu_first.go`, three lines in `processPending`): on opencoti a load that would evict goes to a discrete GPU with no runner that holds at least 75 % of the model file, with no full-fit demand; an eviction takes a runner on the load's own GPUs. Stock llama.cpp and `XOLLAMA_ENGINE=llamacpp` unchanged. `go test ./server/... ./llm/...` and `golangci-lint` pass; the scheduler test fails without the hook.
+> - Not yet run on eleven2go: the host is in use by the owner and the ollama session, and the check needs the server restarted there.
+> - Docs: opencoti's rolling-KV window bench (op-105, mails #1020 to #1024) for the 3090 as an 8 GB and a 10 GB card, window against resident, in `docs/xollama/opencoti-tuning.mdx`.
+
 > **2026-10-11 — opencoti c11 r3 is published; the pin does not move yet (owner, 06:31: "we are releasing c11-r3 but we are going to wait for a new ollama upstream sync to prepare a new rc and the release").**
 > - c11 r3 (mail #995): release index `b5d74569…`, pins `460488cb…`, engine `2610110544001`; only the engine component moved (cuda, cuda12, sbsa, vulkan, macos, media pins unchanged; the macOS engine is the aarch64 APE and moves with it). r2 + 0618 `drafter_state_v1` + 0619 (bug-4002). Dev snapshot index `7ed9b7f3…`, engine `2610110504001`.
 > - bug-4002: every engine up to c11 r2 started with `--sleep-idle-seconds` on a GPU aborts at its first wake. xollama never passes that flag (checked: no occurrence in the tree), so `v0.40.2-xollama` is affected only where an operator adds it through `XOLLAMA_ENGINE_ARGS`.
