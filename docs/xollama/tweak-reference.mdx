@@ -1,0 +1,237 @@
+---
+title: Every tweak setting
+---
+
+{/* Generated from cmd/tweak by: XOLLAMA_UPDATE_DOCS=1 go test ./cmd/tweak -run TestTheFlagReferenceIsCurrent. Do not edit by hand. */}
+
+Every setting `xollama tweak model` can state, one row each: the flag, the
+path it writes in the model's `xollama.json`, and the values it takes. How to
+use the command is in [Changing a model's settings](/xollama/tweak); what the
+settings mean is in the page each section links to.
+
+- A flag with a value sets that one setting and asks nothing:
+  `--kv-k=q8_0`. Write the value with `=`.
+- A bare flag asks that setting's questions: `--kv-k`.
+- `unset` removes the setting from the model, so the server's default or
+  the environment decides again.
+- **Server** marks a setting `xollama tweak server` can give a default for,
+  under the same flag.
+- **Falls back to** names the environment variable that decides when neither
+  the model nor the server states the setting.
+
+## Engine
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--engine` | `engine` | opencoti, llamacpp, unset | Engine — which inference engine this model needs | yes | `XOLLAMA_ENGINE` |
+| `--flash-attn` | `flash_attention` | on, off, auto, unset | Flash attention — override the server's setting for this model | yes | `OLLAMA_FLASH_ATTENTION` |
+
+## KV cache
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--kv-k` | `kv.k` | f32, f16, bf16, q8_0, ..., unset | KV cache type for keys | yes | `XOLLAMA_K_CACHE_TYPE` |
+| `--kv-v` | `kv.v` | f32, f16, bf16, q8_0, ..., unset | KV cache type for values | yes | `XOLLAMA_V_CACHE_TYPE` |
+| `--kv-swa-k` | `kv.k_swa` | f32, f16, bf16, q8_0, ..., unset | Ring cache type for keys (sliding-window models) | yes | `XOLLAMA_K_CACHE_TYPE_SWA` |
+| `--kv-swa-v` | `kv.v_swa` | f32, f16, bf16, q8_0, ..., unset | Ring cache type for values (sliding-window models) | yes | `XOLLAMA_V_CACHE_TYPE_SWA` |
+| `--kv-unified` | `kv.unified` | on, off, unset | Unified KV pool — one shared pool, or a fixed split per slot | yes |  |
+| `--kv-residency` | `kv.residency_mode` | auto, head, window, unset | Rolling-KV residency tactic — for a cache that does not fit in VRAM | yes |  |
+| `--kv-rolling-window` | `kv.rolling_window` | on, off, unset | KV rolling window — stream the overflow of the cache through VRAM | yes |  |
+
+## Concurrent requests
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--slots` | `slots.dynamic` | on, off, unset | Dynamic slots — admit concurrency instead of reserving it | yes | `XOLLAMA_DYNAMIC_SLOTS` |
+| `--slots-max` | `slots.max` | N, unset | Slot ceiling — the most concurrent requests this model may serve | yes | `XOLLAMA_MAX_PARALLEL` |
+| `--slots-live` | `slots.live` | N, unset | Live slots — the slots the model loads with, on opencoti | yes |  |
+| `--slots-tps-floor` | `slots.tps_floor` | N, unset | Decode-rate floor — per-slot tokens/s to protect | yes | `XOLLAMA_SLOTS_TPS_FLOOR` |
+| `--slots-vram-reserve` | `slots.vram_reserve_mib` | N, unset | VRAM reserve — free memory that must remain before admitting a slot | yes | `XOLLAMA_SLOTS_VRAM_RESERVE` |
+| `--slots-swa-budget` | `slots.swa_seq_budget` | N, unset | Sliding-window sequence budget | yes | `XOLLAMA_SWA_SEQ_BUDGET` |
+
+## Sessions and shared prefixes
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--session-affinity` | `session.affinity` | on, off, unset | Session affinity — return a conversation to the slot holding its KV | yes | `XOLLAMA_SESSION_AFFINITY` |
+| `--session-pool` | `session.pool` | on, off, unset | Prefix pooling — share one copy of a common prefix between conversations | yes | `XOLLAMA_SESSION_POOL` |
+| `--session-max-pools` | `session.max_pools` | N, unset | How many distinct shared prefixes this model may hold at once | yes | `XOLLAMA_POLYKV_MAX_POOLS` |
+| `--session-client-pools` | `session.client_pools` | N, unset | Pool seats kept for a client's own PolyKV pools | yes | `XOLLAMA_POLYKV_CLIENT_POOLS` |
+
+## Long context (DCA)
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--dca` | `dca.enabled` | on, off, unset | DCA — serve this model past the context it was trained on |  | `XOLLAMA_DCA` |
+| `--dca-chunk` | `dca.chunk_size` | N, unset | DCA chunk length |  | `XOLLAMA_DCA_CHUNK_SIZE` |
+
+## Fitting the model in memory
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--fit` | `fit.enabled` | on, off, unset | Automatic fit — the engine places layers and KV in the memory there is | yes |  |
+| `--vram-target` | `fit.vram_target_mib` | N, unset | VRAM target — the memory the fit and the rolling KV may use | yes |  |
+
+## Devices
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--device-backend` | `devices.backend` | CUDA, Vulkan, ROCm, CPU, unset | Backend — which kind of device this model runs on |  |  |
+| `--devices` | `devices.ids` | PCI-ID, index, integrated, discrete[,...], all | Devices — which devices of that backend |  |  |
+
+## Drafter
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--drafter` | `draft.head` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Drafter — the draft model attached beside the weights |  |  |
+| `--draft-tokens` | `draft.tokens` | N, unset | Draft length — tokens the drafter proposes per step | yes |  |
+| `--spec-type` | `draft.spec_type` | draft-mtp, draft-dflash, draft-assistant, draft-simple, draft-eagle3, draft-dspark, unset | Speculative decoding type for this model's drafter | yes |  |
+| `--mtp-policy` | `draft.auto_mtp_policy` | measured, allocator, taper, always, off, unset | MTP auto policy — when a built-in MTP head drafts | yes |  |
+
+## Council
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--council` | `council.enabled` | on, off, unset | Council — answer every turn with a council instead of one model call |  |  |
+| `--council-researchers` | `council.researcher.count` | N, unset | Researchers — how many investigate in parallel |  |  |
+| `--council-critics` | `council.critic.count` | N, unset | Critics — how many review the findings in parallel |  |  |
+| `--council-jitter` | `council.temperature_jitter` | N, unset | Temperature spread for researchers and critics |  |  |
+| `--council-seed` | `council.seed` | N, unset | Council seed — make every answer reproducible |  |  |
+| `--council-max-rounds` | `council.max_rounds` | N, unset | Rounds — how often critics may send the research back |  |  |
+| `--council-max-tokens` | `council.max_tokens` | N, unset | Output ceiling — the most one member reply may take |  |  |
+| `--council-cloud-parallel` | `council.cloud_parallel` | N, unset | Cloud members at once |  |  |
+| `--council-show-deliberation` | `council.show_deliberation` | on, off, unset | Show the deliberation as thinking |  |  |
+| `--council-broadcast` | `council.broadcast` | on, off, unset | Broadcast — members side by side leave each other notes |  |  |
+| `--council-polykv` | `council.polykv` | auto, on, off, unset | PolyKV — members share the conversation's KV |  |  |
+| `--council-window` | `council.context.window` | N, unset | Council window — the context the council's session asks for |  |  |
+| `--council-floor` | `council.context.floor` | N, unset | Council floor — the smallest window it accepts |  |  |
+| `--council-compact-at` | `council.context.compact_at` | N, unset | Compact at — the share of the window that compacts the conversation |  |  |
+| `--council-idle-compact-at` | `council.context.idle_compact_at` | N, unset | Idle compact at — compact after an answer, before the next message |  |  |
+| `--council-compaction` | `council.context.compaction` | agentic, basic, unset | Compaction — how a long conversation is shortened |  |  |
+| `--council-compaction-review` | `council.context.review` | on, off, unset | Compaction review — critics check the replay |  |  |
+| `--council-compaction-retrospective` | `council.context.retrospective` | on, off, unset | Compaction retrospective — a judgement kept beside the replay |  |  |
+| `--council-charter` | `council.charter` | TEXT, @file, unset | Council charter — the system prompt every member shares |  |  |
+| `--council-instructions` | `council.instructions` | TEXT, @file, unset | Council instructions — guidance every member reads after the charter |  |  |
+| `--council-planner-model` | `council.planner.model` | TEXT, @file, unset | Council planner model — serve the planner with another model |  |  |
+| `--council-planner-host` | `council.planner.host` | TEXT, @file, unset | Council planner host — serve the planner on another ollama server |  |  |
+| `--council-planner-prompt` | `council.planner.prompt` | TEXT, @file, unset | Council planner prompt — replace the built-in instruction |  |  |
+| `--council-planner-instructions` | `council.planner.instructions` | TEXT, @file, unset | Council planner instructions — added after its instruction |  |  |
+| `--council-planner-max-tokens` | `council.planner.max_tokens` | N, unset | Council planner reply cap |  |  |
+| `--council-planner-num-ctx` | `council.planner.num_ctx` | N, unset | Council planner context window, on its own model |  |  |
+| `--council-planner-think` | `council.planner.think` | TEXT, @file, unset | Council planner thinking — let it reason before it replies |  |  |
+| `--council-researcher-model` | `council.researcher.model` | TEXT, @file, unset | Council researcher model — serve the researcher with another model |  |  |
+| `--council-researcher-host` | `council.researcher.host` | TEXT, @file, unset | Council researcher host — serve the researcher on another ollama server |  |  |
+| `--council-researcher-prompt` | `council.researcher.prompt` | TEXT, @file, unset | Council researcher prompt — replace the built-in instruction |  |  |
+| `--council-researcher-instructions` | `council.researcher.instructions` | TEXT, @file, unset | Council researcher instructions — added after its instruction |  |  |
+| `--council-researcher-max-tokens` | `council.researcher.max_tokens` | N, unset | Council researcher reply cap |  |  |
+| `--council-researcher-num-ctx` | `council.researcher.num_ctx` | N, unset | Council researcher context window, on its own model |  |  |
+| `--council-researcher-think` | `council.researcher.think` | TEXT, @file, unset | Council researcher thinking — let it reason before it replies |  |  |
+| `--council-critic-model` | `council.critic.model` | TEXT, @file, unset | Council critic model — serve the critic with another model |  |  |
+| `--council-critic-host` | `council.critic.host` | TEXT, @file, unset | Council critic host — serve the critic on another ollama server |  |  |
+| `--council-critic-prompt` | `council.critic.prompt` | TEXT, @file, unset | Council critic prompt — replace the built-in instruction |  |  |
+| `--council-critic-instructions` | `council.critic.instructions` | TEXT, @file, unset | Council critic instructions — added after its instruction |  |  |
+| `--council-critic-max-tokens` | `council.critic.max_tokens` | N, unset | Council critic reply cap |  |  |
+| `--council-critic-num-ctx` | `council.critic.num_ctx` | N, unset | Council critic context window, on its own model |  |  |
+| `--council-critic-think` | `council.critic.think` | TEXT, @file, unset | Council critic thinking — let it reason before it replies |  |  |
+| `--council-synthesizer-model` | `council.synthesizer.model` | TEXT, @file, unset | Council synthesizer model — serve the synthesizer with another model |  |  |
+| `--council-synthesizer-host` | `council.synthesizer.host` | TEXT, @file, unset | Council synthesizer host — serve the synthesizer on another ollama server |  |  |
+| `--council-synthesizer-prompt` | `council.synthesizer.prompt` | TEXT, @file, unset | Council synthesizer prompt — replace the built-in instruction |  |  |
+| `--council-synthesizer-instructions` | `council.synthesizer.instructions` | TEXT, @file, unset | Council synthesizer instructions — added after its instruction |  |  |
+| `--council-synthesizer-max-tokens` | `council.synthesizer.max_tokens` | N, unset | Council synthesizer reply cap |  |  |
+| `--council-synthesizer-num-ctx` | `council.synthesizer.num_ctx` | N, unset | Council synthesizer context window, on its own model |  |  |
+| `--council-synthesizer-think` | `council.synthesizer.think` | TEXT, @file, unset | Council synthesizer thinking — let it reason before it replies |  |  |
+| `--council-builder-model` | `council.builder.model` | TEXT, @file, unset | Council builder model — serve the builder with another model |  |  |
+| `--council-builder-host` | `council.builder.host` | TEXT, @file, unset | Council builder host — serve the builder on another ollama server |  |  |
+| `--council-builder-instructions` | `council.builder.instructions` | TEXT, @file, unset | Council builder instructions — added after its instruction |  |  |
+| `--council-builder-max-tokens` | `council.builder.max_tokens` | N, unset | Council builder reply cap |  |  |
+| `--council-builder-num-ctx` | `council.builder.num_ctx` | N, unset | Council builder context window, on its own model |  |  |
+| `--council-builder-think` | `council.builder.think` | TEXT, @file, unset | Council builder thinking — let it reason before it replies |  |  |
+
+## Image generation and edit
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--image` | `media.image.model` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Image model — generation and edit (/v1/images/*) |  |  |
+| `--image-vae` | `media.image.vae` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Image VAE |  |  |
+| `--image-llm` | `media.image.llm` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Image text encoder |  |  |
+| `--image-llm-vision` | `media.image.llm_vision` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Image text encoder's vision projector |  |  |
+| `--image-edit` | `media.image.edit` | reference, img2img, none, unset | How an image edit uses its input |  |  |
+| `--image-device` | `media.image.device` | TEXT, @file, unset | Device for the image engine |  |  |
+| `--image-reserve` | `media.image.reserve_mib` | N, unset | Memory set aside for the image engine |  |  |
+| `--image-args` | `media.image.args` | TEXT, @file, unset | Further image engine flags |  |  |
+| `--image-fixed` | `media.image.fixed` | TEXT, @file, unset | Settings a request may not override |  |  |
+| `--image-width` | `media.image.defaults.width` | N, unset | Image width |  |  |
+| `--image-height` | `media.image.defaults.height` | N, unset | Image height |  |  |
+| `--image-steps` | `media.image.defaults.steps` | N, unset | Sampling steps |  |  |
+| `--image-cfg` | `media.image.defaults.cfg` | N, unset | Guidance scale |  |  |
+| `--image-sampler` | `media.image.defaults.sampler` | TEXT, @file, unset | Sampler |  |  |
+| `--image-scheduler` | `media.image.defaults.scheduler` | TEXT, @file, unset | Scheduler |  |  |
+| `--image-flow-shift` | `media.image.defaults.flow_shift` | N, unset | Flow shift |  |  |
+| `--image-seed` | `media.image.defaults.seed` | N, unset | Seed |  |  |
+| `--image-format` | `media.image.defaults.output_format` | png, jpeg, unset | Image format |  |  |
+| `--image-strength` | `media.image.defaults.strength` | N, unset | Edit strength |  |  |
+
+## Speech to text
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--stt` | `media.stt.model` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Speech-to-text model (/v1/audio/transcriptions) |  |  |
+| `--stt-threads` | `media.stt.threads` | N, unset | Speech-to-text threads |  |  |
+| `--stt-device` | `media.stt.device` | TEXT, @file, unset | Device for the speech-to-text engine |  |  |
+| `--stt-reserve` | `media.stt.reserve_mib` | N, unset | Memory set aside for the speech-to-text engine |  |  |
+| `--stt-args` | `media.stt.args` | TEXT, @file, unset | Further speech-to-text engine flags |  |  |
+| `--stt-fixed` | `media.stt.fixed` | TEXT, @file, unset | Settings a request may not override |  |  |
+| `--stt-language` | `media.stt.defaults.language` | TEXT, @file, unset | Spoken language |  |  |
+| `--stt-format` | `media.stt.defaults.response_format` | json, text, verbose_json, srt, vtt, unset | Transcript format |  |  |
+| `--stt-task` | `media.stt.defaults.task` | transcribe, translate, unset | Transcribe or translate |  |  |
+
+## Text to speech
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--tts` | `media.tts.model` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Text-to-speech model (/v1/audio/speech) |  |  |
+| `--tts-engine` | `media.tts.engine` | outetts, audiocpp, unset | Text-to-speech engine |  |  |
+| `--tts-vocoder` | `media.tts.vocoder` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | OuteTTS vocoder |  |  |
+| `--tts-voices` | `media.tts.voices` | TEXT, @file, unset | Extra voices |  |  |
+| `--tts-voice-map` | `media.tts.voice_map` | TEXT, @file, unset | Voice names a client may use |  |  |
+| `--tts-device` | `media.tts.device` | TEXT, @file, unset | Device for the text-to-speech engine |  |  |
+| `--tts-reserve` | `media.tts.reserve_mib` | N, unset | Memory set aside for the text-to-speech engine |  |  |
+| `--tts-args` | `media.tts.args` | TEXT, @file, unset | Further text-to-speech engine flags |  |  |
+| `--tts-fixed` | `media.tts.fixed` | TEXT, @file, unset | Settings a request may not override |  |  |
+| `--tts-voice` | `media.tts.defaults.voice` | TEXT, @file, unset | Voice |  |  |
+| `--tts-language` | `media.tts.defaults.language` | TEXT, @file, unset | Language |  |  |
+| `--tts-format` | `media.tts.defaults.response_format` | mp3, opus, aac, flac, wav, pcm, unset | Audio format |  |  |
+| `--tts-speed` | `media.tts.defaults.speed` | N, unset | Speaking speed |  |  |
+
+## Video
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--video` | `media.video.model` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Video model (/v1/videos) — served once the engine has video |  |  |
+| `--video-vae` | `media.video.vae` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Video VAE |  |  |
+| `--video-text-encoder` | `media.video.text_encoder` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Video text encoder |  |  |
+| `--video-device` | `media.video.device` | TEXT, @file, unset | Device for the video engine |  |  |
+| `--video-reserve` | `media.video.reserve_mib` | N, unset | Memory set aside for the video engine |  |  |
+| `--video-args` | `media.video.args` | TEXT, @file, unset | Further video engine flags |  |  |
+| `--video-fixed` | `media.video.fixed` | TEXT, @file, unset | Settings a request may not override |  |  |
+| `--video-width` | `media.video.defaults.width` | N, unset | Video width |  |  |
+| `--video-height` | `media.video.defaults.height` | N, unset | Video height |  |  |
+| `--video-frames` | `media.video.defaults.frames` | N, unset | Frames per clip |  |  |
+| `--video-fps` | `media.video.defaults.fps` | N, unset | Frames per second |  |  |
+| `--video-steps` | `media.video.defaults.steps` | N, unset | Sampling steps |  |  |
+| `--video-cfg` | `media.video.defaults.cfg` | N, unset | Guidance scale |  |  |
+| `--video-sampler` | `media.video.defaults.sampler` | TEXT, @file, unset | Sampler |  |  |
+| `--video-flow-shift` | `media.video.defaults.flow_shift` | N, unset | Flow shift |  |  |
+| `--video-seed` | `media.video.defaults.seed` | N, unset | Seed |  |  |
+| `--video-format` | `media.video.defaults.output_format` | mp4, webm, webp, avi, unset | Video container |  |  |
+
+## The command's own flags
+
+| Flag | What it does |
+|---|---|
+| `--dry-run` | Show the resulting config without writing it |
+| `--json` | Print the resulting `xollama.json` to stdout |
+| `--clear` | Remove the model's xollama config entirely (an attached drafter stays; `--drafter=none` detaches it) |
+| `-y`, `--yes` | Do not ask for confirmation before writing |
+
+141 settings. `xollama tweak model --help` prints the same list as your build has it.

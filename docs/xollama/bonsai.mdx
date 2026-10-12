@@ -1,0 +1,141 @@
+---
+title: Ternary Bonsai 2 27B
+---
+
+[Ternary Bonsai 2 27B](https://ollama.com/mannix/Bonsai-2-27B) is PrismML's
+27B reasoning model with ternary weights: Qwen3.8-27B's architecture with every
+language weight stored as −1, 0 or +1, at 1.72 bits per weight. The language
+model is 5.95 GB where FP16 is 54 GB. It runs on xOllama and not on stock
+Ollama.
+
+```shell
+xollama run mannix/bonsai-2-27b
+```
+
+<Warning>
+  These tags need **xOllama v0.40.3-xollama or later**. The ternary weight types
+  (`PQ2_0`, `PTQ1_0`) need kernels upstream llama.cpp does not have; the
+  opencoti engine carries them since its c11 cut. If a load fails on stock
+  Ollama, nothing is wrong with the download. Everything on this page was
+  measured on NVIDIA cards (CUDA).
+</Warning>
+
+The model is PrismML's. The tags are their published files, byte for byte, with
+two things added around them: an optional draft head for speculative decoding,
+and the vision tower as a tag choice.
+
+## Which tag to pull
+
+Twelve tags plus `:latest`. A tag reads left to right as
+`[mtp-][vision-|lvision-]<packing>`:
+
+- **Packing.** `ptq1_0` packs five ternary values to the byte (5.95 GB);
+  `pq2_0` gives each a 2-bit slot (7.21 GB), which is cheaper to unpack. Same
+  model, same answers at the same sampler. Which is faster depends on the card.
+- **`mtp-`** adds the Qwen3.8-27B draft head (Q8_0, about 0.45 GB) as one
+  extra layer. PrismML's files carry none.
+- **`vision-`** adds PrismML's projector in BF16 (0.93 GB), **`lvision-`** the
+  same in Q8_0 (0.63 GB). It is loaded at the first image request.
+
+| Tag | Size | Draft head | Vision |
+|---|---|---|---|
+| `ptq1_0` | 5.95 GB | no | no |
+| `lvision-ptq1_0` | 6.58 GB | no | Q8_0 |
+| `vision-ptq1_0` | 6.88 GB | no | BF16 |
+| `mtp-ptq1_0` | 6.40 GB | yes | no |
+| `mtp-lvision-ptq1_0` (`:latest`) | 7.03 GB | yes | Q8_0 |
+| `mtp-vision-ptq1_0` | 7.33 GB | yes | BF16 |
+| `pq2_0` | 7.21 GB | no | no |
+| `lvision-pq2_0` | 7.84 GB | no | Q8_0 |
+| `vision-pq2_0` | 8.14 GB | no | BF16 |
+| `mtp-pq2_0` | 7.66 GB | yes | no |
+| `mtp-lvision-pq2_0` | 8.29 GB | yes | Q8_0 |
+| `mtp-vision-pq2_0` | 8.59 GB | yes | BF16 |
+
+```shell
+xollama run mannix/bonsai-2-27b                     # :latest = mtp-lvision-ptq1_0
+xollama run mannix/bonsai-2-27b:mtp-vision-ptq1_0   # draft head and BF16 vision
+xollama run mannix/bonsai-2-27b:mtp-ptq1_0          # text only, with the draft head
+xollama run mannix/bonsai-2-27b:ptq1_0              # PrismML's file alone, the smallest
+```
+
+## What the draft head buys
+
+The head predicts ahead and the model verifies in one batch. On these files
+the engine drafts two tokens a step, and picks that itself at load.
+
+| Card | File | Head off | Head on | Gain | Measured how |
+|---|---|---|---|---|---|
+| RTX PRO 6000 (Blackwell) | `PQ2_0` | 128 tok/s | 161 tok/s | 1.26× | opencoti, greedy, 12 chat prompts × 256 tokens, medians |
+| RTX 3090 | `PQ2_0` | 46 tok/s | 57 tok/s | 1.24× | the same |
+| RTX 3090 | `PQ2_0` | 45.8 tok/s | 68.7 tok/s | 1.50× | through xOllama, one coding prompt, temperature 0, about 610 tokens |
+| RTX 3090 | `PTQ1_0` | 52.2 tok/s | 78.4 tok/s | 1.50× | the same |
+
+The last two rows are one prompt each, not a benchmark. Code is more
+predictable than chat, so the gain is larger there: expect between 1.25× and
+1.5×. On this 3090 the dense packing (`PTQ1_0`) was the faster one with and
+without the head; PrismML's own table shows the reverse on some cards, so
+measure on yours.
+
+## Quality
+
+These are PrismML's published numbers (EvalScope and vLLM on an H100, thinking
+mode, 14 benchmarks), reproduced here. We did not re-run them.
+
+| Variant | Bits per weight | Size | Average of 14 | Against FP16 |
+|---|---|---|---|---|
+| Qwen3.8-27B FP16 | 16.0 | 54 GB | 86.32 | 100% |
+| Qwen3.8-27B UD-Q4_K_XL | 5.2 | 17.6 GB | 85.18 | 98.7% |
+| Qwen3.8-27B IQ2_XXS | 2.16 | 7.27 GB | 72.59 | 84.1% |
+| Bonsai 2 27B | 1.72 | 5.95 GB | 84.78 | 98.2% |
+
+Math, coding and instruction following are at the FP16 baseline. Knowledge and
+reasoning (79.86 against 85.55) and vision (66.19 against 71.36) are where the
+ternary model gives ground.
+
+## What the tags set
+
+Every tag carries the same settings: the renderer and parser of the official
+`qwen3.8:27b`, and PrismML's recommended sampling for thinking mode.
+
+```
+RENDERER  qwen3.8
+PARSER    qwen3.5
+PARAMETER temperature 1
+PARAMETER top_p 0.95
+PARAMETER top_k 20
+PARAMETER min_p 0.05
+PARAMETER think_budget high
+```
+
+- **The thinking budget is on.** This model thinks at length and can spend a
+  whole response inside its thinking block. `think_budget high` closes the
+  block once the model has used that share of what it may emit, after a
+  message telling it to act. Reasoning that finishes sooner is unaffected.
+  Change it per request (`think`, or OpenAI's `reasoning_effort`), or with
+  `/set parameter think_budget max`. See
+  [Bounding thinking](/xollama/think-budget).
+- **`num_ctx` is not set.** The architecture takes 262k natively and only a
+  quarter of its layers carry a KV cache, so context is cheap here. The right
+  value depends on your VRAM: `/set parameter num_ctx 65536`.
+- **The draft length is not set**, so the engine keeps measuring it.
+
+## Good to know
+
+- **Low reasoning effort is unsupported** on this model (PrismML): `low`
+  behaves close to the maximum. Bound thinking with the budget.
+- **A short output cap cuts the answer off.** A few hundred tokens end inside
+  the thinking block, before any answer.
+- **OCR is the weakest part** of the weakest category in PrismML's table.
+- Only opencoti runs the bundled draft head. PrismML's own llama.cpp fork runs
+  the plain files.
+
+## Links
+
+- The tags: [ollama.com/mannix/Bonsai-2-27B](https://ollama.com/mannix/Bonsai-2-27B)
+- PrismML's files, model card and whitepaper:
+  [prism-ml/Ternary-Bonsai-2-27B-gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf)
+- The files with the draft head:
+  [ManniX-ITA/Ternary-Bonsai-2-27B-MTP-GGUF](https://huggingface.co/ManniX-ITA/Ternary-Bonsai-2-27B-MTP-GGUF)
+
+Apache-2.0. Bonsai 2 by Prism ML, built from Qwen3.8-27B (Alibaba Cloud).

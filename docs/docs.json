@@ -160,6 +160,8 @@
             "group": "The fork",
             "pages": [
               "/xollama/index",
+              "/xollama/models",
+              "/xollama/bonsai",
               "/xollama/engines",
               "/xollama/docker"
             ]
@@ -169,6 +171,7 @@
             "pages": [
               "/xollama/council",
               "/xollama/council-integration",
+              "/xollama/media",
               "/xollama/think-budget",
               "/xollama/tokenize",
               "/xollama/tool-call-progress",
@@ -180,7 +183,7 @@
             "pages": [
               "/xollama/model-settings",
               "/xollama/tweak",
-              "/xollama/media",
+              "/xollama/tweak-reference",
               "/xollama/kv-cache",
               "/xollama/slots",
               "/xollama/dca",
