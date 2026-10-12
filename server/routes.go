@@ -3647,6 +3647,9 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 	thinkBudget, thinkBudgetApplied, thinkStartTag, thinkEndTag := thinkBudgetForCompletion(builtinParser, openingTag, closingTag, budgetThink(requestedThink, req.Think), opts)
 
+	// xollama-hook: tool-call-progress — see docs/xollama/tool-call-progress.mdx
+	callProgress := newToolCallProgress(&req, builtinParser, m.Config.Parser)
+
 	ch := make(chan any)
 	go func() {
 		defer close(ch)
@@ -3717,6 +3720,8 @@ func (s *Server) ChatHandler(c *gin.Context) {
 				res.Message.Content = content
 				res.Message.Thinking = thinking
 				toolCalls = completeToolCalls(toolCalls, req.Tools, r.Done && r.DoneReason == llm.DoneReasonLength)
+				// xollama-hook: tool-call-progress
+				progressed := callProgress.attach(&res, r.Content, ch)
 				for i := range toolCalls {
 					toolCalls[i].ID = toolCallId()
 				}
@@ -3724,6 +3729,9 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 				if res.Message.Content != "" || res.Message.Thinking != "" || len(res.Message.ToolCalls) > 0 || r.Done || len(res.Logprobs) > 0 {
 					slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser output", "parser", m.Config.Parser, "content", content, "thinking", thinking, "toolCalls", toolCalls, "done", r.Done)
+					ch <- res
+				} else if progressed {
+					// xollama-hook: tool-call-progress
 					ch <- res
 				} else {
 					slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser empty output", "parser", m.Config.Parser)

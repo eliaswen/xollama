@@ -227,6 +227,11 @@ type ChatRequest struct {
 
 	// xollama-hook: council — see plans/agentic-council-chat.md
 	Placement *Placement `json:"placement,omitempty"`
+
+	// xollama-hook: tool-call-progress — see docs/xollama/tool-call-progress.mdx
+	// ToolCallProgress asks for Message.ToolCallProgress chunks while the
+	// model writes a tool call (tool_call_progress_v1). Streaming only.
+	ToolCallProgress bool `json:"tool_call_progress,omitempty"`
 }
 
 type Tools []Tool
@@ -254,6 +259,9 @@ type Message struct {
 	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
 	ToolName   string      `json:"tool_name,omitempty"`
 	ToolCallID string      `json:"tool_call_id,omitempty"`
+
+	// xollama-hook: tool-call-progress — see docs/xollama/tool-call-progress.mdx
+	ToolCallProgress *ToolCallProgress `json:"tool_call_progress,omitempty"`
 }
 
 func (m *Message) UnmarshalJSON(b []byte) error {

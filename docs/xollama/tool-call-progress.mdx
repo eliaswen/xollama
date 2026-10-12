@@ -1,0 +1,96 @@
+---
+title: Tool call progress
+---
+
+A tool call reaches the client **whole**: the server holds the model's output
+back from the call's first token until its last, then sends the parsed call in
+`message.tool_calls`. For a normal call that is a fraction of a second. For a
+call that runs away, such as an argument the model keeps writing into for tens
+of thousands of tokens, it is minutes in which the client receives nothing and
+has nothing to act on.
+
+With `tool_call_progress` the server sends what the model has written of the
+call while it is still being written, so a client can show it, measure it, and
+cancel the request when it has seen enough.
+
+<Note>
+This reports the call. It does not replace it. The parsed call still arrives
+in `message.tool_calls` exactly as it does without the option, and that is the
+only thing to execute.
+</Note>
+
+## Asking for it
+
+Set `tool_call_progress` on a streamed `/api/chat` request:
+
+```json
+{
+  "model": "gemma4:e4b",
+  "stream": true,
+  "tool_call_progress": true,
+  "messages": [{ "role": "user", "content": "Fix the loop in a.go" }],
+  "tools": [ ... ]
+}
+```
+
+A server that supports it lists `tool_call_progress_v1` in the `features` of
+`GET /api/xollama`. A request that does not set the field gets the response it
+always got; so does a request with `"stream": false`, which has nobody to
+report to.
+
+## What arrives
+
+While a call is being written, chunks carry `message.tool_call_progress`:
+
+```json
+{"model":"gemma4:e4b","message":{"role":"assistant","content":"",
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"","tokens":1}},"done":false}
+{"model":"gemma4:e4b","message":{"role":"assistant","content":"",
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"call:edit{intent:<|\"|>fix","tokens":2}},"done":false}
+{"model":"gemma4:e4b","message":{"role":"assistant","content":"",
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":" the loop<|\"|>,","tokens":3}},"done":false}
+```
+
+and the chunk that closes the call carries both the last step and the call:
+
+```json
+{"model":"gemma4:e4b","message":{"role":"assistant","content":"",
+  "tool_calls":[{"id":"call_x","function":{"name":"edit","arguments":{"intent":"fix the loop","path":"a.go"}}}],
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"","tokens":6,"done":true}},"done":false}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `index` | Which call of this response, from 0. |
+| `syntax` | How `text` is written: the name of the model's parser (`gemma4`, `qwen3.5`). |
+| `text` | The raw text added since the previous step of this call. |
+| `tokens` | The engine's output pieces this call has taken so far, its delimiters included. Close to its token count; not a tokenizer count. |
+| `done` | Present and `true` on the step that read the call's closing delimiter. |
+
+Things to rely on:
+
+- **`text` is the model's own notation, not JSON.** For `gemma4` a call reads
+  `call:NAME{key:<|"|>value<|"|>,...}`. Read it by `syntax`, and treat a
+  syntax you do not know as "no progress available" rather than guess.
+- `text` starts at the first character after the call's opening delimiter and
+  never contains a delimiter, whole or in part.
+- A step can end anywhere, in the middle of a token or of a multi-character
+  marker such as `<|"|>`. Concatenate the steps of one `index` before reading.
+- The first step of a call can have an empty `text`: it says the call has
+  opened.
+- A step can share its chunk with `content`, `thinking` or `tool_calls`.
+- A call the model never closes has no `done` step. The response's own
+  `done_reason` says how it ended.
+
+## Stopping a call
+
+There is no server-side limit on a call or on any of its arguments: what is
+too long is the client's decision. To stop, close the connection. Generation
+ends with it, as for any cancelled request.
+
+## Which models
+
+Every model whose parser names the delimiters of its tool calls: today
+`gemma4` and `qwen3.5` (and `ornith`, which uses the same parser). Other
+models answer as before, with no progress chunks. The field is not part of the
+OpenAI- or Anthropic-compatible routes.
