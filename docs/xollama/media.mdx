@@ -1,42 +1,245 @@
 ---
-title: Images, speech and transcription
+title: Images, speech, transcription and video
 ---
 
-A model can carry opencoti's media engines: image generation and edit,
-text-to-speech and speech-to-text. They are served on OpenAI's routes, so any
-OpenAI client works, as do SurfSense and Cerebriline. How to attach engines to
-a model, or install a ready-made media model, is in
-[Attaching image, speech and transcription engines](/xollama/tweak#attaching-image-speech-and-transcription-engines).
+xOllama serves image generation and edit, text-to-speech, speech-to-text and
+video generation, on OpenAI's routes. Any OpenAI client works, as do SurfSense
+and Cerebriline. The work is done by the opencoti engine's media side, which
+every xOllama package carries: nothing else has to be installed.
+
+A media model is an ordinary xOllama model. It is pulled, listed, pushed and
+removed like a chat model, and it can be **media only** (an image model, a
+voice), or a **chat model that also carries media** (one name that chats,
+draws and speaks).
+
+## Quick start: an image in two commands
 
 ```shell
-xollama media create flux2-klein-4b klein
-curl http://localhost:22434/v1/images/generations \
-  -d '{"model": "klein", "prompt": "a lighthouse at dusk"}'
+xollama pull mannix/flux2-klein:4b
+curl -s http://localhost:22434/v1/images/generations \
+  -d '{"model": "mannix/flux2-klein:4b", "prompt": "a lighthouse at dusk"}' \
+  | python3 -c 'import sys,json,base64; open("lighthouse.png","wb").write(base64.b64decode(json.load(sys.stdin)["data"][0]["b64_json"]))'
 ```
 
-## Ready-made models
+The first request starts the image engine and loads the model, so it takes
+longer than the ones after it: 11 s and then 6 s for this image on an RTX 3090.
+`xollama ps` shows it loaded, and it is unloaded after its keep-alive like any
+model.
 
-These are published on ollama.com and pull like any model:
+<Note>
+  xOllama listens on port **22434**, not Ollama's 11434. In a client that asks
+  for an OpenAI base URL, that is `http://localhost:22434/v1`. The API key can
+  be any text unless you [set one](/xollama/api-key).
+</Note>
+
+## Three ways to get a media model
+
+### 1. Pull a ready-made one
+
+These are published in the [mannix library on ollama.com](https://ollama.com/mannix)
+and pull like any model:
 
 | Model | What it does |
 |---|---|
-| `mannix/flux2-klein:4b` | Image generation and edits, 1024×1024 in four steps |
-| `mannix/z-image:turbo` | Photographic image generation in eight steps |
-| `mannix/whisper:large-v3-turbo` | Transcription in 99 languages, and translation to English |
-| `mannix/outetts:0.3` | Speech, OuteTTS with the WavTokenizer vocoder |
-| `mannix/kokoro:82m` | Speech, 54 voices, mp3 at 24 kHz (audio.cpp, on the CPU) |
-| `mannix/supertonic:3`, `:3-q8_0` | Speech, ten voices in 31 languages, mp3 at 44.1 kHz (audio.cpp, on the CPU) |
-| `mannix/kittentts:mini-0.8` | Speech, eight English voices (audio.cpp, on the CPU) |
-| `mannix/wan2.1:t2v-1.3b` | Video from text, 640×352×33 (2 s at 16 fps); peaks at about 17 GiB, so a 24 GB card |
+| [`mannix/flux2-klein:4b`](https://ollama.com/mannix/flux2-klein) | Image generation and edits, 1024×1024 in four steps |
+| [`mannix/z-image:turbo`](https://ollama.com/mannix/z-image) | Photographic image generation in eight steps |
+| [`mannix/whisper:large-v3-turbo`](https://ollama.com/mannix/whisper) | Transcription in 99 languages, and translation to English |
+| [`mannix/outetts:0.3`](https://ollama.com/mannix/outetts) | Speech, OuteTTS with the WavTokenizer vocoder |
+| [`mannix/kokoro:82m`](https://ollama.com/mannix/kokoro) | Speech, 54 voices, mp3 at 24 kHz (audio.cpp, on the CPU) |
+| [`mannix/supertonic:3`, `:3-q8_0`](https://ollama.com/mannix/supertonic) | Speech, ten voices in 31 languages, mp3 at 44.1 kHz (audio.cpp, on the CPU) |
+| [`mannix/kittentts:mini-0.8`](https://ollama.com/mannix/kittentts) | Speech, eight English voices (audio.cpp, on the CPU) |
+| [`mannix/wan2.1:t2v-1.3b`](https://ollama.com/mannix/wan2.1) | Video from text, 640×352×33 (2 s at 16 fps); peaks at about 17 GiB, so a 24 GB card |
 | `mannix/wan2.1:t2v-1.3b-fp16` | The same at full precision with the Q8_0 text encoder; peaks at about 20.4 GiB |
-| `mannix/wan2.2:ti2v-5b`, `:ti2v-5b-q8_0` | Video at 24 fps, 640×352×33; peaks at 20.3 GiB (Q4_K_M) or 22.2 GiB (Q8_0) |
+| [`mannix/wan2.2:ti2v-5b`, `:ti2v-5b-q8_0`](https://ollama.com/mannix/wan2.2) | Video from text or an image at 24 fps, 640×352×33; peaks at 20.3 GiB (Q4_K_M) or 22.2 GiB (Q8_0) |
 
 ```shell
 xollama pull mannix/whisper:large-v3-turbo
 ```
 
+### 2. Build one from the catalog
+
+`xollama media list` is a curated catalog of the same models. `create` makes a
+model of an entry under a name of your choice; the server downloads each
+component from Hugging Face and checks it against its sha256.
+
+```shell
+xollama media list                               # add --kind image|stt|tts|video|mix
+xollama media create flux2-klein-4b klein        # an image model named "klein"
+xollama media create whisper-large-v3-turbo      # named after the entry
+xollama media create flux2-klein-4b --dry-run    # print the config, fetch nothing
+```
+
+The result is the same model as the pulled one. Use this when you want your
+own name, a model that is not published, or the files from a
+[local copy](#keeping-one-copy-of-the-models).
+
+### 3. Add media to a chat model
+
+`--to` adds a catalog entry's engine to a model you already have. It replaces
+any media of the same kind and leaves the rest of the model alone, so one name
+can chat, draw, listen and speak:
+
+```shell
+xollama media create flux2-klein-4b --to qwen3:8b          # qwen3:8b now also generates images
+xollama media create kokoro-82m --to qwen3:8b              # ... and speaks
+xollama media create whisper-large-v3-turbo --to qwen3:8b  # ... and transcribes
+xollama show qwen3:8b                                      # capabilities and media.* settings
+```
+
+The catalog's `media-kit` entry is that mix as a model of its own, without a
+chat model: FLUX.2 klein, Whisper turbo and Kokoro under one name.
+
+```shell
+xollama media create media-kit kit
+```
+
+The chat model and each media engine are separate loads. Each takes its own
+memory when its first request arrives and is unloaded on its own.
+
+### From your own files
+
+For a model that is not in the catalog, name its files with
+[`xollama tweak model`](/xollama/tweak#attaching-image-speech-transcription-and-video-engines).
+A component is a local path (`--image=./my-model.gguf`), a Hugging Face file as
+`hf.co/<owner>/<repo>/<file>`, or a sha256 digest the server already has.
+`xollama media search` and `xollama media files` find them:
+
+```shell
+xollama media search image flux                    # GGUF repos on Hugging Face; image, edit, stt, tts or video
+xollama media files leejet/FLUX.2-klein-4B-GGUF    # the files of one, as references tweak takes
+
+xollama tweak model qwen3:8b \
+  --image=hf.co/leejet/FLUX.2-klein-4B-GGUF/flux-2-klein-4b-Q8_0.gguf \
+  --image-vae=hf.co/Comfy-Org/vae-text-encorder-for-flux-klein-4b/split_files/vae/flux2-vae.safetensors \
+  --image-llm=hf.co/unsloth/Qwen3-4B-GGUF/Qwen3-4B-Q4_0.gguf \
+  --image-width=1024 --image-height=1024 --image-steps=4
+```
+
+What each kind needs:
+
+| Kind | Files | Flags |
+|---|---|---|
+| Image | The diffusion model, its VAE and its text encoder | `--image`, `--image-vae`, `--image-llm` |
+| Speech to text | One whisper.cpp model | `--stt` |
+| Text to speech | OuteTTS: the model and its vocoder. Kokoro, Supertonic, KittenTTS: one file and `--tts-engine=audiocpp` | `--tts`, `--tts-vocoder`, `--tts-engine` |
+| Video | The diffusion model, its VAE and its text encoder | `--video`, `--video-vae`, `--video-text-encoder` |
+
+Every other media flag (sizes, steps, voices, formats, memory reserve, device)
+is listed in [Every tweak setting](/xollama/tweak-reference).
+
+## Using each kind
+
+The examples use `curl`. With an OpenAI SDK, point it at xOllama and call the
+same methods:
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:22434/v1", api_key="xollama")
+```
+
+### Image generation
+
+```shell
+curl -s http://localhost:22434/v1/images/generations -d '{
+  "model": "mannix/flux2-klein:4b",
+  "prompt": "a red fox in fresh snow, morning light",
+  "size": "1024x1024",
+  "seed": 42
+}'
+```
+
+The reply is OpenAI's: `data[0].b64_json` holds the image, a PNG unless the
+model's template says otherwise. Fields a request leaves out (`size`, `steps`,
+`cfg_scale`, `sampler`) come from the model's template, so a prompt alone is a
+complete request.
+
+### Image edit
+
+The model needs the `image_edit` capability; FLUX.2 klein has it. The request
+is multipart, with one or more reference images:
+
+```shell
+curl -s http://localhost:22434/v1/images/edits \
+  -F model=mannix/flux2-klein:4b \
+  -F 'prompt=make it night, with the lamp lit' \
+  -F 'image[]=@lighthouse.png'
+```
+
+Without a `size` the edit comes back at its first image's size.
+
+### Speech to text
+
+```shell
+xollama pull mannix/whisper:large-v3-turbo
+curl -s http://localhost:22434/v1/audio/transcriptions \
+  -F model=mannix/whisper:large-v3-turbo -F file=@meeting.mp3
+curl -s http://localhost:22434/v1/audio/translations \
+  -F model=mannix/whisper:large-v3-turbo -F file=@intervista.mp3   # any language to English
+```
+
+### Text to speech
+
+```shell
+xollama pull mannix/kokoro:82m
+curl -s http://localhost:22434/v1/audio/speech -o hello.mp3 -d '{
+  "model": "mannix/kokoro:82m",
+  "input": "The first ship came in at dawn.",
+  "voice": "af_heart"
+}'
+xollama media voices mannix/kokoro:82m     # the voices this model has
+```
+
+`voice` takes one of the model's own names or an OpenAI name (`alloy`, `nova`,
+...) that the template maps to one. Without a voice the template's default
+speaks.
+
+### Video
+
+A clip takes from tens of seconds to minutes, so it is a job: create it, poll
+it, fetch it. The published video models need a 24 GB card.
+
+```shell
+xollama pull mannix/wan2.1:t2v-1.3b
+curl -s http://localhost:22434/v1/videos \
+  -d '{"model": "mannix/wan2.1:t2v-1.3b", "prompt": "a red fox running through fresh snow at sunrise"}'
+# {"id": "video_...", "object": "video", "status": "queued", ...}
+curl -s http://localhost:22434/v1/videos/video_...            # until "status": "completed"
+curl -s http://localhost:22434/v1/videos/video_.../content -o fox.mp4
+```
+
+Fetch the content as soon as the job is `completed`: the engine keeps a
+finished clip for ten minutes. More in [Video jobs](#video-jobs).
+
+### When a client names no model
+
+A media request without a `model` is a 400 (`model is required`) unless the
+server has a default for that kind. Set one per kind:
+
+```shell
+xollama tweak envs XOLLAMA_MEDIA_DEFAULTS=image=mannix/flux2-klein:4b,speech=mannix/kokoro:82m,transcription=mannix/whisper:large-v3-turbo
+```
+
+More in [A default model per kind](#a-default-model-per-kind).
+
+## What you need
+
+- **The opencoti engine.** Media is served only by it. With
+  `XOLLAMA_ENGINE=llamacpp` a media request is answered `media needs the
+  opencoti engine, and it was not selected`. There is no opencoti engine for an
+  Intel Mac, and so no media there.
+- **Memory.** Measured on an RTX 3090 (24 GB) with the published templates at
+  1024×1024, as `nvidia-smi` saw the card: FLUX.2 klein peaked at 14.1 GiB and
+  Z-Image at 13.5 GiB; smaller cards were not measured. Whisper takes about
+  1.4 GB. The audio.cpp voices (Kokoro, Supertonic, KittenTTS) run on the CPU.
+  The video models peak between 17 and 22 GiB.
+- **A GPU the engine serves**: NVIDIA through CUDA, or AMD and Intel through
+  Vulkan. On a Mac with Apple silicon, speech and transcription are measured;
+  image and video models are not yet.
+
+## Engine versions and the libraries beside the engine
+
 `xollama media list` shows which catalog entries are published, in its `PULL`
-column. The mixed `media-kit` is not published yet; `xollama media create`
+column. The mixed `media-kit` is not published; `xollama media create`
 builds it locally. Video needs an opencoti engine from M7 on (b103 and later).
 The audio.cpp voices (Kokoro, Supertonic, KittenTTS) need an engine that reads a
 model file by its contents, which xOllama passes as its blob: opencoti dev build
@@ -116,9 +319,6 @@ A server with two image models has no single answer for a client that wants
 "an image model", and a careful client won't guess. Name the default for each
 kind with `XOLLAMA_MEDIA_DEFAULTS`: comma-separated `kind=model` pairs.
 
-```shell
-xollama tweak envs XOLLAMA_MEDIA_DEFAULTS=image=mannix/flux2-klein:4b,speech=mannix/outetts:0.3
-```
 
 - The kinds are `image` (generation and edit), `image_generation`, `image_edit`,
   `transcription` (or `stt`), `speech` (or `tts`) and `video`. A later pair for

@@ -3647,6 +3647,9 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 	thinkBudget, thinkBudgetApplied, thinkStartTag, thinkEndTag := thinkBudgetForCompletion(builtinParser, openingTag, closingTag, budgetThink(requestedThink, req.Think), opts)
 
+	// xollama-hook: tool-call-progress — see docs/xollama/tool-call-progress.mdx
+	callProgress := newToolCallProgress(&req, m.Config.Parser)
+
 	ch := make(chan any)
 	go func() {
 		defer close(ch)
@@ -3681,6 +3684,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 			// xollama-hook: council -- a council member's pool and window.
 			Placement: councilPlacement(c),
 		}, func(r llm.CompletionResponse) {
+			callProgress.step(ch, r.Content) // xollama-hook: tool-call-progress
 			res := api.ChatResponse{
 				Model:     req.Model,
 				CreatedAt: time.Now().UTC(),
@@ -3788,7 +3792,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		}
 	}()
 
-	writeChatResponse(c, req, ch)
+	writeChatResponse(c, req, callProgress.watch(ch)) // xollama-hook: tool-call-progress
 }
 
 // xollama-hook: engine-session — see docs/xollama/sessions.mdx.

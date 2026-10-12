@@ -71,6 +71,21 @@ to 32.2, speech 7/7; MLX (`qwen3.5:2b-nvfp4`) 78.1 to 78.3. G10 on the tag:
 amd64 86.0 to 86.3 and 86.1 to 86.3, speech 4/4; arm64 10.1 against 10.9 to
 11.1, speech 3/3.
 
+**`v0.40.3-xollama`** (2026-10-11, cut `e43c43401`; the tree of
+`v0.40.3-rc.1.xollama`, short check). G12: 8 files match, payload id
+`9303e9fc…`. G9 short: `xOllamaUpdate.exe` over the candidate exit 0 in 4 s,
+RTX 3090 124.0 and 124.4 tok/s. G11 update path: the `0.40.2-xollama` app
+updated itself, 127.1 to 127.4 tok/s.
+
+**`v0.40.3-rc.1.xollama`** (2026-10-11, merge `4f41c5b81`, run 38171168963,
+dry run 38169991007 first; the first build on upstream v0.40.3 and on c11
+r4). G2: every hosted leg green. G9 on eleven2go: full installer exit 0 in
+28 s, RTX 3090 124.0 cold, 124.3 to 124.7 warm; RX 9070 XT 102.3, 102.5;
+integrated 4.9; update installer exit 0 in 4 s. G10 on the tag: amd64 85.6
+to 85.7 and 85.8 to 86.2, speech 4/4; arm64 9.5 to 9.9 against 10.2 to 11.1.
+G11 on the workflow's app: `qwen2.5:1.5b` 128.4 to 129.2, `llama3` 31.6 to
+31.9, speech 7 clips (one transcribed "shoot" for "ship").
+
 **The c11 r4 pin** (2026-10-11, engine `2610111946001`, only the engine's
 bytes moved; working directory `/srv/ml/xc11/r4`). G3 on the assembled
 payload: compat 8/8, `llama3` 77.3 to 77.6 tok/s, four slots 307.4, overflow

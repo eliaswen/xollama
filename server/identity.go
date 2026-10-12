@@ -34,7 +34,7 @@ func XollamaIdentityHandler(c *gin.Context) {
 
 // xollamaFeatures is what this build serves, in the order the features shipped.
 func xollamaFeatures() []string {
-	return []string{api.FeatureCouncil, api.FeatureCouncilCompaction, api.FeatureCouncilTags, api.FeatureClientPlacement, api.FeatureChatRender, api.FeatureCouncilChatState, api.FeatureCouncilTools, api.FeatureAPIKey, api.FeatureContextWindow, api.FeatureCouncilUsage, api.FeatureCouncilDirective, api.FeatureCouncilCheckCall}
+	return []string{api.FeatureCouncil, api.FeatureCouncilCompaction, api.FeatureCouncilTags, api.FeatureClientPlacement, api.FeatureChatRender, api.FeatureCouncilChatState, api.FeatureCouncilTools, api.FeatureAPIKey, api.FeatureContextWindow, api.FeatureCouncilUsage, api.FeatureCouncilDirective, api.FeatureCouncilCheckCall, api.FeatureToolCallProgress}
 }
 
 // XollamaDevicesHandler lists the devices a model can be pinned to.

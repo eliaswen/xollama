@@ -50,6 +50,12 @@ layer.
   list and cannot fall behind.
 </Note>
 
+This page explains the command by feature. For the plain list of all of them —
+every flag, the path it writes and the values it takes, 144 settings in
+fourteen groups — see [Every tweak setting](/xollama/tweak-reference). That
+page is generated from the same table, and a test fails the build when it is
+not current.
+
 ## Choosing the GPU a model runs on
 
 `--device-backend` asks where the model runs, and lists every device the
@@ -184,11 +190,14 @@ short call.
   window and the pressure, and `endpoint=polykv/pools` the shared parts during
   a turn (see [Seeing what the engine did](/xollama/introspection)).
 
-## Attaching image, speech and transcription engines
+## Attaching image, speech, transcription and video engines
 
-A model can carry opencoti's media engines beside its LLM: image generation and
-edit, speech-to-text, text-to-speech, and later video. Each kind's model is its
-switch, and the bare flag walks that kind's questions:
+A model can carry opencoti's media engines beside its LLM, or instead of one:
+image generation and edit, speech-to-text, text-to-speech and video. If you
+only want a working image, speech or video model, start with
+[Images, speech, transcription and video](/xollama/media), which goes through
+it step by step; this section is the `tweak` side of it. Each kind's model is
+its switch, and the bare flag walks that kind's questions:
 
 ```shell
 xollama tweak model qwen3:8b --image
@@ -198,14 +207,36 @@ xollama tweak model qwen3:8b \
   --stt=/srv/ml/media/ggml-large-v3-turbo-q8_0.bin --stt-format=json
 ```
 
-- **Components** (`--image`, `--image-vae`, `--image-llm`, `--tts`,
-  `--tts-vocoder`, `--stt`, `--video`, ...) take a file path, a sha256 digest,
+- **Components** take a file path, a sha256 digest,
   or a Hugging Face file as `hf.co/<owner>/<repo>/<file>[@rev]`. The server
   fetches a Hugging Face file itself.
   A path is hashed when you give it and uploaded when the model is written,
   only if the server does not already have it; `--dry-run` sends nothing.
   The model then carries each one as a layer, so `push`, `pull` and `rm` handle
   them like its weights.
+
+  | Kind | Components |
+  |---|---|
+  | Image | `--image` (the diffusion model), `--image-vae`, `--image-llm` (its text encoder), `--image-llm-vision` (the encoder's vision file, for a model that edits from reference images) |
+  | Speech to text | `--stt` |
+  | Text to speech | `--tts`, `--tts-vocoder` (OuteTTS), `--tts-voices` (extra voices) |
+  | Video | `--video`, `--video-vae`, `--video-text-encoder` |
+
+- **How a model edits** (`--image-edit`): `reference` for a model that takes
+  reference images (FLUX.2 klein), `img2img` for one that repaints the input,
+  `none` for a model that only generates. It decides whether the model gets
+  the `image_edit` capability.
+- **The engine behind a voice** (`--tts-engine`): `outetts` for OuteTTS with
+  its vocoder, `audiocpp` for Kokoro, Supertonic and KittenTTS.
+- **Memory and placement** (`--image-reserve`, `--stt-reserve`,
+  `--tts-reserve`, `--video-reserve`, in MiB; `--image-device`,
+  `--stt-device`, `--tts-device`, `--video-device`): what the scheduler sets
+  aside for the engine, and a device for that one kind when it should differ
+  from the model's own pin. `--stt-threads` is the CPU threads transcription
+  may use.
+- **Extra engine arguments** (`--image-args`, `--stt-args`, `--tts-args`,
+  `--video-args`) are passed to that engine as written. They are an escape
+  hatch: nothing checks them.
 - **Extra voices** (`--tts-voices`) are `name=file` pairs, comma-separated:
   `--tts-voices=narrator=~/voices/narrator.json,host=hf.co/<owner>/<repo>/<file>`.
   Each file is one voice (an OuteTTS speaker JSON) and becomes its own layer;
@@ -214,12 +245,19 @@ xollama tweak model qwen3:8b \
   refused, and so is any extra voice on the `audiocpp` engine, whose models
   (Kokoro, Supertonic, KittenTTS) serve only their built-in voices. It needs an
   opencoti engine advertising `audio_speech_voice_files_v1`.
-- **Defaults** (`--image-width`, `--image-steps`, `--tts-voice`,
-  `--stt-format`, ...) are the template's settings for the engine. Clients such
+- **Defaults** are the template's settings for the engine:
+  `--image-width`, `--image-height`, `--image-steps`, `--image-cfg`,
+  `--image-sampler`, `--image-scheduler`, `--image-seed`, `--image-strength`,
+  `--image-flow-shift`, `--image-format`; `--stt-format`, `--stt-language`,
+  `--stt-task`; `--tts-voice`, `--tts-voice-map`, `--tts-format`,
+  `--tts-language`, `--tts-speed`; `--video-width`, `--video-height`,
+  `--video-frames`, `--video-fps`, `--video-steps`, `--video-cfg`,
+  `--video-sampler`, `--video-seed`, `--video-flow-shift`, `--video-format`. Clients such
   as SurfSense send only a prompt or a text, so these decide the size, the steps,
   the voice and the format. They are passed to the engine when it starts, and
   xollama fills them into every request that leaves them out.
-- **`--<kind>-fixed`** lists defaults a request may not override, for example
+- **`--<kind>-fixed`** (`--image-fixed`, `--stt-fixed`, `--tts-fixed`,
+  `--video-fixed`) lists defaults a request may not override, for example
   `--image-fixed=width,height` for a model trained at one size.
 - A kind's settings without its model are dropped, each with its reason.
   `tweak server` does not offer media: it belongs to one model, not to every
@@ -248,10 +286,11 @@ model you already have, keeping its other settings. `--dry-run` prints the
 config without fetching anything. `xollama media fetch --dir DIR` keeps a local
 copy of the files, and `create --dir DIR` uploads from it rather than download
 again ([Keeping one copy](/xollama/media#keeping-one-copy-of-the-models)). Catalog entries marked `opencoti M7` need an
-engine build that is not out yet.
+engine from that milestone on, which the current release carries.
 
-The routes that serve them (`/v1/images/*`, `/v1/audio/*`) are described in
-[Images, speech and transcription](/xollama/media).
+The routes that serve them (`/v1/images/*`, `/v1/audio/*`, `/v1/videos`) and a
+worked example of each are in
+[Images, speech, transcription and video](/xollama/media).
 
 ## The drafter
 
@@ -352,6 +391,19 @@ came from:
 `draft.spec_type`. A head built into the weights shows `source built-in` and no
 file details. A model with no drafter, and none published for it, prints no
 block at all.
+
+## Engine, cache, slots and sessions
+
+These are explained on their own pages; the flags are listed here so they can
+be found from the command's page.
+
+| Flags | What they set | Page |
+|---|---|---|
+| `--engine`, `--flash-attn` | The engine this model needs, and flash attention for it | [Choosing an engine](/xollama/engines) |
+| `--kv-k`, `--kv-v`, `--kv-swa-k`, `--kv-swa-v`, `--kv-unified` | Cache types for keys and values, for a sliding-window model's short cache, and one shared pool instead of a split per slot | [KV cache types](/xollama/kv-cache) |
+| `--slots`, `--slots-max`, `--slots-live`, `--slots-tps-floor`, `--slots-vram-reserve`, `--slots-swa-budget` | Concurrency that grows with demand, its ceiling, how many slots start live, and the brakes on admitting another | [Concurrent requests](/xollama/slots) |
+| `--session-affinity`, `--session-pool`, `--session-max-pools`, `--session-client-pools` | Returning a conversation to its slot, sharing a common prefix, and how many pools a model may hold | [Sessions](/xollama/sessions) |
+| `--dca`, `--dca-chunk` | Serving a model past its trained context | [Long context](/xollama/dca) |
 
 ## Driving it from a script
 
@@ -557,6 +609,17 @@ xollama tweak server gpu 0000:01:00.0 --link 4x16        # plan with PCIe 4.0 x1
 xollama tweak server gpu "name:AMD Radeon RX 9070 XT" --priority 5   # a GPU with no PCI ID, by name
 xollama tweak server gpu --split single                  # never split a model
 ```
+
+| Flag | What it sets |
+|---|---|
+| `--enable`, `--disable` | Whether models may use this GPU |
+| `--priority` | Fill order, higher first; `unset` removes it |
+| `--backend` | `CUDA`, `Vulkan` or `ROCm`, for a GPU more than one backend reaches |
+| `--link` | The host link speed to plan with: GB/s, `GENxLANES` (`4x16`), or `auto` to measure |
+| `--split` | `auto`, `spread` or `single`, for the whole server (no GPU named) |
+| `--split-mode` | `layer` or `row`, for the whole server |
+| `--clear` | Remove the whole GPU policy |
+| `-y`, `--yes` | Unload running models without asking when a change needs it |
 
 - **Priority is fill order.** A model that fits on one GPU goes to the
   highest-priority GPU with room, instead of the one with the most free

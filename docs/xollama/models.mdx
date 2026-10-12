@@ -1,0 +1,77 @@
+---
+title: Models for xOllama
+---
+
+xOllama runs every model Ollama runs, from the same registry. The models below
+are published in the [mannix library on ollama.com](https://ollama.com/mannix)
+and are either made for xOllama or use something only xOllama has. The library
+has many more; that page lists them all.
+
+```shell
+xollama pull mannix/flux2-klein:4b
+xollama run mannix/bonsai-2-27b
+```
+
+## Images, speech, transcription and video
+
+These carry only media and are served on OpenAI's image, audio and video
+routes. Stock Ollama can pull them but cannot run them. Setup and examples:
+[Images, speech, transcription and video](/xollama/media).
+
+| Model | Kind |
+|---|---|
+| [`mannix/flux2-klein`](https://ollama.com/mannix/flux2-klein) | Image generation and edit, 1024×1024 in four steps |
+| [`mannix/z-image`](https://ollama.com/mannix/z-image) | Image generation, 1024×1024 in eight steps |
+| [`mannix/whisper`](https://ollama.com/mannix/whisper) | Transcription in 99 languages, translation to English |
+| [`mannix/kokoro`](https://ollama.com/mannix/kokoro) | Speech, 54 voices |
+| [`mannix/supertonic`](https://ollama.com/mannix/supertonic) | Speech, ten voices in 31 languages |
+| [`mannix/kittentts`](https://ollama.com/mannix/kittentts) | Speech, eight English voices |
+| [`mannix/outetts`](https://ollama.com/mannix/outetts) | Speech, OuteTTS with its vocoder |
+| [`mannix/wan2.1`](https://ollama.com/mannix/wan2.1) | Video from text |
+| [`mannix/wan2.2`](https://ollama.com/mannix/wan2.2) | Video from text or an image |
+
+## Ternary Bonsai 2 27B
+
+[`mannix/Bonsai-2-27B`](https://ollama.com/mannix/Bonsai-2-27B): a 27B
+reasoning model in 6 to 8.6 GB, with an optional draft head and vision tower.
+It needs xOllama v0.40.3-xollama or later. Tags, speed and settings:
+[Ternary Bonsai 2 27B](/xollama/bonsai).
+
+## Models with a draft head
+
+These carry a draft head (MTP) in their weights or as tags. On the opencoti
+engine it is used without any setting; stock llama.cpp serves the model without
+drafting. See [The drafter](/xollama/tweak#the-drafter).
+
+| Model | What it is |
+|---|---|
+| [`mannix/omnimerge-v6`](https://ollama.com/mannix/omnimerge-v6) | A merge on Qwen3.8-27B with three Qwen3.6 fine-tunes; MTP and vision tags |
+| [`mannix/omnimerge-v4-mtp`](https://ollama.com/mannix/omnimerge-v4-mtp) | The Qwen3.6-27B merge, MTP quants |
+| [`mannix/qwen3.6-27b-a3b-coderx`](https://ollama.com/mannix/qwen3.6-27b-a3b-coderx) | A 184-expert cut of Qwen3.6-35B-A3B for coding; MTP and vision tags |
+| [`mannix/Bonsai-2-27B`](https://ollama.com/mannix/Bonsai-2-27B) | The `mtp-` tags |
+
+## Gemma 4 and its drafters
+
+Gemma 4's drafter is a separate small file. The five published ones are on
+Hugging Face, and `xollama tweak model MODEL --drafter=auto` attaches the right
+one to any Gemma 4 model, fine-tunes and merges included. The list and the
+measurements: [Gemma-4 drafters](/xollama/gemma4-drafter).
+
+| Model | What it is |
+|---|---|
+| [`mannix/gemma4-98e-v7-coder`](https://ollama.com/mannix/gemma4-98e-v7-coder) | Gemma 4 26B-A4B pruned to 98 experts, for coding |
+| [`mannix/gemma4-98e-v7-coderx`](https://ollama.com/mannix/gemma4-98e-v7-coderx) | The same, tuned further toward coding |
+| [`mannix/gemma4-98e-v6-coder`](https://ollama.com/mannix/gemma4-98e-v6-coder) | The earlier version; its `mtp-Q4_K_M` tag comes with the drafter |
+| [`mannix/gemma4-31b-he1`](https://ollama.com/mannix/gemma4-31b-he1) | Gemma 4 31B with pruned heads |
+
+## Coding models
+
+| Model | What it is |
+|---|---|
+| [`mannix/ornith-1.5-27b-a3b-coderx`](https://ollama.com/mannix/ornith-1.5-27b-a3b-coderx) | A 184-expert prune of Ornith-1.5-35B-A3B, about 27B |
+| [`mannix/ornith-1.5-27b-a3b-coder`](https://ollama.com/mannix/ornith-1.5-27b-a3b-coder) | The code-targeted arm of the same pair |
+| [`mannix/qwen3.6-27b-a3b-coder`](https://ollama.com/mannix/qwen3.6-27b-a3b-coder) | A 184-expert cut of Qwen3.6-35B-A3B |
+| [`mannix/JackOD-9B-Coder`](https://ollama.com/mannix/JackOD-9B-Coder) | A four-way merge over Qwen3.5-9B for multi-turn agentic coding |
+| [`mannix/omnimerge-v4`](https://ollama.com/mannix/omnimerge-v4) | Qwen3.6-27B merged with three of its fine-tunes |
+
+Each model's page on ollama.com has its tags, sizes and measurements.

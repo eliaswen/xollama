@@ -83,6 +83,12 @@ const (
 	// client stating placement.num_ctx that cannot be booked gets a 429 at
 	// once with X-Context-Largest-Admissible and Retry-After, not a wait.
 	FeatureContextWindow = "context_window_v1"
+	// FeatureToolCallProgress: a streamed chat request with
+	// tool_call_progress: true gets message.tool_call_progress chunks (index,
+	// syntax, text, tokens, done) with the raw output the server is holding
+	// back while a tool call is written, by one rule for every model; the
+	// parsed call still arrives whole in tool_calls.
+	FeatureToolCallProgress = "tool_call_progress_v1"
 )
 
 // IsXollama reports whether the server at base is this fork, by the identity

@@ -5,19 +5,106 @@ fixes upstream has not merged, and serves GGUF models on the
 [opencoti-llamafile](https://huggingface.co/ManniX-ITA/opencoti-llamafile)
 engine.
 
-> **Status.** `main` is upstream `v0.34.2` with all twelve carried patches
-> replayed onto it — see
-> [`docs/protocols/CARRIED-PATCHES.md`](docs/protocols/CARRIED-PATCHES.md).
-> The engine swap is implemented and has been run against a live engine:
-> routing and policy, the pinned artifact and its build-time fetch, argv
-> translation, dynamic slots, engine sessions, shared prefix pools and the
-> `XOLLAMA_ENGINE_ARGS` argv passthrough. The
-> pinned engine is opencoti c7 r2 (`llm/engine/pin/`); a `dev` branch pins a
-> development snapshot for integration testing. With `XOLLAMA_ENGINE=llamacpp`
-> and no xollama flags the launch is byte-identical to upstream, which is what
-> keeps the A/B honest. Measurements are in
-> [`docs/evaluations/`](docs/evaluations/) and the designs in
-> [`docs/features/`](docs/features/).
+> **Status.** The current release is
+> [`v0.40.3-xollama`](https://github.com/mann1x/xollama/releases/latest):
+> upstream ollama `v0.40.3` with the carried patches
+> ([`docs/protocols/CARRIED-PATCHES.md`](docs/protocols/CARRIED-PATCHES.md))
+> and the opencoti c11 engine (`llm/engine/pin/`). `main` is the release,
+> `dev` is where work lands. With `XOLLAMA_ENGINE=llamacpp` and no xollama
+> flags the launch is byte-identical to upstream, which is what keeps an A/B
+> honest. Measurements are in [`docs/evaluations/`](docs/evaluations/) and the
+> designs in [`docs/features/`](docs/features/).
+
+## Install
+
+| Platform | Download from [Releases](https://github.com/mann1x/xollama/releases/latest) |
+|---|---|
+| Windows | `xOllamaSetup.exe` (unsigned: SmartScreen warns on first run; check it against `sha256sum.txt`) |
+| macOS, Apple silicon | `xOllama.dmg` (signed and notarized) |
+| Linux, with a runtime | the [Docker image](#docker), amd64 and arm64 |
+| Linux, binary only | `xollama-linux-amd64`, `xollama-linux-arm64` (glibc 2.28 or newer; no runtime, for a host that already has one) |
+
+The server listens on **22434**. Then:
+
+```sh
+xollama run qwen3.6
+```
+
+## What it adds
+
+| | |
+|---|---|
+| **Images, speech, transcription and video** | Media models on OpenAI's routes, alone or beside a chat model: [`docs/xollama/media.mdx`](docs/xollama/media.mdx) |
+| **Council chat** | One model name answered by a planner, researchers, critics and a synthesizer: [`docs/xollama/council.mdx`](docs/xollama/council.mdx) |
+| **Think budget** | A bound on how long a reasoning model thinks: [`docs/xollama/think-budget.mdx`](docs/xollama/think-budget.mdx) |
+| **Drafters** | Speculative decoding with a model's own draft head or a Gemma 4 assistant drafter: [`docs/xollama/gemma4-drafter.mdx`](docs/xollama/gemma4-drafter.mdx) |
+| **Ternary Bonsai 2 27B** | A 27B model in 6 to 8.6 GB that stock Ollama cannot load: [`docs/xollama/bonsai.mdx`](docs/xollama/bonsai.mdx) |
+| **Tool-call progress** | A streamed chat reports the tool call a model is still writing: [`docs/xollama/tool-call-progress.mdx`](docs/xollama/tool-call-progress.mdx) |
+| **`/api/tokenize`** | Token counts from the model's own tokenizer: [`docs/xollama/tokenize.mdx`](docs/xollama/tokenize.mdx) |
+| **Per-model settings** | `xollama tweak model`: [`docs/xollama/tweak.mdx`](docs/xollama/tweak.mdx), every flag in [`docs/xollama/tweak-reference.mdx`](docs/xollama/tweak-reference.mdx) |
+
+Everything the fork adds is documented under [`docs/xollama/`](docs/xollama/),
+starting at [`docs/xollama/index.mdx`](docs/xollama/index.mdx).
+
+## Image generation, speech and video
+
+```sh
+xollama pull mannix/flux2-klein:4b
+curl -s http://localhost:22434/v1/images/generations \
+  -d '{"model": "mannix/flux2-klein:4b", "prompt": "a lighthouse at dusk"}' \
+  | python3 -c 'import sys,json,base64; open("lighthouse.png","wb").write(base64.b64decode(json.load(sys.stdin)["data"][0]["b64_json"]))'
+```
+
+Any OpenAI client works with the base URL `http://localhost:22434/v1`. The
+same goes for speech (`/v1/audio/speech`), transcription
+(`/v1/audio/transcriptions`), image edits (`/v1/images/edits`) and video
+(`/v1/videos`):
+
+| To get | Run |
+|---|---|
+| An image model | `xollama pull mannix/flux2-klein:4b` or `mannix/z-image:turbo` |
+| Transcription | `xollama pull mannix/whisper:large-v3-turbo` |
+| A voice | `xollama pull mannix/kokoro:82m` (also `mannix/supertonic:3`, `mannix/kittentts:mini-0.8`, `mannix/outetts:0.3`) |
+| Video | `xollama pull mannix/wan2.1:t2v-1.3b` or `mannix/wan2.2:ti2v-5b` (a 24 GB card) |
+| A chat model that also draws and speaks | `xollama media create flux2-klein-4b --to qwen3:8b`, then `xollama media create kokoro-82m --to qwen3:8b` |
+| Images, transcription and speech under one name | `xollama media create media-kit kit` |
+
+The step-by-step guide, with an example of each kind and how to use your own
+files, is [`docs/xollama/media.mdx`](docs/xollama/media.mdx).
+
+## Models
+
+Models made for xOllama are in the
+[mannix library on ollama.com](https://ollama.com/mannix):
+
+- **Media**: [flux2-klein](https://ollama.com/mannix/flux2-klein),
+  [z-image](https://ollama.com/mannix/z-image),
+  [whisper](https://ollama.com/mannix/whisper),
+  [kokoro](https://ollama.com/mannix/kokoro),
+  [supertonic](https://ollama.com/mannix/supertonic),
+  [kittentts](https://ollama.com/mannix/kittentts),
+  [outetts](https://ollama.com/mannix/outetts),
+  [wan2.1](https://ollama.com/mannix/wan2.1),
+  [wan2.2](https://ollama.com/mannix/wan2.2).
+- **[Ternary Bonsai 2 27B](https://ollama.com/mannix/Bonsai-2-27B)**:
+  `xollama run mannix/bonsai-2-27b`. PrismML's ternary model, 5.95 GB for the
+  language weights, with an optional draft head (1.25× to 1.5× measured) and
+  vision tower. It needs `v0.40.3-xollama` or later and does not run on stock
+  Ollama. See [`docs/xollama/bonsai.mdx`](docs/xollama/bonsai.mdx).
+- **Gemma 4 drafters**: one per size on Hugging Face
+  (`ManniX-ITA/gemma-4-<E2B|E4B|12B|26B-A4B|31B>-it-assistant-GGUF`).
+  `xollama tweak model MODEL --drafter=auto` attaches the right one to any
+  Gemma 4 model, fine-tunes and merges included: 93 to 95 tok/s became 136 to
+  141 on coding prompts on an RTX 3090. See
+  [`docs/xollama/gemma4-drafter.mdx`](docs/xollama/gemma4-drafter.mdx).
+- **Coding models and merges**:
+  [gemma4-98e-v7-coder](https://ollama.com/mannix/gemma4-98e-v7-coder),
+  [omnimerge-v6](https://ollama.com/mannix/omnimerge-v6),
+  [ornith-1.5-27b-a3b-coderx](https://ollama.com/mannix/ornith-1.5-27b-a3b-coderx),
+  [qwen3.6-27b-a3b-coderx](https://ollama.com/mannix/qwen3.6-27b-a3b-coderx),
+  [JackOD-9B-Coder](https://ollama.com/mannix/JackOD-9B-Coder).
+
+The list with what each is: [`docs/xollama/models.mdx`](docs/xollama/models.mdx).
 
 ## Why
 
@@ -33,7 +120,7 @@ Good fixes sit in upstream PRs for months. Some of them are not cosmetic:
   been open since 2025-08-22 — over a year — under a queue of "merge please"
   comments. The plumbing already exists internally; only the routes are
   missing.
-- Eleven more parser and tool-call correctness fixes, listed in
+- More parser and tool-call correctness fixes, listed in
   [`docs/protocols/CARRIED-PATCHES.md`](docs/protocols/CARRIED-PATCHES.md).
 
 xollama is where those live in the meantime. Every one of them stays an open
@@ -68,7 +155,6 @@ CPU only:
 docker run -d -v xollama:/root/.ollama -p 22434:22434 --name xollama mannixita/xollama
 ```
 
-Until the first full release moves `:latest`, use `mannixita/xollama:dev`.
 The same image is `ghcr.io/mann1x/xollama`.
 
 **NVIDIA GPU passthrough.** `--gpus=all` needs the NVIDIA driver on the host
@@ -99,7 +185,7 @@ slots and KV cache settings, Compose and updating:
 
 ## The engine
 
-ollama 0.34 already runs GGUF models as a `llama-server` subprocess, so the
+ollama already runs GGUF models as a `llama-server` subprocess, so the
 engine is one binary path and one argv behind an HTTP API. xollama routes
 that to opencoti-llamafile — upstream llamafile plus a patch series aimed at
 multi-session agentic serving on a fixed VRAM budget: KV quantization tiers,
@@ -158,7 +244,7 @@ field list, [`docs/xollama/tweak.mdx`](docs/xollama/tweak.mdx) is the command.
 This fork is meant to be re-syncable indefinitely, so it has rules about what
 may be changed and where:
 [`docs/protocols/UPSTREAM-SYNC.md`](docs/protocols/UPSTREAM-SYNC.md).
-`main` carries the full upstream history — 5771 commits — so every future
+`main` carries the full upstream history, so every future
 `git merge upstream/main` has a real merge-base.
 
 ## Upstream
