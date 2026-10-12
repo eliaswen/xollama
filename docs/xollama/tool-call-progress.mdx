@@ -25,7 +25,15 @@ The server knows nothing about how a particular model writes a tool call here.
 It applies one rule:
 
 > A step of the model's output for which the server delivered nothing (no
-> content, no thinking, no tool call) was held. Its raw text is reported.
+> content, no thinking, no tool call) was held. A run of more than eight held
+> steps is reported, raw.
+
+The eight is measured. A parser also holds text briefly for reasons that are
+not a call: a tag it has not finished reading, the white space before one, the
+tag that opens or closes thinking. Over four parsers (`gemma4`, `qwen3.5`, and
+two `template` models) 305 such runs lasted one to three steps, and every call
+14 or more. So a short hold is never reported, and a call is, about nine tokens
+after it begins.
 
 That is the same for every built-in parser, for a model whose template defines
 its tool calls, and for a model with no tools at all. What differs between
@@ -56,11 +64,11 @@ While output is held, chunks carry `message.tool_call_progress`:
 
 ```json
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"<|tool_call>","tokens":1}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"<|tool_call>call:edit{intent:<|\"|>fix the","tokens":9}},"done":false}
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"call","tokens":2}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":" loop","tokens":10}},"done":false}
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":":edit{intent:<|\"|>fix","tokens":3}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"<|\"|>,","tokens":11}},"done":false}
 ```
 
 and the chunk that delivers the parsed call closes the run:
@@ -68,16 +76,17 @@ and the chunk that delivers the parsed call closes the run:
 ```json
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
   "tool_calls":[{"id":"call_x","function":{"name":"edit","arguments":{"intent":"fix the loop","path":"a.go"}}}],
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"","tokens":9,"done":true}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"","tokens":17,"done":true}},"done":false}
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `index` | Which run of held output in this response, from 0. A run ends when the server delivers something. |
+| `index` | Which reported run in this response, from 0. A run ends when the server delivers something. |
 | `syntax` | How `text` is written: the name of the model's parser (`gemma4`, `qwen3.5`, `qwen3-coder`, ...), or `template` for a model without one. |
-| `text` | The raw output of one held step, exactly as the model wrote it, delimiters included. |
-| `tokens` | The held steps of this run so far. Close to its token count; not a tokenizer count. |
+| `text` | Raw held output, exactly as the model wrote it, delimiters included. A run's first chunk carries everything held so far (nine steps); each later chunk carries one step. |
+| `tokens` | The held steps of this run so far, so 9 on its first chunk. Close to its token count; not a tokenizer count. |
 | `done` | Present and `true`, with an empty `text`, on the chunk that delivers the tool calls the run was held for. |
+| `released` | Present and `true`, with an empty `text`, on the chunk that ends a run **without** a tool call. Drop whatever you opened for that `index`. |
 
 Things to rely on:
 
@@ -94,12 +103,18 @@ Things to rely on:
   normally not in the text.
 - Arguments come in the order the model writes them, which need not be the
   order of the tool's schema.
-- **Held output is not always a tool call.** A parser also holds a few
-  characters back while it decides whether they begin a tag. Such a run is
-  short and ends without `done`: the text then arrives as `content` or
-  `thinking` like any other. Only a run that ends with `done` was a call.
-- A call the model never closes has no `done`. The response's own
-  `done_reason` says how it ended.
+- **Every reported run is closed**, with `done` when its call arrived and
+  with `released` when none did. A released run is almost always a call the
+  model never closed, cut off by the token limit: `released` then comes on the
+  response's last chunk, whose `done_reason` says how it ended. It can also be
+  long held text that the server gave out as `content` or `thinking` after
+  all.
+- **A run starts where the server began holding, which can be before the
+  call.** When a model goes from thinking straight into a call, the text
+  begins with what closed the thinking: `<channel|><|tool_call>call:...` for
+  `gemma4`, `</think>` and a blank line before `<tool_call>` for `qwen3.5`. A
+  second call in one reply can begin with the first one's closing delimiter.
+  Find the call's opener in the text; do not assume it is at position 0.
 
 ## Stopping a call
 
