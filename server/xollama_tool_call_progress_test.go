@@ -17,9 +17,9 @@ import (
 	"github.com/ollama/ollama/ml"
 )
 
-// progressServer serves one model parsed by gemma4 whose engine writes a tool
-// call in the given pieces.
-func progressServer(t *testing.T, pieces []string) *Server {
+// progressServer serves one model, made from create, whose engine writes the
+// given pieces.
+func progressServer(t *testing.T, create api.CreateRequest, pieces []string) *Server {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 
@@ -80,13 +80,10 @@ func progressServer(t *testing.T, pieces []string) *Server {
 	})
 
 	noStream := false
-	if w := createRequest(t, s.CreateHandler, api.CreateRequest{
-		Model:    "progress",
-		Files:    map[string]string{"file.gguf": digest},
-		Renderer: "gemma4",
-		Parser:   "gemma4",
-		Stream:   &noStream,
-	}); w.Code != http.StatusOK {
+	create.Model = "progress"
+	create.Files = map[string]string{"file.gguf": digest}
+	create.Stream = &noStream
+	if w := createRequest(t, s.CreateHandler, create); w.Code != http.StatusOK {
 		t.Fatalf("create: %d: %s", w.Code, w.Body.String())
 	}
 	return &s
@@ -129,6 +126,99 @@ func progressChat(t *testing.T, s *Server, ask bool, stream bool) []api.ChatResp
 	return out
 }
 
+// held joins the progress text of one run and reports how it ended.
+func held(t *testing.T, chunks []api.ChatResponse, syntax string) (text string, steps int, sawDone bool, calls int) {
+	t.Helper()
+	var b strings.Builder
+	for _, c := range chunks {
+		p := c.Message.ToolCallProgress
+		if p != nil {
+			if p.Syntax != syntax || p.Index != 0 {
+				t.Fatalf("step = %+v, want syntax %s, index 0", p, syntax)
+			}
+			if calls > 0 {
+				t.Fatalf("progress arrived after the parsed call: %+v", p)
+			}
+			if p.Done {
+				sawDone = true
+			} else {
+				steps++
+				if p.Tokens != steps {
+					t.Fatalf("tokens = %d on held step %d", p.Tokens, steps)
+				}
+			}
+			b.WriteString(p.Text)
+		}
+		calls += len(c.Message.ToolCalls)
+	}
+	return b.String(), steps, sawDone, calls
+}
+
+// Every way a model's output is parsed reports a held call the same way: the
+// raw text of the steps nothing was delivered for. One case per kind of
+// parser, and none of them is named in the code under test.
+func TestAToolCallIsReportedWhileItIsWritten(t *testing.T) {
+	templ := `
+{{- if .Tools }}
+{{ .Tools }}
+{{ end }}
+{{- range .Messages }}
+{{- .Role }}: {{ .Content }}
+{{- range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+{{- end }}
+{{ end }}`
+
+	cases := []struct {
+		name   string
+		create api.CreateRequest
+		syntax string
+		pieces []string
+		want   string
+	}{
+		{
+			name:   "a built-in parser that names its delimiters",
+			create: api.CreateRequest{Renderer: "gemma4", Parser: "gemma4"},
+			syntax: "gemma4",
+			pieces: []string{"On it.", "<|tool_call>", "call:edit{intent:<|\"|>fix", " the loop<|\"|>,", "path:<|\"|>a.go<|\"|>}", "<tool_call|>", ""},
+			want:   "<|tool_call>call:edit{intent:<|\"|>fix the loop<|\"|>,path:<|\"|>a.go<|\"|>}",
+		},
+		{
+			name:   "a built-in parser that does not",
+			create: api.CreateRequest{Renderer: "qwen3-coder", Parser: "qwen3-coder"},
+			syntax: "qwen3-coder",
+			pieces: []string{"On it.", "<tool_call>", "<function=edit>", "<parameter=intent>fix the loop</parameter>", "<parameter=path>a.go</parameter>", "</function>", "</tool_call>", ""},
+			want:   "<tool_call><function=edit><parameter=intent>fix the loop</parameter><parameter=path>a.go</parameter></function>",
+		},
+		{
+			name:   "no built-in parser, the template's tool calls",
+			create: api.CreateRequest{Template: templ},
+			syntax: "template",
+			pieces: []string{`{"name":`, ` "edit",`, ` "arguments": {"intent":`, ` "fix the loop",`, ` "path": "a.go"}`, `}`, ""},
+			want:   `{"name": "edit", "arguments": {"intent": "fix the loop", "path": "a.go"}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := progressServer(t, tc.create, tc.pieces)
+			text, steps, sawDone, calls := held(t, progressChat(t, s, true, true), tc.syntax)
+
+			if text != tc.want {
+				t.Fatalf("progress text = %q, want %q", text, tc.want)
+			}
+			if steps < 4 {
+				t.Fatalf("steps = %d: the call must be reported piece by piece, not once at the end", steps)
+			}
+			if calls != 1 {
+				t.Fatalf("parsed tool calls = %d, want the one call, whole, as without progress", calls)
+			}
+			if !sawDone {
+				t.Fatal("the chunk that delivered the call did not say the held run was done")
+			}
+		})
+	}
+}
+
 var progressPieces = []string{
 	"On it.",
 	"<|tool_call>",
@@ -139,50 +229,32 @@ var progressPieces = []string{
 	"",
 }
 
-func TestAToolCallIsReportedWhileItIsWritten(t *testing.T) {
-	s := progressServer(t, progressPieces)
-	chunks := progressChat(t, s, true, true)
-
-	var text strings.Builder
-	var steps, calls int
-	var sawDone bool
-	for _, c := range chunks {
-		calls += len(c.Message.ToolCalls)
-		p := c.Message.ToolCallProgress
-		if p == nil {
-			continue
-		}
-		if calls > 0 && len(c.Message.ToolCalls) == 0 {
-			t.Fatalf("progress arrived after the parsed call: %+v", p)
-		}
-		steps++
-		if p.Syntax != "gemma4" || p.Index != 0 {
-			t.Fatalf("step = %+v, want syntax gemma4, index 0", p)
-		}
-		text.WriteString(p.Text)
-		sawDone = sawDone || p.Done
-	}
-
-	if want := "call:edit{intent:<|\"|>fix the loop<|\"|>,path:<|\"|>a.go<|\"|>}"; text.String() != want {
-		t.Fatalf("progress text = %q, want %q", text.String(), want)
-	}
-	if steps < 4 {
-		t.Fatalf("steps = %d: the call must be reported piece by piece, not once at the end", steps)
-	}
-	if !sawDone {
-		t.Fatal("no step said the call was closed")
-	}
-	if calls != 1 {
-		t.Fatalf("parsed tool calls = %d, want the one call, whole, as without progress", calls)
-	}
-}
-
 func TestToolCallProgressIsOffUnlessAsked(t *testing.T) {
-	s := progressServer(t, progressPieces)
+	gemma := api.CreateRequest{Renderer: "gemma4", Parser: "gemma4"}
+	s := progressServer(t, gemma, progressPieces)
 
-	for _, c := range progressChat(t, s, false, true) {
+	off := progressChat(t, s, false, true)
+	for _, c := range off {
 		if c.Message.ToolCallProgress != nil {
 			t.Fatalf("a request that did not ask got progress: %+v", c.Message.ToolCallProgress)
+		}
+	}
+	// And asking adds chunks, it changes none: what is left when the
+	// progress is taken away is the response a client gets without it.
+	var on []api.ChatResponse
+	for _, c := range progressChat(t, s, true, true) {
+		m := c.Message
+		if m.ToolCallProgress != nil && m.Content == "" && m.Thinking == "" && len(m.ToolCalls) == 0 && !c.Done {
+			continue
+		}
+		on = append(on, c)
+	}
+	if len(on) != len(off) {
+		t.Fatalf("with progress removed %d chunks are left, without asking there are %d", len(on), len(off))
+	}
+	for i := range on {
+		if on[i].Message.Content != off[i].Message.Content || len(on[i].Message.ToolCalls) != len(off[i].Message.ToolCalls) || on[i].Done != off[i].Done {
+			t.Fatalf("chunk %d differs: %+v vs %+v", i, on[i].Message, off[i].Message)
 		}
 	}
 
@@ -193,6 +265,16 @@ func TestToolCallProgressIsOffUnlessAsked(t *testing.T) {
 	}
 	if len(out[0].Message.ToolCalls) != 1 {
 		t.Fatalf("the call itself must still be there: %+v", out[0].Message)
+	}
+}
+
+// Text the server delivers is never also reported as held.
+func TestDeliveredTextIsNotReportedAsHeld(t *testing.T) {
+	s := progressServer(t, api.CreateRequest{Renderer: "gemma4", Parser: "gemma4"}, []string{"Hello", " there", ", all", " good.", ""})
+	for _, c := range progressChat(t, s, true, true) {
+		if p := c.Message.ToolCallProgress; p != nil {
+			t.Fatalf("plain content was reported as held: %+v", p)
+		}
 	}
 }
 

@@ -9,15 +9,27 @@ call that runs away, such as an argument the model keeps writing into for tens
 of thousands of tokens, it is minutes in which the client receives nothing and
 has nothing to act on.
 
-With `tool_call_progress` the server sends what the model has written of the
-call while it is still being written, so a client can show it, measure it, and
-cancel the request when it has seen enough.
+With `tool_call_progress` the server sends the output it is holding back while
+it holds it, so a client can show it, measure it, and cancel the request when
+it has seen enough.
 
 <Note>
 This reports the call. It does not replace it. The parsed call still arrives
 in `message.tool_calls` exactly as it does without the option, and that is the
 only thing to execute.
 </Note>
+
+## One rule, every model
+
+The server knows nothing about how a particular model writes a tool call here.
+It applies one rule:
+
+> A step of the model's output for which the server delivered nothing (no
+> content, no thinking, no tool call) was held. Its raw text is reported.
+
+That is the same for every built-in parser, for a model whose template defines
+its tool calls, and for a model with no tools at all. What differs between
+models is only the notation of the text, and each step says which it is.
 
 ## Asking for it
 
@@ -36,50 +48,57 @@ Set `tool_call_progress` on a streamed `/api/chat` request:
 A server that supports it lists `tool_call_progress_v1` in the `features` of
 `GET /api/xollama`. A request that does not set the field gets the response it
 always got; so does a request with `"stream": false`, which has nobody to
-report to.
+report to. Asking adds chunks to the stream and changes none of the others.
 
 ## What arrives
 
-While a call is being written, chunks carry `message.tool_call_progress`:
+While output is held, chunks carry `message.tool_call_progress`:
 
 ```json
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"","tokens":1}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"<|tool_call>","tokens":1}},"done":false}
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"call:edit{intent:<|\"|>fix","tokens":2}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"call","tokens":2}},"done":false}
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":" the loop<|\"|>,","tokens":3}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":":edit{intent:<|\"|>fix","tokens":3}},"done":false}
 ```
 
-and the chunk that closes the call carries both the last step and the call:
+and the chunk that delivers the parsed call closes the run:
 
 ```json
 {"model":"gemma4:e4b","message":{"role":"assistant","content":"",
   "tool_calls":[{"id":"call_x","function":{"name":"edit","arguments":{"intent":"fix the loop","path":"a.go"}}}],
-  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"","tokens":6,"done":true}},"done":false}
+  "tool_call_progress":{"index":0,"syntax":"gemma4","text":"","tokens":9,"done":true}},"done":false}
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `index` | Which call of this response, from 0. |
-| `syntax` | How `text` is written: the name of the model's parser (`gemma4`, `qwen3.5`). |
-| `text` | The raw text added since the previous step of this call. |
-| `tokens` | The engine's output pieces this call has taken so far, its delimiters included. Close to its token count; not a tokenizer count. |
-| `done` | Present and `true` on the step that read the call's closing delimiter. |
+| `index` | Which run of held output in this response, from 0. A run ends when the server delivers something. |
+| `syntax` | How `text` is written: the name of the model's parser (`gemma4`, `qwen3.5`, `qwen3-coder`, ...), or `template` for a model without one. |
+| `text` | The raw output of one held step, exactly as the model wrote it, delimiters included. |
+| `tokens` | The held steps of this run so far. Close to its token count; not a tokenizer count. |
+| `done` | Present and `true`, with an empty `text`, on the chunk that delivers the tool calls the run was held for. |
 
 Things to rely on:
 
-- **`text` is the model's own notation, not JSON.** For `gemma4` a call reads
-  `call:NAME{key:<|"|>value<|"|>,...}`. Read it by `syntax`, and treat a
-  syntax you do not know as "no progress available" rather than guess.
-- `text` starts at the first character after the call's opening delimiter and
-  never contains a delimiter, whole or in part.
-- A step can end anywhere, in the middle of a token or of a multi-character
-  marker such as `<|"|>`. Concatenate the steps of one `index` before reading.
-- The first step of a call can have an empty `text`: it says the call has
-  opened.
-- A step can share its chunk with `content`, `thinking` or `tool_calls`.
-- A call the model never closes has no `done` step. The response's own
+- **`text` is the model's own notation.** For `gemma4` a call reads
+  `<|tool_call>call:NAME{key:<|"|>value<|"|>,...}`; for a `template` model it
+  is usually JSON. Read it by `syntax`, and treat a syntax you do not know as
+  "no progress available" rather than guess.
+- A step can end anywhere, in the middle of a token or of a marker such as
+  `<|"|>`. Concatenate the steps of one `index` before reading.
+- A step is reported once the next one arrives, so progress runs one step
+  behind the model.
+- A step for which the server delivered something is not reported. The step
+  that completes a call delivers the call, so the call's closing delimiter is
+  normally not in the text.
+- Arguments come in the order the model writes them, which need not be the
+  order of the tool's schema.
+- **Held output is not always a tool call.** A parser also holds a few
+  characters back while it decides whether they begin a tag. Such a run is
+  short and ends without `done`: the text then arrives as `content` or
+  `thinking` like any other. Only a run that ends with `done` was a call.
+- A call the model never closes has no `done`. The response's own
   `done_reason` says how it ended.
 
 ## Stopping a call
@@ -88,9 +107,8 @@ There is no server-side limit on a call or on any of its arguments: what is
 too long is the client's decision. To stop, close the connection. Generation
 ends with it, as for any cancelled request.
 
-## Which models
+## Where it applies
 
-Every model whose parser names the delimiters of its tool calls: today
-`gemma4` and `qwen3.5` (and `ornith`, which uses the same parser). Other
-models answer as before, with no progress chunks. The field is not part of the
-OpenAI- or Anthropic-compatible routes.
+Every model served through `/api/chat`, by the one rule above. It is not part
+of the OpenAI- or Anthropic-compatible routes, and a council model's turn does
+not report it.
