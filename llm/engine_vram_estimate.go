@@ -127,14 +127,14 @@ func kvLayoutOf(f *gguf.Model) kvLayout {
 		out.globalK += heads(i) * klen
 		out.globalV += heads(i) * vlen
 	}
-	if dState, dInner := uint64(kv.Uint("ssm.state_size")), uint64(kv.Uint("ssm.inner_size")); interval > 0 && dState > 0 && dInner > 0 {
+	if dState, dInner := kv.Uint("ssm.state_size"), kv.Uint("ssm.inner_size"); interval > 0 && dState > 0 && dInner > 0 {
 		for i := range layers {
 			if (i+1)%interval != 0 {
 				out.recurrent++
 			}
 		}
 		if conv := kv.Uint("ssm.conv_kernel"); conv > 1 {
-			out.stateR = uint64(conv-1) * (dInner + 2*uint64(kv.Uint("ssm.group_count"))*dState)
+			out.stateR = (conv - 1) * (dInner + 2*kv.Uint("ssm.group_count")*dState)
 		}
 		out.stateS = dState * dInner
 	}
