@@ -5,6 +5,16 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-13 — `dev` pins opencoti's c12 r2 (index `66f4b48c`, engine `2610131908001`): LFM2 with parallel requests no longer aborts; `v0.40.3-xollama.4` is being cut on it.**
+> - Why: opencoti mail #1274, 18:40: every engine on the 0.10.5 base (c11, c12 r1) wrote one slot's LFM2 recurrent state into another's (bf16 state, f32 offset). Two or more requests in flight abort the engine (`GGML_ASSERT`, `ggml.c:1962`) or answer one from a wrong state. `v0.40.3-xollama.3` and every release on c11 have it. Owner 19:07: "v0.40.3-xollama.4 will go with c12-2, I just gave the go". No workaround was put into xollama (opencoti #1277 asked for none).
+> - The pin: r2 = r1 + patch 0656, engine only (sha256 `9f2a67b1…`). Every library is the same file; the `cuda` and `vulkan` pins gain `gated-with 2610131908001`, the others differ in `rev`. Published 19:33 (mail #1278).
+> - Measured through xollama on solidPC, LFM2.5 1.2B BF16 on the CPU, `OLLAMA_NUM_PARALLEL=4`, four requests of different lengths in flight, five rounds (`/srv/ml/xc12/lfm/run.sh`): r1 answered 1 of 20, 16 assert lines in the log; r2 20 of 20, 0 asserts, the overlapped request identical to the one sent alone in 5 of 5 rounds. Alone 18.1 and 18.4 tok/s. The default (one slot) was not measured on r1.
+> - solidPC gate set on r2 (`/srv/ml/xc12/r2/linux-all.log`): G3 compat 8/8, `llama3` 77.6 tok/s, four slots 307.0, overflow 3.2; G4 decision 7/7 and chat paths all pass; G6 speech 8/8, video 2/2; G5 council PolyKV 4/4, no-PolyKV and idle pass; 0 crash lines, 0 foreign files.
+> - Mac mini, engine gate on r2 (`/srv/ml/xc12/r2/mac/mac-engine.out`): `qwen2.5:1.5b` 126.8 to 127.1 tok/s, `llama3` 31.6 to 32.1, `qwen3.5:2b` 63.2 to 63.6, speech 7 clips, 0 crash lines.
+> - Security snapshot: no delta (99 alerts as before, govulncheck 0 reachable).
+> - Not run before the pin: Windows (eleven2go is held by an automaticum batch; the release's install check runs there after a graceful stop, owner 19:10), the Pi, the images. They run on the release's bytes.
+> - Also this evening: opencoti asked for an opinion on the wire shape of c13 "generation notices" (mails #1276, #1280); answered in #1281 from the two stream readers in `llm/llama_server.go` (a key we choose, a top-level field, byte offsets in the raw text, one `notices` object). Nothing is built.
+>
 > **2026-10-13 — `v0.40.3-xollama.3` released and promoted (18:17): engine opencoti c12, Whistle and its speech detector, `REQUIRES` naming an xOllama release.**
 > - Owner 16:54: "yes cut v0.40.3-xollama.3 when c12 is published you have my go". PR #28, merge `fa15026e7`, release run 38422112222 (all six jobs), payload id `8169848b…` (changed with the engine: Windows updates from `.2` with the full installer). Hosted checks before the merge: test on three platforms, race on two, patches, scan, all pass. Security snapshot without a delta.
 > - Step 5: eight checksums OK, both Linux binaries name the version, image `mannixita/xollama:0.40.3-xollama.3` for amd64 and arm64.

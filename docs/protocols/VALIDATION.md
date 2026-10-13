@@ -189,6 +189,16 @@ the full installer over `0.40.1-xollama` exits 0 in 31 s; installed server
 the tag: 27.6 to 37.5 tok/s on a host loaded by other tenants (38.8 to 39.0
 unloaded, same engine), 0 crash lines.
 
+**The pin on opencoti's c12 r2** (2026-10-13, index `66f4b48c`, engine
+`2610131908001`, r1 + the LFM2 parallel-request fix, libraries unchanged).
+LFM2.5 1.2B on the CPU, four slots, four requests in flight, five rounds
+(`/srv/ml/xc12/lfm/run.sh`): r1 1 of 20 answered, r2 20 of 20 and the
+overlapped answer identical to alone. G3: compat 8/8, `llama3` 77.6 tok/s,
+four slots 307.0, overflow 3.2. G4 decision 7/7, chat paths all pass. G6
+speech 8/8, video 2/2. G5 council PolyKV 4/4, no-PolyKV and idle pass. G11
+engine on the Mac mini: `qwen2.5:1.5b` 126.8 to 127.1, `llama3` 31.6 to
+32.1, `qwen3.5:2b` 63.2 to 63.6, speech 7 clips.
+
 **`v0.40.3-xollama.3`** (2026-10-13, re-release, PR #28, merge `fa15026e7`,
 run 38422112222, engine c12 `2610130822001`, index `e05a2dab`; the full gate
 set ran on the dev snapshot below, whose libraries are the same files). On
