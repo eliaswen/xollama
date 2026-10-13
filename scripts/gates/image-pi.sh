@@ -31,6 +31,11 @@ W=$(echo "$tags" | grep -i whisper | head -1)
 for m in $(echo "$tags" | grep -i -E "kokoro|supertonic|kitten"); do f=out-gate/$(echo $m | tr '/:.' '___').mp3
   code=$(curl -s -o $f -w '%{http_code}' $H/v1/audio/speech -d "{\"model\":\"$m\",\"input\":\"The first ship came in at dawn.\"}")
   echo "  $m http=$code [$(file -b $f | cut -c1-30)] -> $(curl -s $H/v1/audio/transcriptions -F model="$W" -F file=@$f | cut -c1-120)"; done
-docker logs $N 2>&1 | grep -c -i "signal: \|unexpectedly\|panic" | sed 's/^/crash lines: /'
+# A crash line is an engine that died: not a server stopping its engine
+# ("stopped as asked"), nor a free-memory refresh whose listing was complete
+# (refreshed=N) when its caller stopped waiting and the helper was killed.
+crashes() { docker logs $N 2>&1 | grep -a -i "signal: \|unexpectedly\|panic" | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller\'; }
+crashes | grep -c "" | sed 's/^/crash lines: /'
+crashes | cut -c1-400 | sed 's/^/  crash: /'
 docker rm -f $N >/dev/null
 docker ps --format '{{.Names}}' | tr '\n' ' '; echo; curl -s --max-time 5 http://127.0.0.1:11434/api/version; echo; echo IMAGE-PI-DONE

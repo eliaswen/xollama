@@ -29,6 +29,8 @@ say mannix/outetts:0.3 "" oute.mp3
 say outetts-voices narrator oute_narrator.mp3
 say outetts-voices host oute_host.mp3
 grep -a -m1 "opencoti build" serve.log | cut -c1-160
-grep -a -c -i "signal: \\|unexpectedly\\|panic" serve.log | sed 's/^/crash lines: /'
+# Not a crash: a server stopping its engine, or a free-memory refresh whose
+# listing was complete when its caller stopped waiting (see image-x86.sh).
+grep -a -i "signal: \\|unexpectedly\\|panic" serve.log | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller' | grep -c "" | sed 's/^/crash lines: /'
 P=$(ss -ltnp | grep '127.0.0.1:22498 ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p'); [ -n "$P" ] && kill $P
 echo SPEECH-DONE
