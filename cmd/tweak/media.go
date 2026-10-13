@@ -482,6 +482,9 @@ func sttFields() []field {
 	}
 	defHelp := "\nApplied to every request that leaves it out."
 	rows := []field{
+		blobRow(k, "vad", "vad", "Speech detector",
+			"A voice-activity detector (--stt-vad-model), Silero in whisper.cpp's ggml form:\nsilence and noise give no text, and long audio is cut at pauses.\nNeeds an engine with audio_vad_v1 (opencoti c12).",
+			func(t *xollama.STTMedia) *string { return &t.VAD }),
 		k.row("threads", "threads", "Speech-to-text threads", "--stt-threads. Unset is the engine's default.", kindInt, nil,
 			func(t *xollama.STTMedia) string { return showInt(t.Threads) },
 			func(t *xollama.STTMedia, v string) error { return setInt(v, &t.Threads) }),

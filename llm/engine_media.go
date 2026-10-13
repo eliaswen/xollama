@@ -42,8 +42,11 @@ const (
 	FeatureImagesGenerate = "images_generate_v1"
 	FeatureImagesEdit     = "images_edit_v1"
 	FeatureTranscriptions = "audio_transcriptions_v1"
-	FeatureSpeech         = "audio_speech_v1"
-	FeatureVideos         = "videos_generate_v1"
+	// FeatureVAD is advertised by an engine started with a detector
+	// (--stt-vad-model, opencoti c12).
+	FeatureVAD    = "audio_vad_v1"
+	FeatureSpeech = "audio_speech_v1"
+	FeatureVideos = "videos_generate_v1"
 
 	// FeatureSpeechContentFormat is an audio.cpp that tells a model file's
 	// format by its contents, so it loads a blob path as it is (opencoti
@@ -133,6 +136,9 @@ func MediaFeatures(m *xollama.Media) []string {
 	}
 	if m.STT != nil {
 		out = append(out, FeatureTranscriptions)
+		if m.STT.VAD != "" {
+			out = append(out, FeatureVAD)
+		}
 	}
 	if t := m.TTS; t != nil {
 		out = append(out, FeatureSpeech)
@@ -261,6 +267,9 @@ func MediaArgs(m *xollama.Media, path func(digest string) string) []string {
 	}
 	if s := m.STT; s != nil {
 		a = append(a, "--stt-model", path(s.Model))
+		if s.VAD != "" {
+			a = append(a, "--stt-vad-model", path(s.VAD))
+		}
 		a = appendEngineCommon(a, "stt", s.MediaEngine)
 		if s.Threads > 0 {
 			a = append(a, "--stt-threads", strconv.Itoa(s.Threads))
