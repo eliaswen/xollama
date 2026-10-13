@@ -5,7 +5,18 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
-> **2026-10-13 — `dev` pins opencoti's c12 RELEASE (index `e05a2dab`, engine `2610130822001`); `v0.40.3-xollama.3` is being cut on it.**
+> **2026-10-13 — `v0.40.3-xollama.3` released and promoted (18:17): engine opencoti c12, Whistle and its speech detector, `REQUIRES` naming an xOllama release.**
+> - Owner 16:54: "yes cut v0.40.3-xollama.3 when c12 is published you have my go". PR #28, merge `fa15026e7`, release run 38422112222 (all six jobs), payload id `8169848b…` (changed with the engine: Windows updates from `.2` with the full installer). Hosted checks before the merge: test on three platforms, race on two, patches, scan, all pass. Security snapshot without a delta.
+> - Step 5: eight checksums OK, both Linux binaries name the version, image `mannixita/xollama:0.40.3-xollama.3` for amd64 and arm64.
+> - eleven2go (G9): full installer over `.2` exit 0 in 30 s, version and `PAYLOAD_ID` match, c12 engine and DLLs in `lib\ollama\engines`; 3090 CUDA 124.0 to 124.4 tok/s, 9070 XT Vulkan 100.0 to 102.6, iGPU 5.0 (first load 20.7 s), 37/37 layers each, display adapters OK; small installer exit 0 in 4 s, version unchanged; ollama on 11434 untouched.
+> - Mac mini (G11): the workflow's app and DMG notarised and stapled; `qwen2.5:1.5b` 124.2 to 128.5 tok/s, `llama3` 31.7 to 32.0, `qwen3.5:2b` 64.0 to 64.3; speech 7 clips (6 exact, the cloned narrator "shoot"); 0 crash lines. Self-update from `.2`: found, downloaded, checksum and bundle verified, applied by a hidden start, 127.7 to 128.1 tok/s after.
+> - Images (G10): amd64 on solidPC opencoti 85.6 to 85.9 tok/s, llama.cpp 86.0 to 86.3, speech 4/4, 0 crash lines; arm64 on the Pi 10.0 to 10.2 against 11.0 to 11.1, speech 3/3, 0 crash lines; both images removed.
+> - Promoted 18:17 (Discord announced); the image workflow re-run on the tag moves `:latest` (run 38429267850).
+> - Installed: eleven2go and the Mac mini run `.3` from their gates. solidPC's service and pandorum run `.2` (the owner's to ask for).
+> - spool cleanup the same afternoon (owner: "spool is almost full"): 94 GB freed in `spool/ml` (old sync and release work trees, 21 staged engines and their cache, the Bonsai upload staging and both solidPC service backups on his word); 183 GB free. The gate chat store keeps the only local copy of the big G3 models (117 GB unique).
+> - Left for after: the c12 readers (refused devices, `kv_reservation_idle`, memory plan, drafter state), the realtime proxy, the scheduler labelling a Whistle runner as CUDA, the `:dev` image CI run (refused by the permission system; the owner's to start).
+>
+> **2026-10-13 — `dev` pins opencoti's c12 RELEASE (index `e05a2dab`, engine `2610130822001`): the pin `v0.40.3-xollama.3` was cut on.**
 > - Owner 16:54: "yes cut v0.40.3-xollama.3 when c12 is published you have my go". opencoti published at 16:46 (owner to opencoti 16:42: "release c12"; mail #1264): index `e05a2dab348bb51c861d9efa27db76c846bf9ab1`, pins `631f4bc4`, payload `a4af4beb`, tag `llamafile-v0.10.5+opencoti.c12`.
 > - Against the dev snapshot gated the same afternoon (entry below): only the engine's bytes differ (`cd0a51b2…`, build id and channel; same source). Every library file has the sha256 of the snapshot's.
 > - Measured on the release bytes, solidPC 3090 (`/srv/ml/xc12/rel`): G3 compat 8/8, throughput 76.8 / 77.7 / 77.2 tok/s, four slots 308.0, Gemma 4 tool call and thinking, overflow 2.75 tok/s; decision 7/7 with 0 stock loads; chat paths all pass, 0 KV refusals; speech 8/8 transcribed back, 0 crash lines.
