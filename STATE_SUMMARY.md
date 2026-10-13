@@ -5,6 +5,13 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-13 — `v0.40.3-xollama.2` released and promoted (08:11): engine c11 r5, the macOS Qwen3.5 fix, the shared-memory eviction fix and errors instead of empty 200s.**
+> - PR #27, merge `a0a31476f`, release run 38350803795; payload id `e17ce289…` (changed with the engine: Windows updates with the full installer). Security snapshot without a delta.
+> - Gates, all passed, numbers in `docs/protocols/VALIDATION.md`: eleven2go (both installers; 3090 124.1 to 124.4 tok/s, 9070 XT 102.4 to 102.5), amd64 image on solidPC (83.1 to 83.7), arm64 image on the Pi (9.7 to 10.1), Mac mini (release build: `qwen3.5:2b` 64.8 tok/s sampled and greedy; three models: one eviction per over-full load, 0 compute errors; self-update from `.1`), chat paths 9 of 9.
+> - Seen, not blocking: the integrated GPU's first load on eleven2go took 35.0 s after the install (31.6 s inside the engine, 14.7 s the day before), not repeated; the image gate's crash counter matched a benign free-memory refresh line (its filter greps `signal: `).
+> - Installed: eleven2go and the Mac mini run `.2` from their gates. pandorum and solidPC's service still run `.1`.
+> - Next: opencoti's c12 dev snapshot (owner said yes, 06:26): readers for refused devices, idle KV reservation, memory plan, drafter state, the realtime proxy; Whistle and the Silero detector on the ollama library need a c12 engine and the owner's word on the form.
+>
 > **2026-10-13 — macOS: a load that does not fit beside the loaded models now evicts, the prediction counts the recurrent state, and an unload waits for the memory to return (`evict-last` hook; on `dev`, goes out with `v0.40.3-xollama.2`).**
 > - Owner 06:42: cut `.2`, "but first check the mac issue with multiple loaded models"; then: "build a proper detection logic for metal, it goes with the c11 r5 re-publish".
 > - Cause, ours: the 20% rule of `needsEviction` ("the engine keeps the rest in host memory") was applied on Apple silicon, where the GPU's memory is the host's. Mac mini (24 GiB, Metal budget 17.8 GiB): `qwen3.5:2b` + `qwen3.5:9b` resident, `mannix/omnimerge-v4-mtp:IQ2_M` predicted 10.8 GiB against 8.9 to 11.7 GiB free was started beside them; the engine placed 66/66 layers and every decode failed (`Compute error.`), and after it the two resident models failed too. mmap off alone is not it (solo with `use_mmap:false`: 256 tokens, 11 tok/s).

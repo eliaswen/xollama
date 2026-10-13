@@ -71,6 +71,38 @@ to 32.2, speech 7/7; MLX (`qwen3.5:2b-nvfp4`) 78.1 to 78.3. G10 on the tag:
 amd64 86.0 to 86.3 and 86.1 to 86.3, speech 4/4; arm64 10.1 against 10.9 to
 11.1, speech 3/3.
 
+**`v0.40.3-xollama.2`** (2026-10-13, re-release, PR #27, merge `a0a31476f`,
+release run 38350803795, image runs 38352123410 and, after the promotion,
+38355292043; payload id `e17ce289…`, changed: the engine moved to c11 r5
+`2610130541001`, so the update from `.1` is the full installer; also the
+`engine-stream-error` hook and the shared-memory half of `evict-last`). G2 on
+the PR: every hosted leg passed, the macOS test and race legs included (they
+run the two guards that skip on Linux). G4 chat paths 9 of 9 on r5, 0
+refusals. Security check without a delta. G9 on eleven2go: full installer exit
+0 in 28 s over `0.40.3-xollama.1`, version, `PAYLOAD_ID`, 22434,
+`/api/xollama`, the r5 engine in `engines`; `qwen3:8b` at 512 tokens: RTX
+3090 123.4 cold, 124.1 to 124.4 warm; RX 9070 XT 102.3 cold, 102.4 to 102.5
+warm; integrated 4.9, its first load after the install 35.0 s (31.6 s inside
+the engine; 14.7 s the day before, not measured a second time); ollama on
+11434 untouched; `xOllamaUpdate.exe` over it exit 0 in 4 s, a new server.
+G10: amd64 on solidPC, `llama3`, opencoti 83.1 to 83.7 tok/s, llama.cpp 82.0
+to 83.6, speech 4 of 4, one line counted as a crash that is not one (a
+free-memory refresh whose listing was complete, `refreshed=1`, killed when
+its caller stopped waiting); arm64 on the Pi 5 (47 °C to 74 °C), opencoti 9.7
+to 10.1, llama.cpp 10.6 to 10.9, speech 3 of 3, the owner's containers up;
+both hosts left without the image. G11 (`mac-ci.sh` on the release's own
+app, `bench.sh` with its content checks and greedy run): Gatekeeper, stapler
+and codesign OK, r5 on Metal, `qwen2.5:1.5b` 128.1 to 129.6, `llama3` 24.1
+to 32.0 (opencoti ran short engine jobs on the Mac in that window),
+`qwen3.5:2b` 64.7 to 64.8 sampled and greedy, no FAIL line, speech 7 clips;
+the three-model load (`qwen3.5:2b`, `qwen3.5:9b`, then
+`mannix/omnimerge-v4-mtp:IQ2_M`, predicted 12.0 GiB against 10.6 free): one
+eviction per load that does not fit, the 27B at 11.3 to 11.7 tok/s, both
+others answering before and after, 0 compute errors; `mac-update.sh`: the
+installed `0.40.3-xollama.1` updated itself, checksum and bundle verified,
+signed and stapled, `qwen2.5:1.5b` 128.1 to 128.3 tok/s. Promoted 08:11,
+announced on Discord.
+
 **`v0.40.3-xollama.1`** (2026-10-12, re-release, PR #25, merge `4a0596d02`,
 release run 38281727616, image runs 38283459629 and, after the promotion,
 38287601667; payload id `9303e9fc…`, unchanged; engine c11 r4
