@@ -5,11 +5,20 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-13 — engine pin moved to opencoti c11 r5 (engine `2610130541001`, bug-4048 fixed), measured on the Mac mini; on `dev`, not released.**
+> - opencoti mail #1221 (owner to opencoti 05:38: "yes c11 r5 to fix mac"): index `7b442d0b`, pins `15756eb9`, payload `c098ced8`. Only the engine's bytes move (r4 + patch 0648); the seven pin files are vendored byte-identical, cuda / vulkan / macos gain one `gated-with` line.
+> - Measured through xollama, the released `v0.40.3-xollama.1` payload with only the engine file replaced (`~/dev/xollama/r5`, `scripts/gates/bench.sh`: four sampled 512-token runs and one greedy per model): `qwen3.5:2b` 64.7 tok/s, `qwen3.5:9b` 26.2, `mannix/omnimerge-v4-mtp:IQ2_M` 9.8 to 10.8 loaded alone, every run real text and no engine exception; `qwen2.5:1.5b` 124 and `llama3` 31.9 as before. On r4 the same harness got an empty answer for every `qwen3.5:2b` request.
+> - Not measured here: Linux and Windows on r5 (opencoti: greedy text r5 == r4 on CUDA). That is the release's gate delta.
+> - Found on the way, open: with `qwen3.5:2b` and `qwen3.5:9b` still resident (7.6 GB) the 11.1 GB omnimerge was loaded beside them on the 24 GiB Mac and every decode failed (`graph_compute … failed with error -1`, `Compute error.`, `n_ctx_slot = 546`); alone it runs. Whether the load should have evicted is not established. Reported to opencoti.
+> - Also: a copy of the app bundle with a file changed inside does not start on macOS (the process sits in `_dyld_start`); test a swapped engine from a plain copy of `Contents/Resources`.
+> - The owner ruled the `engine-stream-error` hook stays opencoti-only ("no covering stock").
+> - Left: `v0.40.3-xollama.2` on the owner's word (its Windows payload id changes with the engine, so the full installer is the update).
+>
 > **2026-10-13 — an opencoti completion that fails mid-stream is now an error, not an empty 200 (`engine-stream-error` hook; found through bug-4048, fixed on `dev`, not released).**
 > - bug-4048 has two faces on the Mac mini (`0.40.3-xollama.1`, engine `2610111946001`, `qwen3.5:2b`): sampled, one token repeated to the limit at full speed (128 or 512 tokens, `done_reason: length`); greedy (temperature 0), the engine throws (`got exception: vector`, `srv send_error`). The second reached the client as `200` with `{"model":"","created_at":"0001-01-01T00:00:00Z",…,"done":false}`, or an empty body when streamed. That part is xollama's: upstream's completion loop in `llm/llama_server.go` never reads the engine's `{"error":…}` event (its chat loop does).
 > - Fix: `llm/engine_stream_error.go`, two marked lines in `Completion`, opencoti only (stock llama.cpp keeps upstream's reading, off means off). Measured on the Mac with the fixed binary in a copy of the released bundle, same engine: `/api/generate` and `/api/chat`, streamed and not, went from 200 with 75 / 96 / 0 / 0 bytes to 500 `an error was encountered while running the model: got exception: vector`; `qwen2.5:1.5b` unchanged (128 tokens). `go test ./llm/... ./server/...` and `golangci-lint` clean.
 > - Gate: `scripts/gates/bench.sh` now fails a run that returns an error, no tokens, or fewer than 20 different words, and adds one greedy run per model. The token-count check of 015d800fd alone passed the sampled form of bug-4048.
-> - The same upstream defect is still there on stock llama.cpp, on purpose. Whether to cover it too, or offer it upstream, is the owner's call.
+> - The same upstream defect is still there on stock llama.cpp, on purpose (owner, 06:17: no covering stock).
 > - Left: the engine fix itself (c11 r5, opencoti, owner approved 05:38); then the pin move and `v0.40.3-xollama.2` on the owner's word. pandorum already runs `0.40.3-xollama.1` (installed 2026-10-12 20:20; its server's sha256 is the release's).
 >
 > **2026-10-13 — bug-4048: on macOS every Qwen3.5-family model answers empty on the c11 engine, in every release since `v0.40.2-xollama` (opencoti mail #1213; reproduced here, not fixed).**
