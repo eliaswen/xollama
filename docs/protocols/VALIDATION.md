@@ -71,6 +71,32 @@ to 32.2, speech 7/7; MLX (`qwen3.5:2b-nvfp4`) 78.1 to 78.3. G10 on the tag:
 amd64 86.0 to 86.3 and 86.1 to 86.3, speech 4/4; arm64 10.1 against 10.9 to
 11.1, speech 3/3.
 
+**`v0.40.3-xollama.1`** (2026-10-12, re-release, PR #25, merge `4a0596d02`,
+release run 38281727616, image runs 38283459629 and, after the promotion,
+38287601667; payload id `9303e9fc…`, unchanged; engine c11 r4
+`2610111946001`, no pin move; Go-only delta: the `tool-call-progress` hook and
+documentation). G1 on `a39d4b5c2` clean (the MLX packages cannot run on
+solidPC). G2 13 pass, 7 skipping; the macOS test leg failed once on upstream's
+`TestSpinnerStopStopsAnimating` (`progress/`, untouched by the fork) and
+passed on rerun. G4 chat paths 9 of 9, 0 refusals, before and after the fix of
+the feature. Security check without a delta. G9 on eleven2go: full installer
+exit 0 in 27 s over `0.40.3-xollama`, version, `PAYLOAD_ID`, 22434,
+`/api/xollama`, four devices on opencoti; `qwen3:8b` at 512 tokens: RTX 3090
+123.5 cold, 124.7 to 124.9 warm; RX 9070 XT 102.6 cold, 102.9 to 103.0 warm;
+integrated 5.1; displays `OK`; ollama on 11434 untouched; `xOllamaUpdate.exe`
+over it exit 0 in 4 s, a new server. G10: amd64 on solidPC, `llama3`, opencoti
+85.1 to 85.7 tok/s, llama.cpp 85.0 to 85.8, speech 4 of 4; arm64 on the Pi 5
+(47 °C to 75 °C), opencoti 9.5 to 10.0, llama.cpp 10.8 to 11.0, speech 3 of
+3, the owner's containers up; both hosts left without the image. G11
+(`mac-ci.sh` on the release's own app): Gatekeeper, stapler and codesign OK,
+r4 on Metal, `qwen2.5:1.5b` 120.4 to 124.6 and `llama3` 28.8 to 30.7 with
+another engine process (not ours) running on the Mac at the time, speech 7
+clips answered, the `narrator` voice heard as "shoot" as before;
+`mac-update.sh`: the installed `0.40.3-xollama` updated itself, checksum and
+bundle verified, signed and stapled, `qwen2.5:1.5b` 127.1 to 127.3 tok/s. G12:
+8 files match `sha256sum.txt`, the amd64 binary names the version, image
+amd64 and arm64. Promoted 2026-10-12 19:57, Discord announced.
+
 **`v0.40.3-xollama`** (2026-10-11, cut `e43c43401`; the tree of
 `v0.40.3-rc.1.xollama`, short check). G12: 8 files match, payload id
 `9303e9fc…`. G9 short: `xOllamaUpdate.exe` over the candidate exit 0 in 4 s,
@@ -602,7 +628,13 @@ GPU, the stock ollama on 11434 untouched).
   `scripts/gates/speech-mac.sh`.
 - **Expected:** `SIGNED-BUILD-OK` and "The staple and validate action
   worked!"; the engine starts through its loader on Metal; tok/s within noise
-  of the baseline; every speech clip transcribed back.
+  of the baseline; no `FAIL: no tokens` line; every speech clip transcribed
+  back.
+- **Models:** `qwen2.5:1.5b`, `llama3` and, since 2026-10-13, `qwen3.5:2b`.
+  Until then no Qwen3.5-family model was run on the Mac, and c11 shipped in
+  three releases answering empty for all of them on Metal (bug-4048). One
+  model per architecture the engine has its own kernels for, not one per
+  size.
 - **Baseline:** bundle built, signed and notarized from `4db0bcedb` (7 minutes); the engine through `ape` on Metal ("metal: abi ggml 41ba479c24d7 matches this engine"); `qwen2.5:1.5b` 125.9 to 127.4 tok/s, 29/29 layers; `llama3` 31.3 to 31.7 tok/s, 33/33 layers (four 512-token runs each); speech 7 of 7 answered, 6 transcribed back exactly and the OuteTTS `narrator` voice as "The first shoot came in at dawn."; no crash line in the server log.
 
 ### G12. The published artifact

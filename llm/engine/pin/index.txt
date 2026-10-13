@@ -15,7 +15,24 @@
 # Moving a component is one line here plus its pin file, on a MEASUREMENT
 # (scripts/phase2-engine-ab.py, as the `ollama` user), never on a changelog.
 #
-# THIS PIN (2026-10-11, opencoti mail #1103; index a2a0a0d6, pins 4965d9c5,
+# THIS PIN (2026-10-13, opencoti mail #1221; index 7b442d0b, pins 15756eb9,
+# payload c098ced8): opencoti's c11 RELEASE, re-cut r5. Only the engine's
+# bytes differ from r4 (engine 2610130541001; every library is the same file,
+# its pin has the new payload commit and, for cuda, vulkan and macos, the r5
+# engine in `gated-with`). r5 = r4 + 0648 (bug-4048): on Metal, c11 handed
+# the recurrent op of the Gated Delta Net (Qwen3.5 / 3.6 / 3.8 and their
+# merges) raw gates its kernel has no activation code for. Sampled, such a
+# model repeated one token to the limit; greedy, the engine threw
+# `got exception: vector`. Every macOS release from v0.40.2-xollama to
+# v0.40.3-xollama.1 has it.
+# MEASURED through xollama on the Mac mini (M4, 24 GiB): the released
+# v0.40.3-xollama.1 payload with only the engine file replaced, four sampled
+# 512-token runs and one greedy run per model (scripts/gates/bench.sh).
+# r4: qwen3.5:2b fails every request. r5: qwen3.5:2b 64.7 tok/s, qwen3.5:9b
+# 26.2, mannix/omnimerge-v4-mtp:IQ2_M 9.8 to 10.8 (loaded alone), all five
+# runs each with real text; qwen2.5:1.5b 124 and llama3 31.9 unchanged.
+#
+# THE r4 PIN (2026-10-11, opencoti mail #1103; index a2a0a0d6, pins 4965d9c5,
 # payload f28ab19d): opencoti's c11 RELEASE, re-cut r4. Only the engine's
 # bytes differ from r2 (engine 2610111946001; every library is the same file,
 # its pin has the new payload commit and, for cuda and vulkan, the r3 and r4
@@ -57,10 +74,10 @@
 format   2
 channel  release
 tag      c11
-engine   pin/engine.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 ee6b9b9f429293f159b1d83a8386f060c8e4bc606ad69e67edd68490c5a10e01  version 2610111946001
-cuda     pin/cuda.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 f3d3f620b01eab0080f1a147c1a5e2b44428de65352b0553ff8d71922dfeaa4e  version 2610100758001
-cuda12   pin/cuda12.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 f19ee4f8f5866580b8c9216c798fe08c4d93860593cea531926f52b9c8bb6235  version 2610100758002
-sbsa     pin/sbsa.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 d8097ce364444fa42638fa144f3e3454d638f61977c71488f08749b492d8e9b5  version 2610100758003
-vulkan   pin/vulkan.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 7dd4d8d770bf8b4201e26970aa8b0b689de35b6cb8625190f1c48b2baf60824e  version 2610100032004
-macos    pin/macos.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 6fab08d16cd109a0263ab0549ea5d1b7b32fe4bd86d0e712776292f8cf1b7377  version 2610100032005
-media    pin/media.txt  rev 4965d9c5b4719a3c73beb302c59f951650b012d2  sha256 c21ea4c3138c0555831b6dc145e8c4978df7104be57060ac77fe1210fd22a471  version 2610071902001
+engine   pin/engine.txt  rev 15756eb9a35bb8ded347e8587fd710a52bfda7ce  sha256 07f099c5bebcac641bae64210e79c79466f20f06ac4d8632899433e44a1080c5  version 2610130541001
+cuda     pin/cuda.txt  rev 15756eb9a35bb8ded347e8587fd710a52bfda7ce  sha256 482c58b8efc67fe0aa9a589d95a00934678ad02918422d8bc23122b292775ecd  version 2610100758001
+cuda12   pin/cuda12.txt  rev 15756eb9a35bb8ded347e8587fd710a52bfda7ce  sha256 810302fac1c8fd24cf47bcd12bd4ab3a5f73b3d69592c0efab05836935166847  version 2610100758002
+sbsa     pin/sbsa.txt  rev 15756eb9a35bb8ded347e8587fd710a52bfda7ce  sha256 d66b137e2baddad4629f2807458c8d9f9693c1a2f6a993f282f7975a9a327826  version 2610100758003
+vulkan   pin/vulkan.txt  rev 15756eb9a35bb8ded347e8587fd710a52bfda7ce  sha256 651101f7c2883a3365e8e2df43494db19e8513fc7df1c462dab7ef225db9a7fa  version 2610100032004
+macos    pin/macos.txt  rev 15756eb9a35bb8ded347e8587fd710a52bfda7ce  sha256 d66a585c49981b94f8accc88b5f54bc6f0b8b9f70368e7deb72758771f539db6  version 2610100032005
+media    pin/media.txt  rev 15756eb9a35bb8ded347e8587fd710a52bfda7ce  sha256 4cf77d17a9d529655ec3a29f593b02c8baa507782ff105c801ca7c59d2d20227  version 2610071902001

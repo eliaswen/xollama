@@ -1593,6 +1593,9 @@ func (runner *runnerRef) needsReload(ctx context.Context, req *LlmRequest) bool 
 // will be notified when we're done waiting, or have timed out and should
 // proceed anyway
 func (s *Scheduler) waitForVRAMRecovery(runner *runnerRef, runners []ml.FilteredRunnerDiscovery) chan any {
+	if waiting := s.waitForHostMemory(runner); waiting != nil { // xollama-hook: evict-last
+		return waiting
+	}
 	finished := make(chan any, 1)
 
 	// CPU, Metal and iGPUs don't need checking, so no waiting required

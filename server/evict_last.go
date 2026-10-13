@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ollama/ollama/format"
 	"github.com/ollama/ollama/fs/gguf"
@@ -31,6 +33,12 @@ import (
 //     memory (the rolling window). Weights may go to host memory too, up to
 //     maxWeightsOffCardPercent of them; past that the load is slow enough that
 //     unloading an idle model is the better deal.
+//
+// None of that holds where the GPU's memory IS the host's (Apple silicon):
+// there is no other memory to keep the rest in. On the Mac mini (24 GiB,
+// 2026-10-13) a 10.8 GiB load was started beside two models with 8.9 GiB
+// free, under the 20% rule; the engine placed every layer and each decode
+// then failed ("Compute error."). There a load that does not fit whole evicts.
 
 // maxWeightsOffCardPercent is how much of a model's weights may be left to
 // host memory before a load evicts instead (owner, 2026-10-11).
@@ -49,7 +57,7 @@ func predictVRAM(req *LlmRequest, f *gguf.Model, gpus []ml.DeviceInfo, predicted
 		numBatch = llamaServerGenerationBatchDefault
 	}
 	return llm.PredictOpencotiVRAM(req.model.ModelPath, f, cfg, predictedCtx,
-		effectiveModelContext(req.opts.NumCtx, f, req.contextUnlocked(f, gpus)), numBatch, numParallel).Total()
+		effectiveModelContext(req.opts.NumCtx, f, req.contextUnlocked(f, gpus)), numBatch, numParallel, req.opts.DraftNumPredict).Total()
 }
 
 // needsEviction decides whether a load that has to share its GPUs evicts.
@@ -59,7 +67,16 @@ func needsEviction(req *LlmRequest, f *gguf.Model, loadGpus []ml.DeviceInfo, pre
 	if !llm.WouldUseOpencoti(llamaServerConfigForModel(req.model), loadGpus) {
 		return predicted > free*80/100
 	}
-	weights := llm.PredictOpencotiVRAM(req.model.ModelPath, f, llamaServerConfigForModel(req.model), 0, 0, 0, 1).Weights
+	if sharesHostMemory(loadGpus) {
+		if predicted > free {
+			slog.Info("the load does not fit beside the loaded models, and this GPU's memory is the host's",
+				"model", req.model.ShortName,
+				"predicted", format.HumanBytes2(predicted),
+				"available", format.HumanBytes2(free))
+		}
+		return predicted > free
+	}
+	weights := llm.PredictOpencotiVRAM(req.model.ModelPath, f, llamaServerConfigForModel(req.model), 0, 0, 0, 1, 0).Weights
 	onCard := weights * (100 - maxWeightsOffCardPercent) / 100
 	if free >= onCard {
 		if predicted > free {
@@ -76,6 +93,67 @@ func needsEviction(req *LlmRequest, f *gguf.Model, loadGpus []ml.DeviceInfo, pre
 		"weights", format.HumanBytes2(weights),
 		"available", format.HumanBytes2(free))
 	return true
+}
+
+// sharesHostMemory reports whether a load on these devices has no host memory
+// apart from them. It is discovery's own reading of the device (Integrated:
+// the one Metal device of an Apple silicon Mac, a Vulkan GPU the driver
+// reports as unified memory), the same one upstream caps at the system's free
+// memory in availableMemoryForLoad; a backend's name is not asked.
+func sharesHostMemory(gpus []ml.DeviceInfo) bool {
+	if len(gpus) == 0 {
+		return false
+	}
+	for _, g := range gpus {
+		if !g.Integrated {
+			return false
+		}
+	}
+	return true
+}
+
+// waitForHostMemory is waitForVRAMRecovery's answer for an opencoti runner on
+// memory shared with the host, nil for any other. Upstream does not wait
+// there, and the load that follows is judged against the system's free
+// memory, which lags the unload: on the Mac mini a 10.8 GiB runner was 22 ms
+// gone when the scheduler read 3.4 GiB free and evicted a second model for a
+// 3.6 GiB load. It waits until three quarters of the runner's memory is back,
+// upstream's measure on a card, or waitForRecovery has passed.
+func (s *Scheduler) waitForHostMemory(runner *runnerRef) chan any {
+	if runner == nil || len(runner.gpus) == 0 || runner.discreteGPUs || runner.vramSize == 0 {
+		return nil
+	}
+	if named, ok := runner.llama.(interface{ EngineName() string }); !ok || named.EngineName() != "opencoti" {
+		return nil
+	}
+	finished := make(chan any, 1)
+	before := s.getSystemInfoFn().FreeMemory
+	go func() {
+		start := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), s.waitForRecovery)
+		defer cancel()
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				now := s.getSystemInfoFn().FreeMemory
+				if now > before && (now-before) > runner.vramSize/4*3 {
+					slog.Debug("host memory is back after the unload", "seconds", time.Since(start).Seconds(),
+						"free_before", format.HumanBytes2(before), "free_now", format.HumanBytes2(now), "runner", runner)
+					finished <- struct{}{}
+					return
+				}
+			case <-ctx.Done():
+				slog.Info("host memory did not come back within the wait; the next load is judged on what is free now",
+					"seconds", time.Since(start).Seconds(), "free_before", format.HumanBytes2(before),
+					"free_now", format.HumanBytes2(s.getSystemInfoFn().FreeMemory), "runner", runner)
+				finished <- struct{}{}
+				return
+			}
+		}
+	}()
+	return finished
 }
 
 // gpuKey names a physical GPU: its PCI ID when discovery has one, so the CUDA

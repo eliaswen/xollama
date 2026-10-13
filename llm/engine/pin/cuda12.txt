@@ -3,7 +3,7 @@ component  cuda12
 version    2610100758002
 built-from 2610100940001
 repo       ManniX-ITA/opencoti-llamafile
-rev        f28ab19dc5f70ab5262848dfb9661a65db72f109
+rev        c098ced83631629efd56ac1372101fab4a441e2e
 abi        ggml ea73e6b2e6fba55c93a75ee8f3e5ba968e906eb20faf8746c792ead5c92f1285
 abi-source exported
 engine-min 2610100921001

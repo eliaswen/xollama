@@ -319,6 +319,18 @@ nothing.
 
 A load stock llama.cpp serves, or could serve on one of the backends the
 placement may pick, keeps upstream's prediction and upstream's 80 % rule, and
+Where the GPU's memory is the host's (discovery's `Integrated`: the Metal
+device of an Apple silicon Mac, a unified-memory Vulkan GPU) there is no host
+memory to keep the rest in, so the 20% rule does not apply: a load that does
+not fit whole beside the loaded models evicts (`sharesHostMemory`). On the Mac
+mini (24 GiB, 2026-10-13) a 10.8 GiB load was started beside two models and
+every decode of all three failed with `Compute error.`. The prediction also
+carries a hybrid model's recurrent state (`OpencotiVRAM.State`: 1197 MiB for
+a Qwen3.5-family 27B with its drafter at depth 3, the engine's own figure),
+and after such an unload the scheduler waits for the system's free memory to
+come back before it judges the next load (`waitForHostMemory`), or it would
+evict a second model on a stale reading.
+
 `XOLLAMA_ENGINE=llamacpp` changes nothing. Registry row `evict-last`. Guards:
 `llm/engine_vram_estimate_test.go` (the engine's figures to the MiB),
 `server/evict_last_test.go` (the same request loads on opencoti and evicts on
