@@ -2351,6 +2351,11 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 			if err := json.Unmarshal(evt, &lsResp); err != nil {
 				return fmt.Errorf("error unmarshalling llama-server response: %v", err)
 			}
+			// xollama-hook: engine-stream-error — opencoti's error event ends
+			// the completion as an error (llm/engine_stream_error.go).
+			if err := s.streamFailed(evt); err != nil {
+				return err
+			}
 
 			if lsResp.Content != "" {
 				evalCount++
@@ -2440,7 +2445,9 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 		return fmt.Errorf("error reading llama-server response: %v", err)
 	}
 
-	return nil
+	// xollama-hook: engine-stream-error — on opencoti a stream that ended
+	// without its final event is an error; nil on stock llama.cpp.
+	return s.streamUnfinished()
 }
 
 func llamaServerStreamLimitError(label string, err error) error {
