@@ -5,6 +5,14 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-13 — `dev` pins opencoti's c12 RELEASE (index `e05a2dab`, engine `2610130822001`); `v0.40.3-xollama.3` is being cut on it.**
+> - Owner 16:54: "yes cut v0.40.3-xollama.3 when c12 is published you have my go". opencoti published at 16:46 (owner to opencoti 16:42: "release c12"; mail #1264): index `e05a2dab348bb51c861d9efa27db76c846bf9ab1`, pins `631f4bc4`, payload `a4af4beb`, tag `llamafile-v0.10.5+opencoti.c12`.
+> - Against the dev snapshot gated the same afternoon (entry below): only the engine's bytes differ (`cd0a51b2…`, build id and channel; same source). Every library file has the sha256 of the snapshot's.
+> - Measured on the release bytes, solidPC 3090 (`/srv/ml/xc12/rel`): G3 compat 8/8, throughput 76.8 / 77.7 / 77.2 tok/s, four slots 308.0, Gemma 4 tool call and thinking, overflow 2.75 tok/s; decision 7/7 with 0 stock loads; chat paths all pass, 0 KV refusals; speech 8/8 transcribed back, 0 crash lines.
+> - Security check: no delta (99 Dependabot alerts, none on a line the fork changed; govulncheck 0 reachable).
+> - Docs: README and `docs/xollama/docker.mdx` name c12; the Whistle rows say `v0.40.3-xollama.3` or later.
+> - What `.3` carries beyond `.2`: the c12 engine; Whistle (`mannix/whistle`, `:vad`) and `media.stt.vad` (schema 9, `--stt-vad`); `REQUIRES` naming an xOllama release (`requires` hook); the gate script fixes.
+>
 > **2026-10-13 — `dev` pins opencoti's c12 dev snapshot (index `6c2489fa`, engine `2610130818001`); our gate set ran on it, every host: all pass, one flaky council check passed on re-run.**
 > - Owner 15:13: "run the gates" (to opencoti: "ask xollama to run the gates"; the c12 release waits for the results). eleven2go last, then freed at 15:43.
 > - Pin (`fd2af129e`): channel `dev`, tag `c12-dev`, `ManniX-ITA/opencoti-llamafile-dev`, pins `6e717ddc`, payload `4612b2ce`. New ggml ABI `bac5050d`: engine, cuda, cuda12, sbsa, vulkan and macos all moved; media is the c11 file set. Seven new feature rows (see `llm/engine/pin/index.txt`). A dev pin is never released: the release is cut on opencoti's c12 RELEASE index.
