@@ -15,7 +15,23 @@
 # Moving a component is one line here plus its pin file, on a MEASUREMENT
 # (scripts/phase2-engine-ab.py, as the `ollama` user), never on a changelog.
 #
-# THIS PIN (2026-10-13; index e05a2dab, pins 631f4bc4, payload a4af4beb):
+# THIS PIN (2026-10-13, opencoti mail #1278; index 66f4b48c, pins e5a60fbf,
+# payload 7ab4fd8d): opencoti's c12 RELEASE, re-cut r2 (same tag c12, git tag
+# llamafile-v0.10.5+opencoti.c12-r2). Only the engine's bytes differ from r1
+# (engine 2610131908001; every library is the same file, its pin has the new
+# payload commit and, for cuda and vulkan, the r2 engine in `gated-with`).
+# r2 = r1 + 0656: the recurrent state of LFM2 / LFM2.5 is stored as bf16 and
+# its write-back took the offset with the f32 size, so one slot wrote into
+# another's. With two or more requests in flight the engine aborted
+# (GGML_ASSERT, ggml.c:1962, every request lost) or answered one from a wrong
+# state. c11 and c12 r1 have it, so v0.40.3-xollama.3 and every release on
+# c11 do. Taken on the owner's word (19:07: "v0.40.3-xollama.4 will go with
+# c12-2").
+# MEASURED through xollama on solidPC (LFM2.5 1.2B BF16, CPU, four slots,
+# four requests of different lengths in flight, five rounds;
+# /srv/ml/xc12/lfm/run.sh): see STATE_SUMMARY.md, entry of this pin.
+#
+# THE c12 r1 PIN (2026-10-13; index e05a2dab, pins 631f4bc4, payload a4af4beb):
 # opencoti's c12 RELEASE (ManniX-ITA/opencoti-llamafile, tag
 # llamafile-v0.10.5+opencoti.c12). Engine 2610130822001: the release build
 # of the source the dev snapshot below was cut from (2610130818001). Every
@@ -101,10 +117,10 @@
 format   2
 channel  release
 tag      c12
-engine   pin/engine.txt  rev 631f4bc41a39386e8b235e3acfcb09499871cfce  sha256 04e0680cb18ae6c4b6aac008e0fb7b3c83c28af5216968c8fae2553bc502d133  version 2610130822001
-cuda     pin/cuda.txt  rev 631f4bc41a39386e8b235e3acfcb09499871cfce  sha256 eefe1cc0723d825351131eef7ff67e0e6ed7791d0ab298581fdb1842d2e5c28a  version 2610131352001
-cuda12   pin/cuda12.txt  rev 631f4bc41a39386e8b235e3acfcb09499871cfce  sha256 085833259452408f64cc503c42f54dd598398cfccbbd5c4f5474b749173fecce  version 2610131352002
-sbsa     pin/sbsa.txt  rev 631f4bc41a39386e8b235e3acfcb09499871cfce  sha256 274f7e5b95304888e9d2ab30f2e952d6525771868ac2f02849087bb0b2d97980  version 2610131352003
-vulkan   pin/vulkan.txt  rev 631f4bc41a39386e8b235e3acfcb09499871cfce  sha256 e5cafbc8505fcc6741f117e0979f24ed6d43ee5d557481bf47279be280eb1b26  version 2610131352004
-macos    pin/macos.txt  rev 631f4bc41a39386e8b235e3acfcb09499871cfce  sha256 336eaa933c5bb34067b3011422453ba0fd08f0129d357d8a51249eebb42ca97d  version 2610131352005
-media    pin/media.txt  rev 631f4bc41a39386e8b235e3acfcb09499871cfce  sha256 d076d2129dca0d395f038e0784211e050675573dbe79cd30044bfbf457aeb2d9  version 2610071902001
+engine   pin/engine.txt  rev e5a60fbf43685eb7fb6d0da688fb0faab01404b2  sha256 94610718e36c59bf4054cd40f0ca278ccaa5db7ad68b80e1c189b068f41600f8  version 2610131908001
+cuda     pin/cuda.txt  rev e5a60fbf43685eb7fb6d0da688fb0faab01404b2  sha256 8b38ce8b262f9afce7bf42b62d2bf6c7aac6ee78e56ff06bc0007f6201691649  version 2610131352001
+cuda12   pin/cuda12.txt  rev e5a60fbf43685eb7fb6d0da688fb0faab01404b2  sha256 eaca6500966743f212d8a5da9fe8eed46b970fec7884394fc39509cc21136e6e  version 2610131352002
+sbsa     pin/sbsa.txt  rev e5a60fbf43685eb7fb6d0da688fb0faab01404b2  sha256 cec3e76e0accb363541d3f83d58632c19a43900189d275a225e3a6c9a0848eca  version 2610131352003
+vulkan   pin/vulkan.txt  rev e5a60fbf43685eb7fb6d0da688fb0faab01404b2  sha256 52949cdcdd224d8aab1d82281fb6203909fa93cfae0f0e49378fd755e46878d0  version 2610131352004
+macos    pin/macos.txt  rev e5a60fbf43685eb7fb6d0da688fb0faab01404b2  sha256 281023b42ad35dc0c2f1e00d32e1c0c379e89895600f0409363da885bc19e88c  version 2610131352005
+media    pin/media.txt  rev e5a60fbf43685eb7fb6d0da688fb0faab01404b2  sha256 2b1d75db2cc3c09fb15b6ba68bc99eb291f4b43ea6db81745f5dcc752c5aff73  version 2610071902001
