@@ -189,6 +189,16 @@ the full installer over `0.40.1-xollama` exits 0 in 31 s; installed server
 the tag: 27.6 to 37.5 tok/s on a host loaded by other tenants (38.8 to 39.0
 unloaded, same engine), 0 crash lines.
 
+**`v0.40.3-xollama.4`** (2026-10-13, re-release, PR #29, merge `eab41e0ca`,
+run 38456705261, engine c12 r2 `2610131908001`, index `66f4b48c`; the solidPC
+gate set ran on the pin below). G12: 8 files match. G9: full installer over
+`.3` exit 0 in 28 s, 3090 123.9 to 124.0, 9070 XT 102.5, iGPU 4.9; small
+installer exit 0 in 4 s. G11 on the workflow's app: `qwen2.5:1.5b` 126.9 to
+128.8, `llama3` 31.6 to 31.9, `qwen3.5:2b` 61.7 to 63.4, speech 7 clips;
+self-update from `.3`, 126.5 to 127.0. G10 on the tag: amd64 85.8 to 85.9
+against 85.9 to 86.2, speech 4/4; arm64 10.0 to 10.1 against 10.8 to 11.0,
+speech 3/3. Promoted.
+
 **The pin on opencoti's c12 r2** (2026-10-13, index `66f4b48c`, engine
 `2610131908001`, r1 + the LFM2 parallel-request fix, libraries unchanged).
 LFM2.5 1.2B on the CPU, four slots, four requests in flight, five rounds

@@ -5,7 +5,17 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
-> **2026-10-13 — `dev` pins opencoti's c12 r2 (index `66f4b48c`, engine `2610131908001`): LFM2 with parallel requests no longer aborts; `v0.40.3-xollama.4` is being cut on it.**
+> **2026-10-13 — `v0.40.3-xollama.4` released and promoted (22:31): engine opencoti c12 r2, the LFM2 parallel-request fix.**
+> - Owner 19:07: "v0.40.3-xollama.4 will go with c12-2, I just gave the go". PR #29, merge `eab41e0ca`, release run 38456705261 (all six jobs), payload id `78e1061b…` (changed with the engine: Windows updates from `.3` with the full installer). Hosted checks before the merge: test on three platforms, race on two, patches, scan, all pass. Security snapshot without a delta.
+> - Step 5: eight checksums OK, both Linux binaries name the version, the image is there for amd64 and arm64 on both registries.
+> - eleven2go (G9), after automaticum stopped its batch gracefully on request (owner 19:10; free 21:16, handed back 22:15): full installer over `.3` exit 0 in 28 s, version and `PAYLOAD_ID` match, r2 engine in `lib\ollama\engines`; 3090 CUDA 123.9 to 124.0 tok/s, 9070 XT Vulkan 102.5, iGPU 4.9 (first load 21.7 s), 37/37 layers each, display adapters OK; small installer exit 0 in 4 s, version unchanged; ollama on 11434 untouched.
+> - Mac mini (G11): the workflow's app and DMG notarised and stapled; `qwen2.5:1.5b` 126.9 to 128.8 tok/s, `llama3` 31.6 to 31.9, `qwen3.5:2b` 61.7 to 63.4; speech 7 clips (6 exact, the cloned narrator "shoot"); 0 crash lines. Self-update from `.3`: found, downloaded, checksum and bundle verified, applied by a hidden start, 126.5 to 127.0 tok/s after.
+> - Images (G10): amd64 on solidPC opencoti 85.8 to 85.9 tok/s, llama.cpp 85.9 to 86.2, speech 4/4, 0 crash lines; arm64 on the Pi 10.0 to 10.1 against 10.8 to 11.0, speech 3/3, 0 crash lines; both images removed.
+> - Promoted 22:31 (Discord announced); the image workflow re-run on the tag moves `:latest` (run 38463503765).
+> - Installed: eleven2go and the Mac mini run `.4` from their gates. solidPC's service and pandorum run `.2` (the owner's to ask for).
+> - Not measured: the LFM2 case on Windows, macOS or in the images (solidPC CPU only, and opencoti on CPU and CUDA); the default of one slot on the old engine.
+>
+> **2026-10-13 — `dev` pins opencoti's c12 r2 (index `66f4b48c`, engine `2610131908001`): LFM2 with parallel requests no longer aborts; the pin `v0.40.3-xollama.4` was cut on.**
 > - Why: opencoti mail #1274, 18:40: every engine on the 0.10.5 base (c11, c12 r1) wrote one slot's LFM2 recurrent state into another's (bf16 state, f32 offset). Two or more requests in flight abort the engine (`GGML_ASSERT`, `ggml.c:1962`) or answer one from a wrong state. `v0.40.3-xollama.3` and every release on c11 have it. Owner 19:07: "v0.40.3-xollama.4 will go with c12-2, I just gave the go". No workaround was put into xollama (opencoti #1277 asked for none).
 > - The pin: r2 = r1 + patch 0656, engine only (sha256 `9f2a67b1…`). Every library is the same file; the `cuda` and `vulkan` pins gain `gated-with 2610131908001`, the others differ in `rev`. Published 19:33 (mail #1278).
 > - Measured through xollama on solidPC, LFM2.5 1.2B BF16 on the CPU, `OLLAMA_NUM_PARALLEL=4`, four requests of different lengths in flight, five rounds (`/srv/ml/xc12/lfm/run.sh`): r1 answered 1 of 20, 16 assert lines in the log; r2 20 of 20, 0 asserts, the overlapped request identical to the one sent alone in 5 of 5 rounds. Alone 18.1 and 18.4 tok/s. The default (one slot) was not measured on r1.
