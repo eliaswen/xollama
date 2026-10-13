@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -89,6 +90,47 @@ func TestALoadEvictsOnlyWhenItsWeightsDoNotFit(t *testing.T) {
 	want := llm.PredictServerVRAM(req.model.ModelPath, f, 4096) + slotCeilingVRAM(req, f, gpus, 1)
 	if got := predictVRAM(req, f, gpus, 4096, 1); got != want {
 		t.Errorf("with XOLLAMA_ENGINE=llamacpp the prediction is %d, upstream's is %d", got, want)
+	}
+}
+
+// On Apple silicon the GPU's memory is the host's, so nothing can be kept "in
+// host memory": a load that does not fit whole evicts. On the Mac mini a
+// 10.8 GiB load beside two models with 8.9 GiB free placed every layer and
+// then failed every decode (2026-10-13).
+func TestALoadThatDoesNotFitEvictsWhereTheGPUSharesHostMemory(t *testing.T) {
+	metal := ml.DeviceInfo{DeviceID: ml.DeviceID{ID: "0", Library: "Metal"}, Description: "Apple M4", Integrated: true, TotalMemory: 18 << 30, FreeMemory: 9 << 30}
+	cuda, vulkan := elevenCards()
+	if !sharesHostMemory([]ml.DeviceInfo{metal}) {
+		t.Fatal("Metal is not read as memory shared with the host")
+	}
+	if sharesHostMemory([]ml.DeviceInfo{cuda, vulkan}) || sharesHostMemory([]ml.DeviceInfo{metal, cuda}) || sharesHostMemory(nil) {
+		t.Fatal("a load with a discrete card, or with no GPU, is read as memory shared with the host")
+	}
+	igpu := vulkan
+	igpu.Integrated = true
+	if !sharesHostMemory([]ml.DeviceInfo{igpu}) {
+		t.Fatal("a unified-memory Vulkan GPU is not read as memory shared with the host")
+	}
+
+	t.Setenv("XOLLAMA_ENGINE", "")
+	gpus := []ml.DeviceInfo{metal}
+	if !llm.WouldUseOpencoti(llm.LlamaServerConfig{}, gpus) {
+		t.Skip("opencoti does not serve Metal on this platform; the decision is upstream's here")
+	}
+	ctx, done := context.WithTimeout(t.Context(), 5*time.Second)
+	defer done()
+	req := newScenarioRequest(t, ctx, "third-model", 10, nil, nil).req
+	f, err := llm.LoadModel(req.model.ModelPath, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The Mac mini's figures: the weights alone pass the 20% rule.
+	predicted, free := uint64(10800)<<20, uint64(8900)<<20
+	if !needsEviction(req, f, gpus, predicted, free) {
+		t.Error("a load that does not fit whole was started beside the loaded models")
+	}
+	if needsEviction(req, f, gpus, free, free) {
+		t.Error("evicted although the load fits whole")
 	}
 }
 
@@ -186,5 +228,58 @@ func TestSchedLoadsBesideALoadedModelWhenOnlyTheCacheIsShort(t *testing.T) {
 				t.Fatalf("placed on %v, want the 9070 XT", ids(placed))
 			}
 		})
+	}
+}
+
+type opencotiMock struct{ *mockLlm }
+
+func (opencotiMock) EngineName() string { return "opencoti" }
+
+// An unload on memory shared with the host is not over when the process is
+// gone: the system's free memory lags it. On the Mac mini the scheduler read
+// 3.4 GiB free 22 ms after a 10.8 GiB runner stopped and evicted a second
+// model for a 3.6 GiB load (2026-10-13).
+func TestAnUnloadOnSharedMemoryWaitsForTheHostsMemory(t *testing.T) {
+	s := InitScheduler(t.Context())
+	s.waitForRecovery = 2 * time.Second
+	var reads atomic.Int32
+	s.getSystemInfoFn = func() ml.SystemInfo {
+		// The first reading is the baseline; the memory is back at the fourth.
+		if reads.Add(1) < 4 {
+			return ml.SystemInfo{FreeMemory: 3 << 30}
+		}
+		return ml.SystemInfo{FreeMemory: 14 << 30}
+	}
+	metal := ml.DeviceID{ID: "0", Library: "Metal"}
+	shared := &runnerRef{llama: opencotiMock{&mockLlm{}}, gpus: []ml.DeviceID{metal}, vramSize: 10 << 30}
+
+	waiting := s.waitForHostMemory(shared)
+	if waiting == nil {
+		t.Fatal("no wait for an opencoti runner on shared memory")
+	}
+	select {
+	case <-waiting:
+		if reads.Load() < 4 {
+			t.Errorf("the wait ended after %d readings, before the memory was back", reads.Load())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("the wait did not end when the memory was back")
+	}
+
+	// Memory that never comes back ends the wait at waitForRecovery.
+	s.waitForRecovery = 120 * time.Millisecond
+	s.getSystemInfoFn = func() ml.SystemInfo { return ml.SystemInfo{FreeMemory: 3 << 30} }
+	select {
+	case <-s.waitForHostMemory(shared):
+	case <-time.After(2 * time.Second):
+		t.Fatal("the wait has no end")
+	}
+
+	// A card is upstream's wait, and so is stock llama.cpp anywhere.
+	if s.waitForHostMemory(&runnerRef{llama: opencotiMock{&mockLlm{}}, gpus: []ml.DeviceID{metal}, vramSize: 1, discreteGPUs: true}) != nil {
+		t.Error("a runner on a discrete card waits for host memory")
+	}
+	if s.waitForHostMemory(&runnerRef{llama: &mockLlm{}, gpus: []ml.DeviceID{metal}, vramSize: 1}) != nil {
+		t.Error("a stock llama.cpp runner waits for host memory: off means off")
 	}
 }

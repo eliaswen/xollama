@@ -67,7 +67,7 @@ func q8() LlamaServerConfig {
 // gives 26 GiB here, which is what evicted a model for it.
 func TestTheEstimateIsTheEnginesKVForAHybridModel(t *testing.T) {
 	f := loadTestGGUF(t, qwen35KV())
-	got := PredictOpencotiVRAM("", f, q8(), 128000, 128000, 512, 1)
+	got := PredictOpencotiVRAM("", f, q8(), 128000, 128000, 512, 1, 0)
 	if mib(got.KV) != 4250 {
 		t.Errorf("KV = %d MiB, the engine sized 4250", mib(got.KV))
 	}
@@ -80,7 +80,7 @@ func TestTheEstimateIsTheEnginesKVForAHybridModel(t *testing.T) {
 
 	off := q8()
 	off.DraftOff = true
-	if got := PredictOpencotiVRAM("", f, off, 128000, 128000, 512, 1); got.Drafter != 0 {
+	if got := PredictOpencotiVRAM("", f, off, 128000, 128000, 512, 1, 0); got.Drafter != 0 {
 		t.Errorf("drafter KV = %d MiB with the drafter off", mib(got.Drafter))
 	}
 }
@@ -92,7 +92,7 @@ func TestTheEstimateIsTheEnginesKVForASlidingWindowModel(t *testing.T) {
 	t.Setenv("XOLLAMA_DYNAMIC_SLOTS", "true")
 	t.Setenv("XOLLAMA_MAX_PARALLEL", "4")
 	f := loadTestGGUF(t, gemma4KV())
-	got := PredictOpencotiVRAM("", f, q8(), 96000, 96000, 1024, 1)
+	got := PredictOpencotiVRAM("", f, q8(), 96000, 96000, 1024, 1, 0)
 	if mib(got.KV) != 996 {
 		t.Errorf("KV = %d MiB, the engine sized 996", mib(got.KV))
 	}
@@ -109,7 +109,7 @@ func TestTheEstimateIsTheEnginesKVForASlidingWindowModel(t *testing.T) {
 func TestTheEstimatePricesTheCacheType(t *testing.T) {
 	f := loadTestGGUF(t, qwen35KV())
 	kv := func(cfg LlamaServerConfig) uint64 {
-		return mib(PredictOpencotiVRAM("", f, cfg, 128000, 128000, 512, 1).KV)
+		return mib(PredictOpencotiVRAM("", f, cfg, 128000, 128000, 512, 1, 0).KV)
 	}
 	t.Setenv("OLLAMA_KV_CACHE_TYPE", "")
 	t.Setenv("XOLLAMA_K_CACHE_TYPE", "")
@@ -141,5 +141,49 @@ func TestTheOpencotiEstimateNeedsEveryBackendOnOpencoti(t *testing.T) {
 	}
 	if EveryGroupOnOpencoti(LlamaServerConfig{}, nil) {
 		t.Error("a CPU load took the opencoti estimate")
+	}
+}
+
+// The engine's "llama_memory_recurrent: size =" on the Mac mini, four
+// sequences each: 38.53 MiB for Qwen3.5 2B, and 1197.00 MiB for the 27B with
+// its built-in drafter at depth 3 (four rows a sequence).
+func TestTheEstimateIsTheEnginesRecurrentState(t *testing.T) {
+	small := gguftest.KV{
+		"general.architecture":           "qwen35",
+		"qwen35.block_count":             uint32(24),
+		"qwen35.embedding_length":        uint32(2048),
+		"qwen35.attention.head_count":    uint32(8),
+		"qwen35.attention.head_count_kv": uint32(2),
+		"qwen35.full_attention_interval": uint32(4),
+		"qwen35.ssm.conv_kernel":         uint32(4),
+		"qwen35.ssm.group_count":         uint32(16),
+		"qwen35.ssm.inner_size":          uint32(2048),
+		"qwen35.ssm.state_size":          uint32(128),
+	}
+	big := qwen35KV()
+	big["qwen35.ssm.conv_kernel"] = uint32(4)
+	big["qwen35.ssm.group_count"] = uint32(16)
+	big["qwen35.ssm.inner_size"] = uint32(6144)
+	big["qwen35.ssm.state_size"] = uint32(128)
+
+	state := func(kv gguftest.KV, cfg LlamaServerConfig, depth int) float64 {
+		return float64(PredictOpencotiVRAM("", loadTestGGUF(t, kv), cfg, 4096, 4096, 512, 1, depth).State) / format.MebiByte
+	}
+	rows := float64(PredictOpencotiVRAM("", loadTestGGUF(t, small), LlamaServerConfig{}, 4096, 4096, 512, 1, 0).State) / (18 * (18432 + 262144) * 2)
+	if rows < 1 {
+		t.Fatalf("no row for a sequence: %v", rows)
+	}
+	// Per sequence: 38.53 / 4 and 1197.00 / 4.
+	if got, want := state(small, LlamaServerConfig{}, 3)/rows, 38.53/4; got < want-0.01 || got > want+0.01 {
+		t.Errorf("Qwen3.5 2B: %.2f MiB a sequence, the engine takes %.2f (a model without a drafter has no rollback rows)", got, want)
+	}
+	if got, want := state(big, LlamaServerConfig{}, 3)/rows, 1197.0/4; got < want-0.01 || got > want+0.01 {
+		t.Errorf("27B with its drafter at depth 3: %.2f MiB a sequence, the engine takes %.2f", got, want)
+	}
+	if got, want := state(big, LlamaServerConfig{DraftOff: true}, 3)/rows, 1197.0/16; got < want-0.01 || got > want+0.01 {
+		t.Errorf("27B with the drafter off: %.2f MiB a sequence, want %.2f", got, want)
+	}
+	if got := state(gemma4KV(), LlamaServerConfig{}, 3); got != 0 {
+		t.Errorf("a model with no recurrent block has %.2f MiB of state", got)
 	}
 }

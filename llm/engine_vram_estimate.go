@@ -23,6 +23,10 @@ import (
 //	qwen35 27B, q8_0, 128000 cells:  KV 4250 MiB, drafter KV 500 MiB
 //	gemma4 A4B, q8_0, 96000 cells:   KV 996 MiB, sliding-window KV 531 MiB
 //
+// and a hybrid model's recurrent state against three loads on the Mac mini
+// (2026-10-13, "llama_memory_recurrent: size ="): qwen3.5 2B 38.53 MiB, 9B
+// 100.50 MiB, and 1197.00 MiB for the 27B with its drafter at depth 3
+//
 // and each is read from the GGUF: which blocks keep a cache
 // (full_attention_interval, shared_kv_layers, nextn_predict_layers), its
 // heads per block (head_count_kv), the key and value widths (key_length,
@@ -68,6 +72,10 @@ type kvLayout struct {
 	swaK, swaV       uint64
 	draftK, draftV   uint64
 	window           int
+	// A hybrid model's recurrent blocks, and the values one row of their
+	// state holds (llama_hparams::n_embd_r and n_embd_s).
+	recurrent      int
+	stateR, stateS uint64
 }
 
 func kvLayoutOf(f *gguf.Model) kvLayout {
@@ -119,6 +127,17 @@ func kvLayoutOf(f *gguf.Model) kvLayout {
 		out.globalK += heads(i) * klen
 		out.globalV += heads(i) * vlen
 	}
+	if dState, dInner := uint64(kv.Uint("ssm.state_size")), uint64(kv.Uint("ssm.inner_size")); interval > 0 && dState > 0 && dInner > 0 {
+		for i := range layers {
+			if (i+1)%interval != 0 {
+				out.recurrent++
+			}
+		}
+		if conv := kv.Uint("ssm.conv_kernel"); conv > 1 {
+			out.stateR = uint64(conv-1) * (dInner + 2*uint64(kv.Uint("ssm.group_count"))*dState)
+		}
+		out.stateS = dState * dInner
+	}
 	out.draftK = uint64(nextn) * max(scalarHeads, 1) * klen
 	out.draftV = uint64(nextn) * max(scalarHeads, 1) * vlen
 	return out
@@ -130,16 +149,20 @@ type OpencotiVRAM struct {
 	KV      uint64 // the cache at the whole context, in the load's types
 	SWA     uint64 // the sliding-window cache, at the slot ceiling
 	Drafter uint64 // the NextN drafter's cache, f16
+	State   uint64 // a hybrid model's recurrent state, bf16
 	Reserve uint64 // compute buffers and runtime margin
 }
 
-func (v OpencotiVRAM) Total() uint64 { return v.Weights + v.KV + v.SWA + v.Drafter + v.Reserve }
+func (v OpencotiVRAM) Total() uint64 {
+	return v.Weights + v.KV + v.SWA + v.Drafter + v.State + v.Reserve
+}
 
 // PredictOpencotiVRAM predicts what opencoti takes for this load. numCtx is
 // the whole pool (num_ctx x num_parallel), numCtxSeq one sequence's context,
 // numBatch the ubatch and numParallel the live slot count, as the scheduler
-// settled them.
-func PredictOpencotiVRAM(modelPath string, f *gguf.Model, cfg LlamaServerConfig, numCtx, numCtxSeq, numBatch, numParallel int) OpencotiVRAM {
+// settled them; draftDepth is the draft length the launch passes
+// (--spec-draft-n-max), 0 for none.
+func PredictOpencotiVRAM(modelPath string, f *gguf.Model, cfg LlamaServerConfig, numCtx, numCtxSeq, numBatch, numParallel, draftDepth int) OpencotiVRAM {
 	out := OpencotiVRAM{Weights: modelFileSize(modelPath, f), Reserve: opencotiComputeReserve}
 	if f == nil || numCtx <= 0 {
 		return out
@@ -178,6 +201,18 @@ func PredictOpencotiVRAM(modelPath string, f *gguf.Model, cfg LlamaServerConfig,
 
 	if !cfg.DraftOff {
 		out.Drafter = bytes(layout.draftK+layout.draftV, 16000, numCtx)
+	}
+
+	if layout.recurrent > 0 {
+		// One row per sequence the context holds, and with a built-in
+		// drafter one more per draft step: the rollback ring. Priced in
+		// full: Metal allocates it so, a card commits it as it is used.
+		plan := resolveSlotPlan(cfg, numParallel, cfg.singleSequence(true))
+		rows := max(plan.concurrency(), councilLive(cfg, numParallel, true)) + resolvePoolCount(cfg) + max(cfg.CouncilPools, 0) + clientPoolSeats(cfg)
+		if layout.draftK > 0 && !cfg.DraftOff {
+			rows *= 1 + max(draftDepth, 0)
+		}
+		out.State = bytes(uint64(layout.recurrent)*(layout.stateR+layout.stateS), 16000, rows)
 	}
 	return out
 }
