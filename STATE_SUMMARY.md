@@ -5,6 +5,13 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-13 — bug-4048: on macOS every Qwen3.5-family model answers empty on the c11 engine, in every release since `v0.40.2-xollama` (opencoti mail #1213; reproduced here, not fixed).**
+> - Through the installed `0.40.3-xollama.1` on the Mac mini (engine `2610111946001`, Metal; `~/dev/xollama/mac4048.sh`): `qwen3.5:2b`, `qwen3.5:9b` and `mannix/omnimerge-v4-mtp:IQ2_M` return 0 tokens, empty content and no error; `qwen2.5:1.5b` and `gemma4:e4b` are fine. With `GGML_GDN_RAW_GATES_DISABLE=1` in the server's environment the three answer (256 / 233 / 203 tokens, 58.3 / 26.1 / 10.9 tok/s). Linux and Windows are not affected (opencoti's CUDA control).
+> - Cause (opencoti): c11 patch 0602 hands the recurrent op raw gates on Metal, whose kernel has no activation code. Fixed on their dev (0648, engine `2610130226001`, host-only), unpublished; a c11 r5 is the owner's decision.
+> - Why the gates missed it: G11 runs `qwen2.5:1.5b` and `llama3` only. A Qwen3.5-family model must be added to `mac-ci.sh` and `bench.sh`'s list before the next macOS check.
+> - Not done on purpose: setting the switch from xollama. An engine defect is fixed in the engine, and `llm/engine_defects.go` is diagnosis only. Asked of opencoti (#1219): an r5, or 0648 as a macOS-only artifact so the payload id of Windows does not move.
+> - Also answered in the same mail: what xollama takes for c12 (the five readers, `--memory-plan-only` as a check on the estimate, Whistle with the SSE form and the `/v1/realtime` proxy) and three shape requests.
+
 > **2026-10-12 — `v0.40.3-xollama.1` is released and Latest (PR #25, merge `4a0596d02`; owner 18:55: "I think it's time to release").**
 > - Carries over `v0.40.3-xollama`: `tool_call_progress_v1` with the brief-hold fix (`a39d4b5c2`) and the completed documentation. Engine, runtime and payload id unchanged, so an update takes `xOllamaUpdate.exe`.
 > - Gates and numbers: the `v0.40.3-xollama.1` paragraph of `docs/protocols/VALIDATION.md`. One hosted failure, upstream's `TestSpinnerStopStopsAnimating` on the macOS leg, passed on rerun. Promoted 19:57, Discord announced; the image workflow ran on the tag again for `:latest` (run 38287601667).
