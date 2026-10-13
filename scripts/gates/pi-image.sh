@@ -23,7 +23,7 @@ cat > ctx-$TAG/Dockerfile <<EOD
 FROM $BASE
 RUN rm -f /usr/lib/ollama/opencoti-* /usr/lib/ollama/oc-*.so /usr/lib/ollama/ggml-cuda-sbsa-* /usr/lib/ollama/BUILD_INFO*.md /usr/lib/ollama/engine-manifest.txt
 COPY engine/ /usr/lib/ollama/
-RUN chmod 755 /usr/lib/ollama/opencoti-llamafile-*
+RUN chmod 755 /usr/lib/ollama/opencoti-*
 EOD
 OLD=$(docker image inspect $I --format '{{.Id}}' 2>/dev/null)
 docker build -q -t $I ctx-$TAG || exit 1

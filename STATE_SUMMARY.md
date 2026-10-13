@@ -5,6 +5,15 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-13 — `dev` pins opencoti's c12 dev snapshot (index `6c2489fa`, engine `2610130818001`); gates in progress.**
+> - Owner 15:13: "run the gates" (and to opencoti: "ask xollama to run the gates"; the c12 release waits for the results). eleven2go last: he runs a test there.
+> - Pin: channel `dev`, tag `c12-dev`, `ManniX-ITA/opencoti-llamafile-dev`, pins `6e717ddc`, payload `4612b2ce`. New ggml ABI `bac5050d`: engine, cuda, cuda12, sbsa, vulkan and macos all moved; media is the c11 file set. Seven new feature rows (see `llm/engine/pin/index.txt`). A dev pin is never released: the release is cut on opencoti's c12 RELEASE index.
+> - Measured before the commit, solidPC 3090, G3 (`scripts/gates/engine-ab.sh`, `/srv/ml/xc12/run`): compat 8/8 loaded, throughput median 77.3 tok/s (c11 r4: 77.3), four slots 308.8 aggregate (307.4), Gemma 4 tool call and thinking separated, overflow (70B, 57% on the card) 3.4 tok/s (2.1). G4: decision 7/7, chat paths all pass, 0 KV refusals.
+> - Mac mini (`mac-engine.sh`, the tree's server in a copy of the installed app's Resources, new Metal library `54415d06`, ABI line "matches this engine"): `qwen2.5:1.5b` 126.4 to 126.9 tok/s, `llama3` 31.7 to 32.1, `qwen3.5:2b` 63.5 to 63.8 (r5: 64.7), speech 7 clips transcribed back, 0 crash lines. `mannix/whistle` and `:vad` through xollama: exact text, word times, "using metal backend"; a two-turn chat on `qwen3.5:2b` 64.4 / 66.1 tok/s; no abnormal-exit line at an engine stop.
+> - Found: the ollama registry enforces `REQUIRES` itself, against the client's version: a build stamped `0.0.0-gate` (the Mac gate's) got 412 "requires a newer version of Ollama" for the Whistle tags; `0.0.0` and released versions pull.
+> - `scripts/gates/pi-image.sh`: the engine's exec bit is set for `opencoti-*` (the dev artifact is not named `opencoti-llamafile-*`).
+> - Results of the remaining gates are added to this entry as they finish.
+>
 > **2026-10-13 — `REQUIRES` can name an xOllama release (`requires` hook); both Whistle tags re-pushed with `REQUIRES 0.40.3-xollama.3`; the Whistle card is with the other media cards.**
 > - Owner 10:15: "c12 will probably land on same v0.40.3 base. change what REQUIRES can express, we need it anyway, in multiple scenarios. update the model, nobody used it anyway", and a card for Whistle where the media cards are, for him to upload.
 > - Why it could not: upstream's `checkPullRequires` drops the running version's suffix before comparing, and the fork's whole version is that suffix. `REQUIRES 0.40.4` was refused on `0.40.3-xollama.2`, but nothing could ask for `-xollama.3` on the same base.
