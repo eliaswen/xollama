@@ -1432,6 +1432,10 @@ func checkPullRequires(requires, clientVersion string) error {
 	if requires == "" {
 		return nil
 	}
+	// xollama-hook: requires — a requirement naming an xOllama release
+	if handled, err := checkForkRequires(requires, clientVersion); handled {
+		return err
+	}
 	if clientVersion == "0.0.0" {
 		return nil
 	}

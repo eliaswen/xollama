@@ -13,6 +13,9 @@ import (
 // The models and their settings are the ones SurfSense's desktop app ships
 // and reviewed (surfsense_local/backend/scripts/local_manifest/entries.py at
 // 666bbb07), plus the OuteTTS pair opencoti's b97 engine was tested with.
+// requiresC12 is the first xOllama release on the opencoti c12 engine.
+const requiresC12 = "0.40.3-xollama.3"
+
 type Entry struct {
 	ID          string
 	Name        string
@@ -22,6 +25,10 @@ type Entry struct {
 	Description string
 	// Needs says what the engine must have for it, when b97 does not.
 	Needs string
+	// Requires is the first xOllama release that serves it, stamped on the
+	// model as its REQUIRES so an older release refuses it by name. Empty for
+	// an entry every release with media serves.
+	Requires string
 	// Template is the name the entry is published under on ollama.com, and
 	// Published says it is there: xollama pull Template gets the same model
 	// media create builds. The names are mannix/<family>:<size> (owner,
@@ -176,12 +183,14 @@ var catalog = []Entry{
 		ID: "whistle", Template: "mannix/whistle:latest", Published: true, Name: "Whistle", Kind: "stt", Family: "Whistle", License: "apache-2.0",
 		Description: "A 17 MB transcriber for English, German, French, Spanish, Italian, Dutch and Polish, with word times.",
 		Needs:       "opencoti c12",
+		Requires:    requiresC12,
 		Media:       xollama.Media{STT: whistle(false)},
 	},
 	{
 		ID: "whistle-vad", Template: "mannix/whistle:vad", Published: true, Name: "Whistle with the Silero detector", Kind: "stt", Family: "Whistle", License: "apache-2.0, mit",
 		Description: "Whistle behind Silero VAD v6.2.0: silence and noise give no text, and long audio is cut at pauses.",
 		Needs:       "opencoti c12",
+		Requires:    requiresC12,
 		Media:       xollama.Media{STT: whistle(true)},
 	},
 	{

@@ -228,3 +228,15 @@ from documentation. It is an opencoti extension, so a config that pins
 A model with no `xollama.json` produces no layer, leaves `Model.Xollama` nil, and
 takes every upstream path unchanged. The accessors on `LlamaServerConfig` are
 nil-tolerant because almost every model will have no config at all.
+
+## `REQUIRES` can name an xOllama release (`requires` hook)
+
+`REQUIRES` is upstream's field (`ConfigV2.Requires`), checked at pull by
+`checkPullRequires`, which drops the running version's suffix first. The fork's
+whole version is that suffix, so a requirement could not tell `-xollama.2` from
+`-xollama.3`. `server/xollama_requires.go`: a requirement whose prerelease
+names `xollama` is compared against the whole running version with plain
+semver, at pull and at load (`loadRequires`, chat and media). Upstream-form
+requirements are untouched. A catalog entry's `Requires`
+(`internal/mediahub/catalog.go`) is stamped by `xollama media create`; the
+Whistle entries state `requiresC12`.

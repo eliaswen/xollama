@@ -273,6 +273,10 @@ func (s *Server) scheduleRunnerForModel(ctx context.Context, m *Model, caps []mo
 		return nil, nil, nil, fmt.Errorf("'llama3.2-vision' is no longer compatible with your version of Ollama and has been replaced by a newer version. To re-download, run 'xollama pull llama3.2-vision'")
 	}
 
+	if err := loadRequires(m); err != nil { // xollama-hook: requires
+		return nil, nil, nil, err
+	}
+
 	if err := m.CheckCapabilities(caps...); err != nil {
 		return nil, nil, nil, fmt.Errorf("%s %w", m.Name, err)
 	}
@@ -4040,6 +4044,8 @@ func handleScheduleError(c *gin.Context, name string, err error) {
 	case errors.Is(err, errCapabilities), errors.Is(err, errRequired):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, manifest.ErrNoCompatibleManifest):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case errors.Is(err, errRequires): // xollama-hook: requires
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, context.Canceled):
 		c.JSON(499, gin.H{"error": "request canceled"})

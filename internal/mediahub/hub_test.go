@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/mod/semver"
+
 	"github.com/ollama/ollama/types/model"
 	"github.com/ollama/ollama/types/xollama"
 )
@@ -192,6 +194,26 @@ func TestEveryEntryHasItsOwnPublishedName(t *testing.T) {
 		// template off an engine without the switch (b97).
 		if e.Media.Image != nil && e.Media.Image.Edit != "" {
 			t.Errorf("%s states edit %q", e.ID, e.Media.Image.Edit)
+		}
+	}
+}
+
+// An entry the pinned release line cannot serve names the xOllama release
+// that can, in the form the server's REQUIRES check compares.
+func TestAnEntryThatNeedsALaterEngineNamesItsRelease(t *testing.T) {
+	for _, e := range Catalog() {
+		if e.Requires == "" {
+			continue
+		}
+		v := "v" + e.Requires
+		if !semver.IsValid(v) || !strings.Contains(semver.Prerelease(v), "xollama") {
+			t.Errorf("%s: requires %q does not name an xOllama release", e.ID, e.Requires)
+		}
+	}
+	for _, id := range []string{"whistle", "whistle-vad"} {
+		e, ok := Find(id)
+		if !ok || e.Requires == "" {
+			t.Errorf("%s states no release, and c11 cannot load it", id)
 		}
 	}
 }

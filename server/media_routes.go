@@ -158,6 +158,8 @@ func mediaRunnerError(c *gin.Context, err error, name string, kind model.Capabil
 		mediaError(c, http.StatusNotFound, fmt.Sprintf("model %q not found", name))
 	case errors.Is(err, errNoMedia):
 		mediaError(c, http.StatusBadRequest, fmt.Sprintf("model %q does not support %s", name, mediaKindName[kind]))
+	case errors.Is(err, errRequires):
+		mediaError(c, http.StatusBadRequest, err.Error())
 	case errors.Is(err, context.Canceled):
 	default:
 		mediaError(c, http.StatusInternalServerError, err.Error())
