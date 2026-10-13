@@ -176,6 +176,7 @@ settings mean is in the page each section links to.
 | Flag | Setting | Values | What it is | Server | Falls back to |
 |---|---|---|---|---|---|
 | `--stt` | `media.stt.model` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Speech-to-text model (/v1/audio/transcriptions) |  |  |
+| `--stt-vad` | `media.stt.vad` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Speech detector |  |  |
 | `--stt-threads` | `media.stt.threads` | N, unset | Speech-to-text threads |  |  |
 | `--stt-device` | `media.stt.device` | TEXT, @file, unset | Device for the speech-to-text engine |  |  |
 | `--stt-reserve` | `media.stt.reserve_mib` | N, unset | Memory set aside for the speech-to-text engine |  |  |
@@ -234,4 +235,4 @@ settings mean is in the page each section links to.
 | `--clear` | Remove the model's xollama config entirely (an attached drafter stays; `--drafter=none` detaches it) |
 | `-y`, `--yes` | Do not ask for confirmation before writing |
 
-141 settings. `xollama tweak model --help` prints the same list as your build has it.
+142 settings. `xollama tweak model --help` prints the same list as your build has it.

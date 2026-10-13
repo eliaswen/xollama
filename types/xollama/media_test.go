@@ -2,6 +2,7 @@ package xollama
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -239,5 +240,42 @@ func TestEachVoiceIsItsOwnLayerNamedByItsVoice(t *testing.T) {
 	m.TTS.Engine, m.TTS.Vocoder = "audiocpp", ""
 	if err := m.TTS.validate(); err == nil || !strings.Contains(err.Error(), "audiocpp") {
 		t.Fatalf("err = %v; audio.cpp takes no voice file and the engine refuses the boot", err)
+	}
+}
+
+// The detector is a component like the model, and a config that names one
+// says schema 9: an older build would transcribe without it.
+func TestTheSTTDetectorIsAComponentAndRaisesTheFloor(t *testing.T) {
+	plain := &Config{Media: &Media{STT: &STTMedia{Model: "sha256:" + strings.Repeat("a", 64)}}}
+	with := &Config{Media: &Media{STT: &STTMedia{Model: "sha256:" + strings.Repeat("a", 64), VAD: "sha256:" + strings.Repeat("b", 64)}}}
+	if got := plain.requiredVersion(); got != 7 {
+		t.Errorf("a transcriber without a detector needs schema %d, want 7", got)
+	}
+	if got := with.requiredVersion(); got != 9 {
+		t.Errorf("a transcriber with a detector needs schema %d, want 9", got)
+	}
+	var names []string
+	for _, c := range with.Media.Components() {
+		names = append(names, c.Name)
+	}
+	if want := []string{MediaLayerName("stt", "model"), MediaLayerName("stt", "vad")}; !slices.Equal(names, want) {
+		t.Errorf("components %v, want %v", names, want)
+	}
+	data, err := with.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := Parse(data)
+	if err != nil || back.Media.STT.VAD != with.Media.STT.VAD {
+		t.Fatalf("the detector did not survive a round trip: %v", err)
+	}
+	// A detector alone is not pruned away as an empty block, and it is refused.
+	m := &Media{STT: &STTMedia{VAD: "sha256:" + strings.Repeat("b", 64)}}
+	m.Prune()
+	if m.STT == nil {
+		t.Fatal("a block that states a detector was pruned as empty")
+	}
+	if err := (&Config{Version: SchemaVersion, Media: m}).Validate(); err == nil {
+		t.Error("a detector without a model was accepted")
 	}
 }

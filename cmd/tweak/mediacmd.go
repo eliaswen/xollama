@@ -270,7 +270,7 @@ func runMediaCreate(ctx context.Context, client *api.Client, out io.Writer, args
 	if err := uploadMedia(ctx, client, stamped, out); err != nil {
 		return err
 	}
-	req := &api.CreateRequest{Model: name, From: from, Xollama: stamped}
+	req := &api.CreateRequest{Model: name, From: from, Xollama: stamped, Requires: entry.Requires}
 	if err := client.Create(ctx, req, func(p api.ProgressResponse) error {
 		if p.Status == "success" {
 			fmt.Fprintf(out, "   success\n")

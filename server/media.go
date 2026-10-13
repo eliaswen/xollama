@@ -136,6 +136,9 @@ func (s *Server) mediaRunner(ctx context.Context, name string, kind model.Capabi
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := loadRequires(m); err != nil {
+		return nil, nil, err
+	}
 	has := false
 	for _, c := range mediaCapabilities(m) {
 		if c == kind {

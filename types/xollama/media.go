@@ -79,6 +79,11 @@ type ImageDefaults struct {
 type STTMedia struct {
 	// Model is a transcribe.cpp GGUF or a whisper.cpp ggml-*.bin. Required.
 	Model string `json:"model"`
+	// VAD is a voice-activity detector (Silero, in whisper.cpp's ggml
+	// form): the engine transcribes only what it hears as speech and cuts
+	// long audio at pauses. Optional; an engine without `audio_vad_v1` is
+	// refused at load. It raises the schema floor to 9.
+	VAD string `json:"vad,omitempty"`
 	// Threads is --stt-threads. Zero is the engine's default.
 	Threads int `json:"threads,omitempty"`
 	MediaEngine
@@ -230,6 +235,7 @@ func (m *Media) Components() []MediaComponent {
 	}
 	if s := m.STT; s != nil {
 		add("stt", "model", s.Model)
+		add("stt", "vad", s.VAD)
 	}
 	if t := m.TTS; t != nil {
 		add("tts", "model", t.Model)
@@ -666,7 +672,7 @@ func (m *Media) Prune() *Media {
 		if s.Defaults != nil && *s.Defaults == (STTDefaults{}) {
 			s.Defaults = nil
 		}
-		if s.Model == "" && s.Threads == 0 && s.MediaEngine.isZero() && s.Defaults == nil {
+		if s.Model == "" && s.VAD == "" && s.Threads == 0 && s.MediaEngine.isZero() && s.Defaults == nil {
 			m.STT = nil
 		}
 	}
@@ -717,6 +723,7 @@ func (m *Media) MapComponents(f func(string) string) {
 	}
 	if s := m.STT; s != nil {
 		set(&s.Model)
+		set(&s.VAD)
 	}
 	if t := m.TTS; t != nil {
 		set(&t.Model)

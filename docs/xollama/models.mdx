@@ -23,12 +23,40 @@ routes. Stock Ollama can pull them but cannot run them. Setup and examples:
 | [`mannix/flux2-klein`](https://ollama.com/mannix/flux2-klein) | Image generation and edit, 1024×1024 in four steps |
 | [`mannix/z-image`](https://ollama.com/mannix/z-image) | Image generation, 1024×1024 in eight steps |
 | [`mannix/whisper`](https://ollama.com/mannix/whisper) | Transcription in 99 languages, translation to English |
+| [`mannix/whistle`](https://ollama.com/mannix/whistle) | A 17 MB transcriber for seven languages with word times, on the CPU; `:vad` adds the Silero speech detector. Needs `v0.40.3-xollama.3` or later (the opencoti c12 engine); the tags state it as `REQUIRES 0.40.3-xollama.3` |
 | [`mannix/kokoro`](https://ollama.com/mannix/kokoro) | Speech, 54 voices |
 | [`mannix/supertonic`](https://ollama.com/mannix/supertonic) | Speech, ten voices in 31 languages |
 | [`mannix/kittentts`](https://ollama.com/mannix/kittentts) | Speech, eight English voices |
 | [`mannix/outetts`](https://ollama.com/mannix/outetts) | Speech, OuteTTS with its vocoder |
 | [`mannix/wan2.1`](https://ollama.com/mannix/wan2.1) | Video from text |
 | [`mannix/wan2.2`](https://ollama.com/mannix/wan2.2) | Video from text or an image |
+
+## A model that needs a later xOllama
+
+A Modelfile's `REQUIRES` states the oldest version that can run the model, and a
+pull by an older one is refused before anything is downloaded. In xOllama it can
+name an xOllama release, not only an upstream version:
+
+```
+REQUIRES 0.40.3-xollama.3
+```
+
+Releases are ordered as their names read: a candidate (`0.40.3-rc.1.xollama`),
+then the release (`0.40.3-xollama`), then its re-releases by number
+(`0.40.3-xollama.1`, `.2`, … `.10`), and any release on a later upstream version
+after all of them. A model that states an xOllama release is also refused when it
+is loaded, so one that reached the store another way (created there, or copied
+in) is answered by name:
+
+```
+model requires a newer xollama: v0.40.3-xollama.3 or later (this is v0.40.3-xollama.2)
+```
+
+A plain upstream version (`REQUIRES 0.40.3`) keeps upstream's meaning: any
+xOllama built on that version or a later one passes, and it is checked at pull
+only. Builds without a version (a local `go build`) pass every requirement.
+Releases up to `v0.40.3-xollama.2` do not know the xOllama form and let such a
+model through; the engine's own error is what they report.
 
 ## Ternary Bonsai 2 27B
 

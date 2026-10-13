@@ -13,6 +13,9 @@ import (
 // The models and their settings are the ones SurfSense's desktop app ships
 // and reviewed (surfsense_local/backend/scripts/local_manifest/entries.py at
 // 666bbb07), plus the OuteTTS pair opencoti's b97 engine was tested with.
+// requiresC12 is the first xOllama release on the opencoti c12 engine.
+const requiresC12 = "0.40.3-xollama.3"
+
 type Entry struct {
 	ID          string
 	Name        string
@@ -22,6 +25,10 @@ type Entry struct {
 	Description string
 	// Needs says what the engine must have for it, when b97 does not.
 	Needs string
+	// Requires is the first xOllama release that serves it, stamped on the
+	// model as its REQUIRES so an older release refuses it by name. Empty for
+	// an entry every release with media serves.
+	Requires string
 	// Template is the name the entry is published under on ollama.com, and
 	// Published says it is there: xollama pull Template gets the same model
 	// media create builds. The names are mannix/<family>:<size> (owner,
@@ -77,6 +84,20 @@ func whisper() *xollama.STTMedia {
 		Model:    "hf.co/ggerganov/whisper.cpp/ggml-large-v3-turbo-q8_0.bin",
 		Defaults: &xollama.STTDefaults{ResponseFormat: "json"},
 	}
+}
+
+// whistle is Cactus Compute's 17 MB streaming transcriber. It needs an engine
+// with the `whistle` architecture (opencoti c12); vad adds the Silero
+// detector the engine was gated with.
+func whistle(vad bool) *xollama.STTMedia {
+	m := &xollama.STTMedia{
+		Model:    "hf.co/ManniX-ITA/whistle-GGUF/whistle.gguf",
+		Defaults: &xollama.STTDefaults{ResponseFormat: "json"},
+	}
+	if vad {
+		m.VAD = "hf.co/ManniX-ITA/whistle-GGUF/ggml-silero-v6.2.0.bin"
+	}
+	return m
 }
 
 func kokoro() *xollama.TTSMedia {
@@ -157,6 +178,20 @@ var catalog = []Entry{
 		ID: "whisper-large-v3-turbo", Template: "mannix/whisper:large-v3-turbo", Published: true, Name: "Whisper large-v3 turbo", Kind: "stt", Family: "Whisper", License: "mit",
 		Description: "Transcription in 99 languages, and translation to English.",
 		Media:       xollama.Media{STT: whisper()},
+	},
+	{
+		ID: "whistle", Template: "mannix/whistle:latest", Published: true, Name: "Whistle", Kind: "stt", Family: "Whistle", License: "apache-2.0",
+		Description: "A 17 MB transcriber for English, German, French, Spanish, Italian, Dutch and Polish, with word times.",
+		Needs:       "opencoti c12",
+		Requires:    requiresC12,
+		Media:       xollama.Media{STT: whistle(false)},
+	},
+	{
+		ID: "whistle-vad", Template: "mannix/whistle:vad", Published: true, Name: "Whistle with the Silero detector", Kind: "stt", Family: "Whistle", License: "apache-2.0, mit",
+		Description: "Whistle behind Silero VAD v6.2.0: silence and noise give no text, and long audio is cut at pauses.",
+		Needs:       "opencoti c12",
+		Requires:    requiresC12,
+		Media:       xollama.Media{STT: whistle(true)},
 	},
 	{
 		ID: "outetts-0.3-500m", Template: "mannix/outetts:0.3", Published: true, Name: "OuteTTS 0.3 500M", Kind: "tts", Family: "OuteTTS", License: "cc-by-sa-4.0",

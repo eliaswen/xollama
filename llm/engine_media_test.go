@@ -59,6 +59,19 @@ func TestSpeechAndTranscriptionArgs(t *testing.T) {
 	if got := strings.Join(MediaArgs(stt, blob), " "); got != "--stt-model /blobs/aa --stt-device CPU --stt-threads 4" {
 		t.Fatalf("stt: %s", got)
 	}
+	// A detector is the engine's --stt-vad-model, and an engine that does not
+	// advertise it is refused at load: without it silence becomes words.
+	stt.STT.VAD = d('b')
+	if got := strings.Join(MediaArgs(stt, blob), " "); got != "--stt-model /blobs/aa --stt-vad-model /blobs/bb --stt-device CPU --stt-threads 4" {
+		t.Fatalf("stt with a detector: %s", got)
+	}
+	if got := strings.Join(MediaFeatures(stt), ","); got != "audio_transcriptions_v1,audio_vad_v1" {
+		t.Fatalf("features with a detector: %s", got)
+	}
+	stt.STT.VAD = ""
+	if got := strings.Join(MediaFeatures(stt), ","); got != "audio_transcriptions_v1" {
+		t.Fatalf("features without a detector: %s", got)
+	}
 }
 
 func TestVideoArgs(t *testing.T) {

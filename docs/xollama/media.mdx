@@ -44,6 +44,8 @@ and pull like any model:
 | [`mannix/flux2-klein:4b`](https://ollama.com/mannix/flux2-klein) | Image generation and edits, 1024×1024 in four steps |
 | [`mannix/z-image:turbo`](https://ollama.com/mannix/z-image) | Photographic image generation in eight steps |
 | [`mannix/whisper:large-v3-turbo`](https://ollama.com/mannix/whisper) | Transcription in 99 languages, and translation to English |
+| [`mannix/whistle`](https://ollama.com/mannix/whistle) | Whistle: 17 MB, English, German, French, Spanish, Italian, Dutch and Polish, word times, on the CPU. Needs `v0.40.3-xollama.3` or later, the first release on the opencoti c12 engine (`REQUIRES 0.40.3-xollama.3`) |
+| [`mannix/whistle:vad`](https://ollama.com/mannix/whistle) | Whistle behind the Silero speech detector: silence, music and noise give no text, and long audio is cut at pauses |
 | [`mannix/outetts:0.3`](https://ollama.com/mannix/outetts) | Speech, OuteTTS with the WavTokenizer vocoder |
 | [`mannix/kokoro:82m`](https://ollama.com/mannix/kokoro) | Speech, 54 voices, mp3 at 24 kHz (audio.cpp, on the CPU) |
 | [`mannix/supertonic:3`, `:3-q8_0`](https://ollama.com/mannix/supertonic) | Speech, ten voices in 31 languages, mp3 at 44.1 kHz (audio.cpp, on the CPU) |
@@ -120,7 +122,7 @@ What each kind needs:
 | Kind | Files | Flags |
 |---|---|---|
 | Image | The diffusion model, its VAE and its text encoder | `--image`, `--image-vae`, `--image-llm` |
-| Speech to text | One whisper.cpp model | `--stt` |
+| Speech to text | One whisper.cpp or transcribe.cpp model; optionally a speech detector (Silero, on the opencoti c12 engine) | `--stt`, `--stt-vad` |
 | Text to speech | OuteTTS: the model and its vocoder. Kokoro, Supertonic, KittenTTS: one file and `--tts-engine=audiocpp` | `--tts`, `--tts-vocoder`, `--tts-engine` |
 | Video | The diffusion model, its VAE and its text encoder | `--video`, `--video-vae`, `--video-text-encoder` |
 

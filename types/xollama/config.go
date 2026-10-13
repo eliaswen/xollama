@@ -33,7 +33,7 @@ const MediaTypeImageJSON = "application/vnd.ollama.image.json"
 
 // SchemaVersion is the newest schema this build can read. It is NOT
 // necessarily what it writes: see requiredVersion.
-const SchemaVersion = 8
+const SchemaVersion = 9
 
 // SchemaVersionBase is the version that expresses everything except the fields
 // added in v2 (kv.unified, kv.residency_mode), v3 (devices) and v4 (council).
@@ -512,6 +512,12 @@ func (c *Config) requiredVersion() int {
 	// a model whose publisher turned drafting off, or set another length.
 	// draft.head raises nothing: the head is an upstream DRAFT layer, which
 	// every build loads.
+	// An older build would start the model without its detector and write
+	// words for silence and noise, which is what the publisher attached the
+	// detector against.
+	if c.Media != nil && c.Media.STT != nil && c.Media.STT.VAD != "" {
+		return 9
+	}
 	if c.Draft != nil && c.Draft.Tokens != nil {
 		return 8
 	}
