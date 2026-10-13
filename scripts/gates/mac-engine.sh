@@ -24,7 +24,7 @@ rm -rf res/engines; mkdir res/engines; cp stage/* res/engines/; cp xollama-gate 
 ls res/engines | grep -E "opencoti|ape-|ggml-metal|oc-" | tr '\n' ' '; echo
 (XOLLAMA_HOST=$H XOLLAMA_ENGINE_PATH=$D/res/engines/$eng OLLAMA_DEBUG=1 nohup ./res/xollama serve > serve.log 2>&1 &)
 for i in $(seq 60); do curl -s -m 2 http://$H/api/version && break; sleep 0.5; done; echo
-H=$H "$G/bench.sh" qwen2.5:1.5b llama3:latest
+H=$H "$G/bench.sh" qwen2.5:1.5b llama3:latest qwen3.5:2b
 grep -a -E "using opencoti|falling back" serve.log | cut -c1-220 | sort | uniq -c | tail -3
 grep -a -q -E "falling back|no stock llama-server on this platform" serve.log && echo "FAIL: a load did not get opencoti (macOS has no stock llama-server)"
 grep -a -E "opencoti build|offloaded [0-9]+/[0-9]+|abi " serve.log | cut -c1-200 | sort -u | head -8

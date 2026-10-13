@@ -20,7 +20,9 @@ XOLLAMA_HOST=127.0.0.1:22498 OLLAMA_DEBUG=1 nohup $B/xollama serve > ../ci-serve
 SP=$!
 for i in $(seq 60); do curl -s --max-time 2 http://127.0.0.1:22498/api/version && break; sleep 0.5; done; echo
 cd ~/dev/xollama
-H=127.0.0.1:22498 ./bench.sh qwen2.5:1.5b llama3:latest
+# qwen3.5:2b is the Gated Delta Net architecture (Qwen 3.5 / 3.6 / 3.8): the
+# one that answered empty on Metal with c11 while these two were fine.
+H=127.0.0.1:22498 ./bench.sh qwen2.5:1.5b llama3:latest qwen3.5:2b
 grep -a -E "using opencoti|falling back" ci-serve.log | cut -c1-220 | sort | uniq -c | tail -3
 grep -a -q -E "falling back|no stock llama-server on this platform" ci-serve.log && echo "FAIL: a load did not get opencoti (macOS has no stock llama-server)"
 grep -a -E "opencoti build|offloaded [0-9]+/[0-9]+|abi " ci-serve.log | cut -c1-200 | sort -u | head -8

@@ -628,7 +628,13 @@ GPU, the stock ollama on 11434 untouched).
   `scripts/gates/speech-mac.sh`.
 - **Expected:** `SIGNED-BUILD-OK` and "The staple and validate action
   worked!"; the engine starts through its loader on Metal; tok/s within noise
-  of the baseline; every speech clip transcribed back.
+  of the baseline; no `FAIL: no tokens` line; every speech clip transcribed
+  back.
+- **Models:** `qwen2.5:1.5b`, `llama3` and, since 2026-10-13, `qwen3.5:2b`.
+  Until then no Qwen3.5-family model was run on the Mac, and c11 shipped in
+  three releases answering empty for all of them on Metal (bug-4048). One
+  model per architecture the engine has its own kernels for, not one per
+  size.
 - **Baseline:** bundle built, signed and notarized from `4db0bcedb` (7 minutes); the engine through `ape` on Metal ("metal: abi ggml 41ba479c24d7 matches this engine"); `qwen2.5:1.5b` 125.9 to 127.4 tok/s, 29/29 layers; `llama3` 31.3 to 31.7 tok/s, 33/33 layers (four 512-token runs each); speech 7 of 7 answered, 6 transcribed back exactly and the OuteTTS `narrator` voice as "The first shoot came in at dawn."; no crash line in the server log.
 
 ### G12. The published artifact
