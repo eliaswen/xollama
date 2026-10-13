@@ -30,7 +30,7 @@ grep -a -E "opencoti build|offloaded [0-9]+/[0-9]+|abi " ci-serve.log | cut -c1-
 # A crash line is an engine that died: not a server stopping its engine
 # ("stopped as asked"), nor a free-memory refresh whose listing was complete
 # (refreshed=N) when its caller stopped waiting and the helper was killed.
-crashes() { grep -a -i "exit status\|signal: \|unexpectedly" ci-serve.log | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller\'; }
+crashes() { grep -a -i "exit status\|signal: \|unexpectedly" ci-serve.log | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller'; }
 crashes | grep -c "" | sed 's/^/crash lines: /'
 crashes | cut -c1-400 | sed 's/^/  crash: /'
 for m in qwen2.5:1.5b llama3:latest; do curl -s http://127.0.0.1:22498/api/generate -d "{\"model\":\"$m\",\"keep_alive\":0}" >/dev/null; done

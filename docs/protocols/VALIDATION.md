@@ -189,6 +189,29 @@ the full installer over `0.40.1-xollama` exits 0 in 31 s; installed server
 the tag: 27.6 to 37.5 tok/s on a host loaded by other tenants (38.8 to 39.0
 unloaded, same engine), 0 crash lines.
 
+**The pin on opencoti's c12 dev snapshot** (2026-10-13, index `6c2489fa`,
+engine `2610130818001`, cuda `2610131352001`, vulkan `2610131352004`, macos
+`2610131352005`, cuda12 and sbsa new and unrun, media the c11 files; tree
+`fd2af129e`; working directory `/srv/ml/xc12`). Every component but media
+moved: G1, G3 to G8, G10, G11. G3: compat 8/8, `llama3` 77.3 to 77.8 tok/s,
+four slots 308.8, Gemma 4 right, overflow 3.4. G4: decision 7/7, 0 stock
+loads; chat paths all pass. G5: PolyKV 4/4 (5 pools, 0 refusals), no-PolyKV
+pass, idle 2/3 (one convened answer ended in tool-call text; the re-runs
+pass, 17 to 21 refusals). G6: speech 8/8, both video models 33/33, both image
+models 1024x1024; Whistle both tags on the CPU beside the CUDA library. G7,
+in a local image (the `.2` image with this engine and binary): Renoir 38.6 to
+39.3 tok/s, `/props` `/kv` 200, 0 crash lines; the host's old drivers are
+refused with `vk_radv_mesa_le_20` and `vk_amd_driver_le_2.0.154`. G8: 3090
+123.9 to 124.8, 9070 XT 100.4 to 103.0 (103.5 after 120 s idle, no dumps),
+iGPU 5.0, speech 4/4, Whistle on the CPU, `gpu_process_memory` equal to the
+Windows counters on both cards. G10 in the local image: 86.1 to 86.4 against
+85.3 to 85.7 on llama.cpp, speech 4/4, 0 crash lines; Pi 5: 9.7 to 9.9
+against 10.6 to 10.9, speech 5/5. G11 (`mac-engine.sh`): `qwen2.5:1.5b` 126.4
+to 126.9, `llama3` 31.7 to 32.1, `qwen3.5:2b` 63.5 to 63.8, speech 7 clips,
+Whistle on Metal. fit16: as c11 r2 (drafter dropped, 53.9 to 55.2 tok/s, 0
+OOM). Not run: a published `:dev` image, the Realtime session, a 429
+`idle_holders` reader, a Windows spill case.
+
 **The pin on opencoti c11 r2** (2026-10-10, engine `2610101328001`, cuda
 `2610100758001`, vulkan `2610100032004`, macos `2610100032005`, sbsa
 `2610100758003` new; before `v0.40.1-rc.3.xollama`; working directory

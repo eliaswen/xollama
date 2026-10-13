@@ -1,6 +1,6 @@
 #!/bin/bash
 # G10 on amd64: the published image on solidPC with the GPU. IMG=<image>,
-# default :dev. LLM and MEDIA are scratch stores of hard links, mounted
+# default :dev; LOCAL=1 for an image that exists only on this host. LLM and MEDIA are scratch stores of hard links, mounted
 # writable: since upstream v0.40.0 a store that cannot be written lists no
 # models (it creates manifests-v2 on first use), and the shared stores are
 # never served by a version that converts them.
@@ -11,7 +11,7 @@ IMG=${IMG:-mannixita/xollama:dev}; N=xollama-image-gate; H=http://127.0.0.1:2249
 LLM=${LLM:?a scratch model store with llama3}; MEDIA=${MEDIA:?a scratch media store}
 ss -ltnp | grep -q '127.0.0.1:22498 ' && { echo "22498 busy"; exit 1; }
 OLD=$(docker image inspect $IMG --format '{{.Id}}' 2>/dev/null)
-docker pull -q $IMG || exit 1
+[ -n "${LOCAL:-}" ] || docker pull -q $IMG || exit 1   # LOCAL=1: an image built here (the published one with this tree's engine), never pulled
 NEW=$(docker image inspect $IMG --format '{{.Id}}')
 [ -n "$OLD" ] && [ "$OLD" != "$NEW" ] && docker rmi "$OLD" >/dev/null 2>&1
 trap 'docker rm -f $N >/dev/null 2>&1; [ -n "${KEEP:-}" ] || docker rmi $IMG >/dev/null 2>&1' EXIT
@@ -40,7 +40,7 @@ for m in mannix/kokoro:82m mannix/kittentts:mini-0.8 mannix/supertonic:3 mannix/
 # A crash line is an engine that died: not a server stopping its engine
 # ("stopped as asked"), nor a free-memory refresh whose listing was complete
 # (refreshed=N) when its caller stopped waiting and the helper was killed.
-crashes() { docker logs $N 2>&1 | grep -a -i "signal: \|unexpectedly\|panic" | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller\'; }
+crashes() { docker logs $N 2>&1 | grep -a -i "signal: \|unexpectedly\|panic" | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller'; }
 crashes | grep -c "" | sed 's/^/crash lines: /'
 crashes | cut -c1-400 | sed 's/^/  crash: /'
 docker rm -f $N >/dev/null; echo IMAGE-X86-DONE

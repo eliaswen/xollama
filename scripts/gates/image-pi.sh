@@ -34,7 +34,7 @@ for m in $(echo "$tags" | grep -i -E "kokoro|supertonic|kitten"); do f=out-gate/
 # A crash line is an engine that died: not a server stopping its engine
 # ("stopped as asked"), nor a free-memory refresh whose listing was complete
 # (refreshed=N) when its caller stopped waiting and the helper was killed.
-crashes() { docker logs $N 2>&1 | grep -a -i "signal: \|unexpectedly\|panic" | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller\'; }
+crashes() { docker logs $N 2>&1 | grep -a -i "signal: \|unexpectedly\|panic" | grep -a -v 'stopped as asked\|free-memory refresh" .*refreshed=[1-9]\|refresh cut short by its caller'; }
 crashes | grep -c "" | sed 's/^/crash lines: /'
 crashes | cut -c1-400 | sed 's/^/  crash: /'
 docker rm -f $N >/dev/null
