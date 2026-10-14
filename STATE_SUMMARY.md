@@ -5,6 +5,10 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-14 14:13 — the next release moves to upstream v0.40.4 (owner).** It carries opencoti c13 and is named `v0.40.4-rc.1.xollama`, then `v0.40.4-xollama` (RELEASE.md), not `v0.40.3-xollama.5`.
+> - It waits for the fork's v0.40.4 sync (fork mail #1322: llama.cpp b11351 → b11521, MLX `97029597` / mlx-c `a341b492`, runtimes rebuilt, 7 of 25 patches re-ported) and for c13's publish (engine 2610141255001, cut in progress, opencoti #1323/#1326).
+> - Order: fork bump mail → upstream merge + every `up-*` at its new sha + runtime pins → c13 pin on a measurement (bug-4060 CPU case, lazy slots, Whistle) → rc.1 full gates → release. The v0.40.3 merges already on `dev` (split, qwen35 history, think_budget 400) are re-taken at their v0.40.4 shas.
+>
 > **2026-10-14 — the fork's `think_budget` refusal fix on `dev` (`up-think-budget` `6c817c7c`, merge `4d3cb41a7`) for `v0.40.3-xollama.5`.**
 > - A `think_budget` the server cannot read (`"bogus"`, 1.5, -64, 0, true) was answered 500 by `handleScheduleError`; it now wraps `model.ErrInvalidThinkBudget` and is a 400 with the same message (fork mail #1317, reported in #1316). One commit on `f8055cdd`, merged at its `PATCHES.json` sha with no conflicts.
 > - Checks: build, vet, lint 0 issues; `go test` on server, types/model, api, openai, middleware passes (the fork's `TestInvalidThinkBudgetIsABadRequest` included). Live (`/srv/ml/xc12/lfm/turns.sh split`, CPU, `qwen3.5:2b`): `"bogus"` → 400 `invalid think budget`; every other split row unchanged (64 → 64, `"low"` → 50, a number in `think` → 400, `"high"` no cap, think off ignores the budget).
