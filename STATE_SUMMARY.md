@@ -5,13 +5,6 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
-> **2026-10-14 — `v0.40.4-rc.1.xollama` published (pre-release, merge `12856dc06`) and passes every gate.**
-> - Release run 38611998336, image run 38614638318; 8 files match `sha256sum.txt`; numbers in `docs/protocols/VALIDATION.md`.
-> - G9 eleven2go (20:39–20:52): full installer over `.4` exit 0 in 110 s, small one exit 0 in 4 s; 3090 124.4–124.9, 9070 XT 100.4–103.0, iGPU 4.9. A 27B load (32k context) on the installed server at 20:26 belonged to neither automaticum nor this session; it had ended before the install.
-> - G11 Mac mini: workflow app notarized, 123–129 / 31.6–31.9 / 61.4–63.3 tok/s, speech 7/7; self-update from `.4` applied, 126.5–127.3.
-> - G10: amd64 image on solidPC 84.3–85.7 (llama.cpp 85.2–85.6), speech 4/4; arm64 on dietpi5 9.6–10.1 (10.5–10.7), speech 3/3; both images removed.
-> - Next: `v0.40.4-xollama` from this tree (short check), on the owner's word.
-
 > **2026-10-14 — `v0.40.4-rc.1.xollama` opened (upstream v0.40.4, opencoti c13).**
 > - Owner: ".5 on v0.40.4"; the candidate carries the v0.40.4 sync, the think-level/budget split, the Qwen3.5 think-off history fix (bug-273), the mlxrunner manifest-list fix and the c13 pin.
 > - Security check (`scripts/security-check.sh`, go1.26.9): govulncheck 0 reachable; Dependabot 99 open (was 99), none on fork-changed lines. Snapshot in `docs/protocols/security/govulncheck.txt`.
