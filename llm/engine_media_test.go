@@ -186,7 +186,7 @@ func TestAMediaRunnerServesNoText(t *testing.T) {
 	if err := r.Completion(context.Background(), CompletionRequest{}, nil); err != errMediaOnly {
 		t.Fatalf("completion err = %v", err)
 	}
-	if _, _, err := r.Embedding(context.Background(), "x"); err != errMediaOnly {
+	if _, _, err := r.Embedding(context.Background(), "x", nil); err != errMediaOnly {
 		t.Fatalf("embedding err = %v", err)
 	}
 }
