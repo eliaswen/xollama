@@ -9,9 +9,9 @@ import (
 
 func decisionModel(t *testing.T, decisionType string) *Model {
 	t.Helper()
-	kv := gguftest.KV{"general.architecture": "qwen35"}
+	kv := gguftest.KV{"general.architecture": "clef"}
 	if decisionType != "" {
-		kv["qwen35.decision.type"] = decisionType
+		kv["clef.decision.type"] = decisionType
 	}
 	path, _ := createBinFile(t, kv, []*gguftest.Tensor{})
 	m := &Model{ModelPath: path, ShortName: "m"}
@@ -19,59 +19,57 @@ func decisionModel(t *testing.T, decisionType string) *Model {
 	return m
 }
 
-func withClefHead(t *testing.T, has bool) {
+func withSystemOne(t *testing.T, has bool) {
 	t.Helper()
-	old := engineHasClefHead
-	engineHasClefHead = func() bool { return has }
-	t.Cleanup(func() { engineHasClefHead = old })
+	old := engineHasSystemOne
+	engineHasSystemOne = func() bool { return has }
+	t.Cleanup(func() { engineHasSystemOne = old })
 }
 
-func TestAClefModelGoesToStockWhileTheEngineHasNoClefHead(t *testing.T) {
-	withClefHead(t, false)
-	m := decisionModel(t, "clef")
+func TestADecisionModelGoesToStockWhileTheEngineHasNoSystemOne(t *testing.T) {
+	withSystemOne(t, false)
+	for _, kind := range []string{"clef", "nimble", "systemone"} {
+		m := decisionModel(t, kind)
 
-	if got := clefEngine(m, nil); got == nil || got.Engine != xollama.EngineLlamaCpp {
-		t.Fatalf("a Clef model with no settings: engine = %+v, want %q", got, xollama.EngineLlamaCpp)
-	}
+		if got := decisionEngine(m, nil); got == nil || got.Engine != xollama.EngineLlamaCpp {
+			t.Fatalf("%s with no settings: engine = %+v, want %q", kind, got, xollama.EngineLlamaCpp)
+		}
 
-	own := &xollama.Config{FlashAttention: "on"}
-	got := clefEngine(m, own)
-	if got.Engine != xollama.EngineLlamaCpp || got.FlashAttention != "on" {
-		t.Fatalf("a Clef model with settings: %+v, want its settings kept and engine %q", got, xollama.EngineLlamaCpp)
-	}
-	if own.Engine != "" {
-		t.Fatalf("the model's own config was changed: engine = %q", own.Engine)
+		own := &xollama.Config{FlashAttention: "on"}
+		got := decisionEngine(m, own)
+		if got.Engine != xollama.EngineLlamaCpp || got.FlashAttention != "on" {
+			t.Fatalf("%s with settings: %+v, want its settings kept and engine %q", kind, got, xollama.EngineLlamaCpp)
+		}
+		if own.Engine != "" {
+			t.Fatalf("%s: the model's own config was changed: engine = %q", kind, own.Engine)
+		}
 	}
 }
 
-func TestOnlyAClefModelWithoutItsOwnEngineIsMoved(t *testing.T) {
-	withClefHead(t, false)
+func TestOnlyADecisionModelWithoutItsOwnEngineIsMoved(t *testing.T) {
+	withSystemOne(t, false)
 
 	stated := &xollama.Config{Engine: xollama.EngineOpencoti}
-	if got := clefEngine(decisionModel(t, "clef"), stated); got != stated {
+	if got := decisionEngine(decisionModel(t, "clef"), stated); got != stated {
 		t.Fatalf("an engine the model states was replaced: %+v", got)
 	}
-	// Scored from token probabilities, which opencoti serves (nimble, measured).
-	if got := clefEngine(decisionModel(t, "systemone"), nil); got != nil {
-		t.Fatalf("a decision model without the Clef head was moved: %+v", got)
-	}
-	if got := clefEngine(decisionModel(t, ""), nil); got != nil {
+	if got := decisionEngine(decisionModel(t, ""), nil); got != nil {
 		t.Fatalf("a chat model was moved: %+v", got)
 	}
 }
 
-func TestAClefModelStaysOnAnEngineThatDeclaresTheHead(t *testing.T) {
-	withClefHead(t, true)
-	if got := clefEngine(decisionModel(t, "clef"), nil); got != nil {
-		t.Fatalf("the engine declares clef_score_v1, yet the model was moved: %+v", got)
+func TestADecisionModelStaysOnAnEngineThatServesSystemOne(t *testing.T) {
+	withSystemOne(t, true)
+	if got := decisionEngine(decisionModel(t, "clef"), nil); got != nil {
+		t.Fatalf("the engine declares systemone_v1, yet the model was moved: %+v", got)
 	}
 }
 
-// The launch reads the engine from launchXollama; a clefEngine nobody calls
+// The launch reads the engine from launchXollama; a decisionEngine nobody calls
 // would pass every test above.
-func TestTheLaunchConfigOfAClefModelNamesStock(t *testing.T) {
-	withClefHead(t, false)
-	if got := launchXollama(decisionModel(t, "clef")); got == nil || got.Engine != xollama.EngineLlamaCpp {
-		t.Fatalf("launch config of a Clef model: %+v, want engine %q", got, xollama.EngineLlamaCpp)
+func TestTheLaunchConfigOfADecisionModelNamesStock(t *testing.T) {
+	withSystemOne(t, false)
+	if got := launchXollama(decisionModel(t, "nimble")); got == nil || got.Engine != xollama.EngineLlamaCpp {
+		t.Fatalf("launch config of a decision model: %+v, want engine %q", got, xollama.EngineLlamaCpp)
 	}
 }

@@ -480,9 +480,14 @@ registries, `:dev` moved. Promoted 2026-10-08, Discord announced.
   opencoti. `nimble` is listed with the single capability `decision`, and
   `clef-flash` with `decision` and `vision` (upstream v0.40.0; before it,
   `decision` alone); `/v1/systemone` answers a `choice`, a `noul` with a `score`, and
-  for `clef-flash` a question about an image. Expected: every line `PASS`;
-  `nimble` loads on opencoti; a Clef model loads on stock for as long as the pin
-  has no `clef_score_v1`, and on opencoti from the pin that declares it.
+  for `clef-flash` a question about an image. From v0.40.4 the models must be
+  in the format v0.40.4 pulls (the old `qwen35` decision GGUFs are refused,
+  "re-download"), and every decision model is one `/v1/systemone` to its
+  engine. Expected: every line `PASS`; both models load on stock, each routing
+  logged, for as long as the pin has no `systemone_v1` (`WANT=stock`, the
+  default), and on opencoti from the pin that declares it (`WANT=opencoti`).
+  Before v0.40.4: `nimble` on opencoti, a Clef model on stock while the pin had
+  no `clef_score_v1`.
   Baseline (c9, 2026-10-05): `nimble` on opencoti "bug" 0.9793, noul 0.9989,
   score 0.8306 (stock 0.9778, 0.9989, 0.8245); `clef-flash` on stock "bug"
   0.8509, noul 0.9317, score 1.0620, the red image "red" 0.9855. Without the

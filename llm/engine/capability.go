@@ -54,19 +54,19 @@ func SlidingWindowRingUnavailable() string {
 		build)
 }
 
-// featureClefScore is the Clef decision head: the tensors a Clef model carries
-// beside its base model and the `score_fields` scoring on /embedding that
-// upstream compiles into llama-server (llama/clef). An engine without it cannot
-// load such a model at all ("wrong number of tensors").
-const featureClefScore = "clef_score_v1"
+// featureSystemOne is llama.cpp's native decision scoring (b11521): one
+// POST /v1/systemone per request, for the `clef` architecture and every other
+// decision type. Since v0.40.4 upstream scores every GGUF decision model that
+// way; the engine announces it once it serves the route (opencoti op-139).
+const featureSystemOne = "systemone_v1"
 
-// HasClefHead reports whether the engine this build ships serves Clef decision
-// models. While it does not, they are served by stock llama-server
-// (server/decision_engine.go).
-func HasClefHead() bool {
+// HasSystemOne reports whether the engine this build ships serves
+// /v1/systemone. While it does not, decision models are served by stock
+// llama-server (server/decision_engine.go).
+func HasSystemOne() bool {
 	pin, err := DefaultPin()
 	if err != nil {
 		return false
 	}
-	return pin.HasFeature(featureClefScore)
+	return pin.HasFeature(featureSystemOne)
 }
