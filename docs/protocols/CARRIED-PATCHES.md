@@ -27,6 +27,55 @@ first if a patch looks missing or out of date.
    other row in this file keys on the PR number, and these cannot. They are
    listed apart, below.
 
+**Status as of 2026-10-14: the set moved to upstream v0.40.4.** Manifest
+`054fe328` (`base: v0.40.4`, `integration.sha 3123bb66`, 25 patches, same
+order, none added or dropped; fork mail #1330; none retires, every carried
+upstream PR is still open, checked with `gh pr view`), consumed on
+`sync/upstream-v0.40.4` after `e321407af` merged the upstream tag (35 commits,
+114 files; conflicts `README.md`, which keeps the fork's, and the launch
+config in `llm/llama_server.go`, which keeps xollama's fields and adds
+upstream's `decision`). Each patch is its own `--no-ff` merge at the
+manifest's sha, in `patches[]` order; every one leaves the tree as its first
+parent, conflicts with its own v0.40.3 copy resolved to this side. Checked
+after the loop: `model/parsers`, `thinking`, `llama/compat`, `llama/server`,
+`LLAMA_CPP_VERSION`, `MLX_VERSION` and `MLX_C_VERSION` are byte-identical to the
+fork's `think-budget` at `054fe328` (`llama/clef` is gone on both sides).
+
+Upstream deleted `llama/clef` and `llama/compat/002-clef.patch` (llama.cpp
+b11521 scores decision models natively, on `/v1/systemone`), so the inputs
+digest moved: `fd08a01d…` README excluded, equal to the fork's. Runtimes were
+rebuilt (`v0.40.4-thinkbudget`, `eda37d24`); the Linux and macOS pins move in
+`c3ff5e034`; the Windows MLX reldir build is pending at the fork, and the
+Windows CPU runtime is rebuilt by `xollama-runtime.yaml` on the push to `dev`.
+
+| PR | branch | manifest sha | 2026-10-14 merge |
+|---|---|---|---|
+| #17563 | `up-repeat-guard` | `e540173b` | `623b7dfac` |
+| #17564 | `up-truncated-tool-calls` | `e381cf47` | `4765c42f2` |
+| #17565 | `up-gemma4-object-close` | `f0cc63f4` | `3d4089279` |
+| #17566 | `up-think-budget` | `953edd24` | `e8305cae2` |
+| #17567 | `up-mlx-libdl` | `06601f1a` | `df4938d17` |
+| #17626 | `up-gemma4-stray-channel-name` | `e2f639a4` | `cc5529193` |
+| #17914 | `qwen3coder-tolerate-malformed-tool-calls` | `63391884` | `b58751a3f` |
+| #18212 | `up-reasoning-budget-line-boundary` | `f03b279b` | `073b32440` |
+| #18281 | `up-native-thinking-replay` | `49c22550` | `1e2b618c3` |
+| #18288 | `up-gemma4-stray-closer` | `13b2f748` | `df4bd92fd` |
+| #18289 | `up-jinja-runner-reuse` | `2de84c10` | `ae444bd28` |
+| fork-only | `gemma4-toolcall-in-thinking` | `256ba097` | `039bc8933` |
+| #18624 | `qwen35-toolcall-in-thinking` | `37c57b6c` | `37db48370` |
+| fork-only | `up-gemma4-unparsed-tool-call-content` | `76825121` | `eef258040` |
+| fork-only | `up-toolcall-tags` | `d83d26b0` | `e7b675a24` |
+| fork-only | `up-codex-request-count-mtime` | `c8da681d` | `59b099193` |
+| fork-only | `up-fileutil-root-permission-tests` | `ef29615f` | `f4067c935` |
+| fork-only | `up-gofmt-vision-test-data` | `0d742bed` | `faf7c7ffc` |
+| fork-only | `up-lfm2-think-off-discard` | `35898171` | `3df7a8c0a` |
+| fork-only | `up-gemma4-assistant-shape` | `73ef56f6` | `58f26331f` |
+| fork-only | `up-gemma4-swallowed-key` | `d5e1980a` | `7d1036957` |
+| fork-only | `up-compat-readme` (stacked) | `91a29653` | `e11c2e13c` |
+| fork-only | `up-response-scope-think-budget` (stacked) | `37aeb2b0` | `b96d68e0c` |
+| fork-only | `up-modelfile-roundtrip` | `6531fdc0` | `1af84b398` |
+| fork-only | `up-qwen35-empty-think-history` | `bfd63324` | `3fb517260` |
+
 **Status as of 2026-10-11: the set moved to upstream v0.40.3.** Manifest
 `31c1a50e` (`base: v0.40.3`, `integration.sha cec947e9`, 24 patches, same
 order, none added or dropped; fork mail #1065), consumed on

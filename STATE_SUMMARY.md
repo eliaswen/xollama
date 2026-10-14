@@ -5,6 +5,17 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-14 — `sync/upstream-v0.40.4`: upstream v0.40.4 and the fork's 25 patches at their v0.40.4 shas (manifest `054fe328`), for the next release. Not on `dev` yet.**
+> - `e321407af` merged the tag (35 commits, 114 files). The patches follow at the manifest's shas, each its own merge, none changing the tree; the merge shas are in `docs/protocols/CARRIED-PATCHES.md`. Shared paths are byte-identical to the fork's `think-budget`. The Linux and macOS runtime pins move to `v0.40.4-thinkbudget` (`c3ff5e034`; sha256 checked on a download; inputs digest `fd08a01d…`, equal to the fork's).
+> - Breaks in the merge, all fixed:
+>   - `mediaRunner.Embedding` took upstream's new media argument.
+>   - The model-config hook in `modelFromManifest` named a variable upstream removed.
+>   - Upstream no longer writes `"harmony"` into `m.Config.Parser`, so tool-call progress takes `parserNameForModel` (`eff18cef2`).
+>   - Upstream's new decide, decision-bench and launch tests set `OLLAMA_HOST`. They reached the real service on 22434: one started a 9.5 GB pull, which stopped when the run was cut and left nothing in the store. They set `XOLLAMA_HOST` now.
+> - Checks: build, vet, lint 0 issues. With the network blocked, `go test ./...` passes except `TestPullManifestRedirectPolicy`, which fails only under the blocking proxy and passes without it.
+> - **Open, release-blocking: decision models on opencoti.** Upstream deleted `llama/clef` and the score path; every GGUF decision model is now one `POST /v1/systemone` to the engine, llama.cpp b11521's native decision support. Old Clef GGUFs (`qwen35` architecture) are refused and must be re-pulled. The c12 r2 engine has no `/v1/systemone`, so Clef and Nimble on opencoti would fail. Asked opencoti for the endpoint plus a feature to announce it (#1331); the bridge until then is the owner's call.
+> - Also pending: the fork's Windows MLX reldir build (MLX `97029597`), and the Windows CPU runtime (`xollama-runtime.yaml` on the push to `dev`).
+>
 > **2026-10-14 14:13 — the next release moves to upstream v0.40.4 (owner).** It carries opencoti c13 and is named `v0.40.4-rc.1.xollama`, then `v0.40.4-xollama` (RELEASE.md), not `v0.40.3-xollama.5`.
 > - It waits for the fork's v0.40.4 sync (fork mail #1322: llama.cpp b11351 → b11521, MLX `97029597` / mlx-c `a341b492`, runtimes rebuilt, 7 of 25 patches re-ported) and for c13's publish (engine 2610141255001, cut in progress, opencoti #1323/#1326).
 > - Order: fork bump mail → upstream merge + every `up-*` at its new sha + runtime pins → c13 pin on a measurement (bug-4060 CPU case, lazy slots, Whistle) → rc.1 full gates → release. The v0.40.3 merges already on `dev` (split, qwen35 history, think_budget 400) are re-taken at their v0.40.4 shas.
