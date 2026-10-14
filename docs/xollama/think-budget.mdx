@@ -7,24 +7,37 @@ that…"* — and spend the whole context without ever answering. The failure is
 a worse answer, it is **no answer at all**: an empty `response`, a burnt context
 window, and the full wait.
 
-`think` in stock Ollama can only turn reasoning on or off. xollama lets you say
-*think, but not forever*.
+`think` in stock Ollama turns reasoning on or off, or picks a model's own
+reasoning level. xollama adds a second, separate setting, `think_budget`, that
+says *think, but not forever*.
+
+<Note>
+  `think` and `think_budget` are separate settings. `think` is the model's own
+  control, handed to it as written, and never bounds anything: a number in
+  `think` is refused, as stock Ollama refuses it. `think_budget` is the only
+  bound. Both can be sent together: `think: "low"` with a `think_budget` of
+  8000 asks for low effort and stops the thinking at 8000 tokens. Releases up
+  to `v0.40.3-xollama.4` also read a level or a number in `think` as a bound;
+  a client written for them should move the bound to `think_budget`, which
+  those releases read the same way.
+</Note>
 
 ## Cap thinking on one request
 
-Send `think` as a token count:
+Send `think_budget` in `options`, as a token count:
 
 ```shell
-curl http://localhost:11434/api/chat -d '{
+curl http://localhost:22434/api/chat -d '{
   "model": "gemma4:e4b",
   "messages": [{ "role": "user", "content": "…" }],
-  "think": 8192
+  "think": true,
+  "options": { "think_budget": 8192 }
 }'
 ```
 
-Or as an effort level, which is a **share of the room the response has**:
+Or as a share of the room the response has:
 
-| `think` | Share | At `num_predict` 8192 | At `num_predict` 32768 |
+| `think_budget` | Share | At `num_predict` 8192 | At `num_predict` 32768 |
 |---|---|---|---|
 | `"minimal"` | a sixteenth | 512 | 2048 |
 | `"low"` | an eighth | 1024 | 4096 |
@@ -33,7 +46,8 @@ Or as an effort level, which is a **share of the room the response has**:
 | `"max"` | four fifths | 6553 | 26214 |
 
 `"xhigh"` is accepted as another name for `"max"`, for clients whose effort
-scale ends there. `think: true` is unchanged — unbounded.
+scale ends there. A count written as a string (`"8192"`) is a count. A word
+that names no share is refused. `think: true` with no budget is unbounded.
 
 The share comes from `num_predict` when the request sets one, and from the
 context length otherwise. That matters: a client that sends `num_ctx` 128000 and
@@ -60,8 +74,8 @@ PARAMETER think_budget medium
 PARAMETER think_budget_message "OK, I have enough to answer now."
 ```
 
-`think_budget` takes a token count or a level. A request that carries its own
-budget overrides it.
+`think_budget` takes a token count or a share. A request that sends its own
+`think_budget` in `options` overrides it; a request's `think` never does.
 
 ## The wrap-up message
 
@@ -94,9 +108,9 @@ that hit the context wall from **5 to 0**, and mean wall time roughly halved.
 
 A bounded completion reports both the budget and what it resolved to:
 
-- `think_budget` — the budget in the form it was written, a level such as
-  `"medium"` or a token count. This is the request's `think` value when that
-  carried one, and the model's own `think_budget` parameter otherwise, which the
+- `think_budget` — the budget in the form it was written, a share such as
+  `"medium"` or a token count. This is the `think_budget` the request sent in
+  `options`, and the model's own `think_budget` parameter otherwise, which the
   caller may never have sent.
 - `think_budget_tokens` — what it resolved to, in tokens.
 
@@ -108,22 +122,12 @@ without re-deriving a fraction table.
 
 ## Compatibility notes
 
-- OpenAI-compatible `reasoning_effort` and Anthropic `output_config.effort` now
-  resolve to a real budget instead of only switching thinking on. Anthropic's
-  `thinking.budget_tokens` was previously parsed and discarded; it now maps
-  through.
-- `reasoning_effort: "minimal"` is accepted rather than rejected with a 400.
-- Switching thinking off switches the budget off with it: `think: false`,
-  `reasoning_effort: "none"` and `think: 0` all resolve to no budget, and none of
-  them inherits the model's `think_budget` parameter.
+- OpenAI-compatible `reasoning_effort` and Anthropic `output_config.effort` are
+  levels, as in stock Ollama: they switch thinking on and pick the model's
+  effort, and bound nothing. Send `think_budget` in `options` for a bound.
+- Anthropic's `thinking.budget_tokens` is a bound: it switches thinking on and
+  becomes the request's `think_budget`. Stock Ollama parses and discards it.
+- Switching thinking off switches the budget off with it: `think: false` and
+  `reasoning_effort: "none"` resolve to no budget, and neither inherits the
+  model's `think_budget` parameter.
 - Models with no thinking block are unaffected — there is nothing to bound.
-
-## Known limitation
-
-A **tight** cut relocates reasoning into the answer, as described above. The
-mitigation is the wrap-up message, and the honest summary of the measurements is
-that it reliably bounds what happens after the cut and has no clear effect on
-accuracy except where the budget is tight enough to be hurting the model anyway.
-Qwen recommend budgets above 1024 tokens for meaningful results; at `num_ctx`
-4096 the `minimal` and `low` levels resolve below that floor, which is what the
-integer form is for.

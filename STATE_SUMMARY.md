@@ -5,7 +5,100 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
-> **2026-10-13 — `dev` pins opencoti's c12 r2 (index `66f4b48c`, engine `2610131908001`): LFM2 with parallel requests no longer aborts; `v0.40.3-xollama.4` is being cut on it.**
+> **2026-10-14 — `v0.40.4-rc.1.xollama` opened (upstream v0.40.4, opencoti c13).**
+> - Owner: ".5 on v0.40.4"; the candidate carries the v0.40.4 sync, the think-level/budget split, the Qwen3.5 think-off history fix (bug-273), the mlxrunner manifest-list fix and the c13 pin.
+> - Security check (`scripts/security-check.sh`, go1.26.9): govulncheck 0 reachable; Dependabot 99 open (was 99), none on fork-changed lines. Snapshot in `docs/protocols/security/govulncheck.txt`.
+> - Next: the dry run (first release on a new upstream base), hosted checks, merge, release run, then eleven2go G9, Mac and images.
+
+> **2026-10-14 — `dev` pins opencoti's c13 release (index `9849186f`, engine `2610141633001`, `f66ef6f70`); the gate set passes on every host.**
+> - Owner 17:38: "pin c13 and run the gates". c13 is r2: r1 was never published. It is the dev snapshot gated earlier, plus `POST /v1/systemone` (feature `systemone_v1`); the libraries are byte-identical. No defect row to retire.
+> - With `systemone_v1` in the pin, `decisionEngine` keeps decision models on opencoti, and the stock bridge is idle.
+> - **solidPC** (`/srv/ml/c13`, 18:09–18:58):
+>   - G3: compat 8/8; llama3 77.4 tok/s; four slots 302.7; overflow 3.13 (dev snapshot 3.01, c12 3.40, c11 r4 2.13).
+>   - G4 decision 7/7 **on opencoti** (opencoti loads 2, stock 0, nothing routed). Chat paths all pass, 0 KV refusals.
+>   - G6: speech and video pass.
+>   - G5: 6/6 pass, 0 crashes; PolyKV 5 pools, 0 refusals. The idle tag had 27 room refusals, answered (dev snapshot 48, c12 20).
+>   - The installed service had a 930 MiB embedding engine (snowflake-arctic-embed2, a LAN client) resident on the 3090 during the first, stopped attempt; it was gone for this run.
+> - **eleven2go** (release engine, own DLLs, ABI match):
+>   - 3090 CUDA 124.2–125.1 tok/s;
+>   - 9070 XT Vulkan 100.3–103.0, 103.4 after 120 s idle;
+>   - kill: engine gone in 847 ms;
+>   - iGPU 5.2;
+>   - speech 4/4.
+> - **Mac mini**: qwen2.5:1.5b 123.1–128.8 tok/s, llama3 31.6–31.9, qwen3.5:2b 61.7–63.6; speech 7/7.
+> - bug-4060: c13 is 2.5 times c12 r2 on solidPC's CPU (8.69 vs 3.54 tok/s). Against stock, opencoti's interleaved runs give 91–93% with overlapping ranges: within solidPC's ±25% noise, not a measured gap (op-140 continues on bs2 for c14).
+>
+> **2026-10-14 — the v0.40.4 sync is complete on `dev`, and the c13 dev snapshot passes our gates.**
+> - Windows runtimes:
+>   - The CPU runtime pin is `runtime-windows-amd64-b11521-821795b6f80e` (`ce83b721b`); the digest and sha256 were checked.
+>   - The MLX pin is the fork's v0.40.4 reldir zip `29b2b14e…` (`5dcba1ad3`). On eleven2go with no cuDNN it generates `qwen3.5:0.8b` on MLX at 67.7 tok/s warm and creates from Qwen3-0.6B safetensors, with no panic.
+> - Found there, and fixed through the fork on the owner's word: the MLX runner opened a manifest list in the default runner order. A `runner: mlx` request with both children on disk therefore loaded the GGUF child and failed ("config.json not found"); upstream has the same defect. Fork patch `up-mlxrunner-manifest-list` `20dcfd9f`, merged as `1d380ed81`; the same sequence now generates 67.7 / 68.3 tok/s.
+> - The c13 dev snapshot (index `54f1bcca`, engine `2610141212001`) was gated on side branch `pin/c13-dev` (`49dd32c43`), on the v0.40.4 tree:
+>   - **solidPC** (`/srv/ml/c13dev`), G3:
+>     - compat 8/8;
+>     - llama3 77.1 tok/s (c12: 77.3);
+>     - four slots 307.4 (308.8);
+>     - overflow 3.01 (3.40, rerun pending).
+>   - **solidPC**, other gates:
+>     - G4: decision 7/7 on stock (bridge), chat paths all pass.
+>     - G6: speech and video pass.
+>     - G5: 6/6, with 0 crashes. The idle tag had 48 room refusals, answered (c12: 20).
+>   - **eleven2go**:
+>     - 3090 CUDA 124.2–124.8 tok/s;
+>     - 9070 XT Vulkan 100.3–102.9, and 103.5 after 120 s idle;
+>     - kill: engine gone in 830 ms;
+>     - iGPU 5.0;
+>     - speech 4/4.
+>   - **Mac mini**: qwen2.5:1.5b 124.7–128.8 tok/s, llama3 31.5–31.8, qwen3.5:2b 63.4–63.6; speech 7/7.
+> - bug-4060 case (Qwen3.6-35B-A3B UD-IQ3_XXS, whole model on the CPU; Ryzen 5 5600G AVX2, 6 threads, 300 tokens, median of 3 warm runs):
+>   - c12 r2: 3.54 tok/s;
+>   - c13 dev: 8.69 tok/s (2.5x, CPU variant AVX2);
+>   - stock llama-server b11521: 11.29 tok/s.
+>   - So c13 reaches 77% of stock on this CPU.
+> - opencoti published c13 r2 (engine `2610141633001`, `/v1/systemone` + `systemone_v1`, index `9849186f`); its release mail is pending.
+>
+> **2026-10-14 — `sync/upstream-v0.40.4`: upstream v0.40.4 and the fork's 25 patches at their v0.40.4 shas (manifest `054fe328`), for the next release. Not on `dev` yet.**
+> - `e321407af` merged the tag (35 commits, 114 files). The patches follow at the manifest's shas, each its own merge, none changing the tree; the merge shas are in `docs/protocols/CARRIED-PATCHES.md`. Shared paths are byte-identical to the fork's `think-budget`. The Linux and macOS runtime pins move to `v0.40.4-thinkbudget` (`c3ff5e034`; sha256 checked on a download; inputs digest `fd08a01d…`, equal to the fork's).
+> - Breaks in the merge, all fixed:
+>   - `mediaRunner.Embedding` took upstream's new media argument.
+>   - The model-config hook in `modelFromManifest` named a variable upstream removed.
+>   - Upstream no longer writes `"harmony"` into `m.Config.Parser`, so tool-call progress takes `parserNameForModel` (`eff18cef2`).
+>   - Upstream's new decide, decision-bench and launch tests set `OLLAMA_HOST`. They reached the real service on 22434: one started a 9.5 GB pull, which stopped when the run was cut and left nothing in the store. They set `XOLLAMA_HOST` now.
+> - Checks: build, vet, lint 0 issues. With the network blocked, `go test ./...` passes except `TestPullManifestRedirectPolicy`, which fails only under the blocking proxy and passes without it.
+> - **Decision models (owner, 14:54: route them to stock llama-server).** Upstream deleted `llama/clef` and the old score path. Every GGUF decision model is now one `POST /v1/systemone` to its engine (llama.cpp b11521 native), and old-format decision GGUFs (`qwen35`) are refused with "re-download". On solidPC that is `nimble`, `tev1` and `clef-flash`. The c12 engine has no `/v1/systemone`. `decisionEngine` (`server/decision_engine.go`, replacing the Clef-only `clefEngine`) names `llamacpp` for any decision model while the pin lacks `systemone_v1`, logged once per model; macOS refuses by name. Live on the sync binary with c12 pinned: a re-pulled `tev1` answered on stock, `bug` 0.946, 7.3 s on the CPU. The G4 gate (`scripts/gates/decision.sh`, `WANT=stock`) and its VALIDATION row now say this. opencoti queued the route as op-139 (#1334), not in c13; whether it ships as c13 r2 or c14 is the owner's call.
+> - Also pending: the fork's Windows MLX reldir build (MLX `97029597`), and the Windows CPU runtime (`xollama-runtime.yaml` on the push to `dev`).
+>
+> **2026-10-14 14:13 — the next release moves to upstream v0.40.4 (owner).** It carries opencoti c13 and is named `v0.40.4-rc.1.xollama`, then `v0.40.4-xollama` (RELEASE.md), not `v0.40.3-xollama.5`.
+> - It waits for the fork's v0.40.4 sync (fork mail #1322: llama.cpp b11351 → b11521, MLX `97029597` / mlx-c `a341b492`, runtimes rebuilt, 7 of 25 patches re-ported) and for c13's publish (engine 2610141255001, cut in progress, opencoti #1323/#1326).
+> - Order: fork bump mail → upstream merge + every `up-*` at its new sha + runtime pins → c13 pin on a measurement (bug-4060 CPU case, lazy slots, Whistle) → rc.1 full gates → release. The v0.40.3 merges already on `dev` (split, qwen35 history, think_budget 400) are re-taken at their v0.40.4 shas.
+>
+> **2026-10-14 — the fork's `think_budget` refusal fix on `dev` (`up-think-budget` `6c817c7c`, merge `4d3cb41a7`) for `v0.40.3-xollama.5`.**
+> - A `think_budget` the server cannot read (`"bogus"`, 1.5, -64, 0, true) was answered 500 by `handleScheduleError`; it now wraps `model.ErrInvalidThinkBudget` and is a 400 with the same message (fork mail #1317, reported in #1316). One commit on `f8055cdd`, merged at its `PATCHES.json` sha with no conflicts.
+> - Checks: build, vet, lint 0 issues; `go test` on server, types/model, api, openai, middleware passes (the fork's `TestInvalidThinkBudgetIsABadRequest` included). Live (`/srv/ml/xc12/lfm/turns.sh split`, CPU, `qwen3.5:2b`): `"bogus"` → 400 `invalid think budget`; every other split row unchanged (64 → 64, `"low"` → 50, a number in `think` → 400, `"high"` no cap, think off ignores the budget).
+>
+> **2026-10-14 — `dev` carries the fork's thinking level/budget split (`up-think-budget` `f8055cdd`, `up-response-scope-think-budget` `47918b45`) for `v0.40.3-xollama.5`.**
+> - `think` is stock again (a switch or the model's level, never a cap; a number in it is refused); `options.think_budget` (or the model's `PARAMETER think_budget`) is the only cap. Held since the morning for Cerebriline, which sent its cap as `think: "high"`; Cerebriline 4.100.252 shipped 09:19 (fork mail #1315) and sends the cap as `options.think_budget`. The release on the split was the owner's instruction to the fork session ("...mail xollama so it can release a new xollama with this change").
+> - xollama's side (`abf4a8d4c`): a council member asked to reason gets `think: true` plus `options.think_budget` (a number in `think` would now be refused with 400); the council's share table moves to `ThinkBudget.Tokens`, the same table; `docs/xollama/think-budget.mdx` rewritten, Bonsai page corrected.
+> - Checks: `go vet ./...` clean, lint 0 issues, `go test ./...` passes except three MLX numeric tests that fail on solidPC's own CUDA setup (`libnvrtc-builtins.so.13.0` not found when MLX compiles a kernel), in files the split does not touch. Live through xOllama (CPU, `qwen3.5:2b`, `/srv/ml/xc12/lfm/split.py`): budget 64 gives 64, `"low"` gives 50 of a 400-token reply, a number in `think` is 400, `think: "high"` caps nothing, thinking off ignores the budget. One defect, the fork's: a budget word that names no share is refused with HTTP 500 instead of 400 (reported).
+>
+> **2026-10-14 — Qwen3.5 with thinking off no longer re-reads the previous answer on every agent step (fork patch `up-qwen35-empty-think-history`, merged for `.5`).**
+> - Found while checking opencoti's side finding (mail #1298), owner: "check now the thinking off on the chat route, this looks serious". The route was not the cause: upstream's Qwen3.5 renderer, and Qwen's own Jinja template, write a thinking-off assistant turn into the history without the empty think block the model generated after. The next prompt differs right after `assistant\n`, and a recurrent model re-reads the whole previous message. Measured through xOllama on solidPC (CPU, `qwen3.5:2b`, `/srv/ml/xc12/lfm/turns.sh` + `tools.py`): three-step tool loop, thinking off, reused 315 of 774 and 770 of 1254 tokens; thinking on 729 of 748 and 1141 of 1160. LFM2.5 on the engine's chat route was not affected (273 of 290). bug-273.
+> - Owner 08:00: "send the details of the proposed fix to ollama and ask a patch to fix it and a new release. it will go in .5 with c13". The fork's fix (`03730b43`, release `v0.40.3-thinkbudget.2`) renders the empty block back for turns after the last user message (Qwen3.5 and Gemma 4). Merged alone at its sha (`8ece2b537`); the split in the same release stays off `dev`.
+> - Measured after the merge, same loop: thinking off reuses 757 of 778 and 1282 of 1303. Gemma 4 e2b: 520 of 536 and 904 of 920 both before and after, so no change on that model. Plain chat with a new user message each turn still re-reads the last answer, as Qwen's template intends (with thinking on as well).
+> - Also on 2026-10-14: the fork's level/budget split (`think-budget cc88cc24`) is merged and tested on the branch `think-budget-split`, held off `dev` until Cerebriline ships (fork mail #1299); its council fix sends a member `think: true` plus `options.think_budget`. Owner rulings on opencoti's c13 generation notices: opt-in per request, the line inline in the content, the client hides it and sends it back unchanged (mails #1304, #1305); notice contract agreed in #1313.
+> - Next release: `v0.40.3-xollama.5` = opencoti c13 (CPU kernels without AVX2, slot memory at load) + this patch, on the owner's word of 08:00.
+>
+> **2026-10-13 — `v0.40.3-xollama.4` released and promoted (22:31): engine opencoti c12 r2, the LFM2 parallel-request fix.**
+> - Owner 19:07: "v0.40.3-xollama.4 will go with c12-2, I just gave the go". PR #29, merge `eab41e0ca`, release run 38456705261 (all six jobs), payload id `78e1061b…` (changed with the engine: Windows updates from `.3` with the full installer). Hosted checks before the merge: test on three platforms, race on two, patches, scan, all pass. Security snapshot without a delta.
+> - Step 5: eight checksums OK, both Linux binaries name the version, the image is there for amd64 and arm64 on both registries.
+> - eleven2go (G9), after automaticum stopped its batch gracefully on request (owner 19:10; free 21:16, handed back 22:15): full installer over `.3` exit 0 in 28 s, version and `PAYLOAD_ID` match, r2 engine in `lib\ollama\engines`; 3090 CUDA 123.9 to 124.0 tok/s, 9070 XT Vulkan 102.5, iGPU 4.9 (first load 21.7 s), 37/37 layers each, display adapters OK; small installer exit 0 in 4 s, version unchanged; ollama on 11434 untouched.
+> - Mac mini (G11): the workflow's app and DMG notarised and stapled; `qwen2.5:1.5b` 126.9 to 128.8 tok/s, `llama3` 31.6 to 31.9, `qwen3.5:2b` 61.7 to 63.4; speech 7 clips (6 exact, the cloned narrator "shoot"); 0 crash lines. Self-update from `.3`: found, downloaded, checksum and bundle verified, applied by a hidden start, 126.5 to 127.0 tok/s after.
+> - Images (G10): amd64 on solidPC opencoti 85.8 to 85.9 tok/s, llama.cpp 85.9 to 86.2, speech 4/4, 0 crash lines; arm64 on the Pi 10.0 to 10.1 against 10.8 to 11.0, speech 3/3, 0 crash lines; both images removed.
+> - Promoted 22:31 (Discord announced); the image workflow re-run on the tag moves `:latest` (run 38463503765).
+> - Installed: eleven2go and the Mac mini run `.4` from their gates. solidPC's service and pandorum run `.2` (the owner's to ask for).
+> - Not measured: the LFM2 case on Windows, macOS or in the images (solidPC CPU only, and opencoti on CPU and CUDA); the default of one slot on the old engine.
+>
+> **2026-10-13 — `dev` pins opencoti's c12 r2 (index `66f4b48c`, engine `2610131908001`): LFM2 with parallel requests no longer aborts; the pin `v0.40.3-xollama.4` was cut on.**
 > - Why: opencoti mail #1274, 18:40: every engine on the 0.10.5 base (c11, c12 r1) wrote one slot's LFM2 recurrent state into another's (bf16 state, f32 offset). Two or more requests in flight abort the engine (`GGML_ASSERT`, `ggml.c:1962`) or answer one from a wrong state. `v0.40.3-xollama.3` and every release on c11 have it. Owner 19:07: "v0.40.3-xollama.4 will go with c12-2, I just gave the go". No workaround was put into xollama (opencoti #1277 asked for none).
 > - The pin: r2 = r1 + patch 0656, engine only (sha256 `9f2a67b1…`). Every library is the same file; the `cuda` and `vulkan` pins gain `gated-with 2610131908001`, the others differ in `rev`. Published 19:33 (mail #1278).
 > - Measured through xollama on solidPC, LFM2.5 1.2B BF16 on the CPU, `OLLAMA_NUM_PARALLEL=4`, four requests of different lengths in flight, five rounds (`/srv/ml/xc12/lfm/run.sh`): r1 answered 1 of 20, 16 assert lines in the log; r2 20 of 20, 0 asserts, the overlapped request identical to the one sent alone in 5 of 5 rounds. Alone 18.1 and 18.4 tok/s. The default (one slot) was not measured on r1.

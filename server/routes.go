@@ -90,6 +90,16 @@ func shouldUseHarmony(model *Model) bool {
 	return false
 }
 
+func parserNameForModel(m *Model) string {
+	if m.Config.Parser != "" {
+		return m.Config.Parser
+	}
+	if shouldUseHarmony(m) {
+		return "harmony"
+	}
+	return ""
+}
+
 func experimentEnabled(name string) bool {
 	return slices.Contains(strings.Split(envconfig.Var("OLLAMA_EXPERIMENT"), ","), name)
 }
@@ -153,7 +163,7 @@ func (s *Server) modelOptionsWithEmbeddingBatchDefault(model *Model, requestOpts
 	}
 
 	if applyEmbeddingBatchDefault {
-		opts = llm.WithDefaultEmbeddingNumBatch(opts)
+		opts.NumBatch = llm.DefaultEmbeddingNumBatch
 	}
 
 	// xollama-hook: drafter — see docs/features/gemma4-drafter.md
@@ -239,15 +249,7 @@ func (s *Server) scheduleRunner(ctx context.Context, name, selectedRunner string
 		return nil, nil, nil, fmt.Errorf("model %w", errRequired)
 	}
 
-	parsedName := model.ParseName(name)
-	if parsedName.IsValid() {
-		existingName, err := getExistingName(parsedName)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		name = existingName.String()
-	}
-	model, err := GetModelForRunner(name, selectedRunner)
+	model, err := s.getExistingModelForRunner(name, selectedRunner)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -367,17 +369,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		req.Runner = runner
 	}
 
-	name := modelRef.Name
-
-	// We cannot currently consolidate this into GetModel because all we'll
-	// induce infinite recursion given the current code structure.
-	name, err = getExistingName(name)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-		return
-	}
-
-	m, err := GetModelForRunner(name.String(), req.Runner)
+	m, err := s.getExistingModelForRunner(modelRef.Name.String(), req.Runner)
 	if err != nil {
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
@@ -551,22 +543,26 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		}
 	}
 
+	parserName := parserNameForModel(m)
 	var builtinParser parsers.Parser
 	if shouldUseHarmony(m) {
-		if m.Config.Parser == "" {
-			m.Config.Parser = "harmony"
+		// harmony's Reasoning field only understands low/medium/high; map "max" to "high"
+		if req.Think != nil {
+			if s, ok := req.Think.Value.(string); ok && s == "max" {
+				req.Think.Value = "high"
+			}
 		}
 	}
 
-	if !req.Raw && m.Config.Parser != "" {
-		builtinParser = parsers.ParserForName(m.Config.Parser)
+	if !req.Raw && parserName != "" {
+		builtinParser = parsers.ParserForName(parserName)
 		if builtinParser != nil {
 			// no tools or last message for generate endpoint
 			builtinParser.Init(nil, nil, req.Think)
 		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), req.Runner, caps, req.Options, req.KeepAlive, req.Shift)
+	r, m, opts, err := s.scheduleRunnerForModel(c.Request.Context(), m, caps, req.Options, req.KeepAlive, req.Shift)
 	if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support generate", req.Model)})
 		return
@@ -636,7 +632,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		values.Think = req.Think != nil && req.Think.Bool()
 		values.ThinkLevel = ""
 		if req.Think != nil {
-			values.ThinkLevel = req.Think.Level()
+			values.ThinkLevel = req.Think.String()
 		}
 		values.IsThinkSet = req.Think != nil
 
@@ -924,11 +920,69 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 	streamResponse(c, ch)
 }
 
-// SystemOneHandler compiles typed questions, scores their allowed answers, and
-// returns probabilities. Callers must select weights trained for the prompt format.
+func (s *Server) systemOneLlamaServer(c *gin.Context, m *Model, req decision.Request, body []byte) {
+	decisionType := m.metadata.String("decision.type")
+	// Old Clef GGUFs have a decision type but use qwen35; llama.cpp now
+	// requires the clef architecture and its converted decision head.
+	oldClef := decisionType == "clef" && m.metadata.String("general.architecture") == "qwen35"
+	if decisionType == "" || oldClef {
+		if oldClef || slices.Contains(m.Config.Capabilities, string(model.CapabilityDecision)) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("'%s' was downloaded in a format that is no longer supported. To re-download, run 'ollama pull %s'", m.ShortName, m.ShortName)})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("model %q is not a llama.cpp decision model", req.Model)})
+		return
+	}
+	if err := decision.ValidateLimits(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var raw struct {
+		State     json.RawMessage `json:"state"`
+		Questions json.RawMessage `json:"questions"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	caps := []model.Capability{model.CapabilityDecision}
+	if len(req.Images) > 0 {
+		caps = append(caps, model.CapabilityVision)
+	}
+	r, _, _, err := s.scheduleRunnerForModel(c.Request.Context(), m, caps, nil, req.KeepAlive, nil)
+	if err != nil {
+		handleScheduleError(c, req.Model, err)
+		return
+	}
+	runner, ok := r.(interface {
+		SystemOne(ctx context.Context, state, questions json.RawMessage, images []api.ImageData) (answers, usage json.RawMessage, err error)
+	})
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("model %q does not support System One scoring", req.Model)})
+		return
+	}
+	answers, usage, err := runner.SystemOne(c.Request.Context(), raw.State, raw.Questions, req.Images)
+	if err != nil {
+		s.sched.expireRunnersForRuntimeOOM(m, err)
+		status := http.StatusInternalServerError
+		var statusErr api.StatusError
+		if errors.As(err, &statusErr) {
+			status = statusErr.StatusCode
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, struct {
+		Model   string          `json:"model"`
+		Answers json.RawMessage `json:"answers"`
+		Usage   json.RawMessage `json:"usage"`
+	}{req.Model, answers, usage})
+}
+
+// SystemOneHandler answers typed questions with probabilities.
 func (s *Server) SystemOneHandler(c *gin.Context) {
 	// TODO(parthsareen): Check token limits before copying state and schema into
-	// each question's prompt. This byte cap limits memory use until then.
+	// each question's prompt. Non-Kev models retain the 64 KiB byte cap until then.
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 32<<20)
 	body, err := io.ReadAll(c.Request.Body)
 	var req decision.Request
@@ -953,9 +1007,9 @@ func (s *Server) SystemOneHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if len(bytes.TrimSpace(text.Bytes())) > 64<<10 {
-		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "text and schema must not exceed 64 KiB"})
-		return
+	textSize := len(bytes.TrimSpace(text.Bytes()))
+	rejectText := func(limit int) {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": fmt.Sprintf("text and schema must not exceed %d KiB", limit>>10)})
 	}
 	ref, err := parseAndValidateModelRef(req.Model)
 	if err != nil {
@@ -970,18 +1024,37 @@ func (s *Server) SystemOneHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "System One requires a local decision model"})
 		return
 	}
-	name, err := getExistingName(ref.Name)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+	if runner, err := normalizeRunner(req.Runner); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	} else {
+		req.Runner = runner
 	}
-	m, err := GetModel(name.String())
+	m, err := s.getExistingModelForRunner(ref.Name.String(), req.Runner)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+			return
+		}
 		handleScheduleError(c, req.Model, err)
 		return
 	}
-	encoding := m.metadata.String("decision.type")
-	if encoding == "" && (m.Config.Renderer == "tev1" || m.Config.Renderer == "clef" || m.Config.Renderer == "strands") {
+	textLimit := 64 << 10
+	if m.Config.Renderer == "kev" {
+		// Kev shares the state across question rows and admits up to 65,536
+		// state tokens, which can exceed the generic decision prompt cap.
+		textLimit = 1 << 20
+	}
+	if textSize > textLimit {
+		rejectText(textLimit)
+		return
+	}
+	if m.isGGUF() {
+		s.systemOneLlamaServer(c, m, req, body)
+		return
+	}
+	var encoding string
+	if m.Config.Renderer == "tev1" || m.Config.Renderer == "clef" || m.Config.Renderer == "strands" || m.Config.Renderer == "kev" {
 		encoding = m.Config.Renderer
 	}
 	compiled, err := decision.Compile(req, encoding)
@@ -1007,11 +1080,7 @@ func (s *Server) SystemOneHandler(c *gin.Context) {
 		if m.System != "" {
 			messages = append([]api.Message{{Role: "system", Content: m.System}}, messages...)
 		}
-		think := &api.ThinkValue{Value: false}
-		if m.HasChatTemplate && chatModeForModel(m) == chatExecutionModeNative {
-			return r.ApplyChatTemplate(c.Request.Context(), llm.ChatRequest{Messages: messages, Think: think})
-		}
-		return renderPrompt(m, messages, nil, think)
+		return renderPrompt(m, messages, nil, &api.ThinkValue{Value: false})
 	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1148,13 +1217,17 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 		}
 	}
 
-	name, err := getExistingName(modelRef.Name)
+	m, err := s.getExistingModelForRunner(modelRef.Name.String(), req.Runner)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+		if errors.Is(err, os.ErrNotExist) {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+			return
+		}
+		handleScheduleError(c, req.Model, err)
 		return
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), req.Runner, []model.Capability{}, req.Options, req.KeepAlive, nil)
+	r, m, opts, err := s.scheduleRunnerForModel(c.Request.Context(), m, []model.Capability{}, req.Options, req.KeepAlive, nil)
 	if err != nil {
 		handleScheduleError(c, req.Model, err)
 		return
@@ -1168,33 +1241,6 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-
-	// mediaEmbedder is the runner's media-aware embed if it supports one.
-	// Resolved once before the per-item goroutines fan out: an all-text
-	// batch pays nothing either way, and the lazy write below is not
-	// safe to race on.
-	var mediaEmbedder interface {
-		EmbedWithMedia(ctx context.Context, input string, media [][]byte) ([]float32, int, error)
-	}
-	var mediaErr error
-	resolveMediaEmbedder := func() bool {
-		if mediaEmbedder != nil || mediaErr != nil {
-			return mediaErr == nil
-		}
-		me, ok := r.(interface {
-			EmbedWithMedia(ctx context.Context, input string, media [][]byte) ([]float32, int, error)
-		})
-		if !ok {
-			mediaErr = errors.New("model does not support media embeddings")
-			return false
-		}
-		mediaEmbedder = me
-		return true
-	}
-	// Resolve once here, before the per-item goroutines below fan out:
-	// the lazy path above reads and writes these closures' captured vars
-	// and is not safe to run concurrently.
-	resolveMediaEmbedder()
 
 	adjustTokenLimit := func(tokens []int, limit int) int {
 		if bos := m.metadata.Int("tokenizer.ggml.bos_token_id"); len(tokens) > 0 && tokens[0] != int(bos) && m.metadata.Bool("add_bos_token", true) {
@@ -1277,17 +1323,7 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 			}
 		}
 
-		run := func(ctx context.Context, text string) ([]float32, int, error) {
-			if len(item.media) == 0 {
-				return r.Embedding(ctx, text)
-			}
-			if !resolveMediaEmbedder() {
-				return nil, 0, api.StatusError{StatusCode: http.StatusNotImplemented, ErrorMessage: mediaErr.Error()}
-			}
-			return mediaEmbedder.EmbedWithMedia(ctx, text, item.media)
-		}
-
-		emb, tokCount, err := run(ctx, text)
+		emb, tokCount, err := r.Embedding(ctx, text, item.media)
 		if err == nil {
 			return emb, tokCount, nil
 		}
@@ -1320,7 +1356,7 @@ func (s *Server) EmbedHandler(c *gin.Context) {
 			return nil, 0, err
 		}
 
-		return run(ctx, truncated)
+		return r.Embedding(ctx, truncated, item.media)
 	}
 
 	var g errgroup.Group
@@ -1449,7 +1485,7 @@ func (s *Server) EmbeddingsHandler(c *gin.Context) {
 		return
 	}
 
-	embedding, _, err := r.Embedding(c.Request.Context(), req.Prompt)
+	embedding, _, err := r.Embedding(c.Request.Context(), req.Prompt, nil)
 	if err != nil {
 		s.sched.expireRunnersForRuntimeOOM(m, err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": strings.TrimSpace(err.Error())})
@@ -1697,6 +1733,42 @@ func (s *Server) PushHandler(c *gin.Context) {
 	}
 
 	streamResponse(c, ch)
+}
+
+// getExistingModelForRunner first tries the model retained by a loaded runner.
+// That model was built from checked manifest bytes; the link check only confirms
+// the name still selects its parent digest. Legacy manifests and cache misses
+// use a full manifest read and selection below.
+func (s *Server) getExistingModelForRunner(name, runner string) (*Model, error) {
+	n := model.ParseName(name)
+	if s.sched != nil && n.IsValid() && !manifest.IsDigestReferenceName(n) {
+		for _, loaded := range s.sched.loadedModelsForName(n, runner) {
+			if manifest.NamedManifestPointsToDigest(model.ParseName(loaded.Name), loaded.Digest) {
+				return loaded, nil
+			}
+		}
+	}
+
+	m, err := loadExistingModelForRunner(name, runner)
+	if err == nil {
+		m.runnerSelection = runner
+	}
+	return m, err
+}
+
+// loadExistingModelForRunner uses the manifest parsed while resolving the
+// stored spelling of a model.
+func loadExistingModelForRunner(name, runner string) (*Model, error) {
+	n := model.ParseName(name)
+	if !n.IsValid() || manifest.IsDigestReferenceName(n) {
+		return GetModelForRunner(name, runner)
+	}
+
+	selected, err := manifest.FindNamedManifestForRunner(n, runner)
+	if err != nil {
+		return nil, err
+	}
+	return modelFromManifest(selected.Name(), selected)
 }
 
 // getExistingName searches the models directory for the longest prefix match of
@@ -2973,12 +3045,11 @@ func preservedTokensForCompletion(builtinParser parsers.Parser) []string {
 	return nil
 }
 
-// budgetThink picks the think value a budget is read from. The value a request
-// renders with is resolved against the model's stated thinking controls, which
-// replaces anything the model does not state with its default: a budget is
-// never one of those controls, and a default level is not something the caller
-// asked to spend. So the budget comes from what the caller sent, and the
-// resolved value only decides whether the model thinks at all.
+// budgetThink picks the think value that decides whether a budget applies at
+// all. The value a request renders with is resolved against the model's stated
+// thinking controls, which replaces anything the model does not state with its
+// default; only "off" matters here, and it is off when either the caller or the
+// resolution says so.
 func budgetThink(requested, resolved *api.ThinkValue) *api.ThinkValue {
 	if resolved != nil && !resolved.Bool() {
 		return resolved
@@ -2990,34 +3061,36 @@ func budgetThink(requested, resolved *api.ThinkValue) *api.ThinkValue {
 // thinking, together with the delimiters a runner needs to enforce that bound.
 // Models with a built-in parser report their own delimiters; the rest fall back
 // to the ones inferred from the Go template, which is what the generic thinking
-// parser splits on. A think value carrying its own budget wins over the model's
-// think_budget parameter. The budget is zero when thinking is unrestricted or
-// when there is no thinking block to close.
+// parser splits on. The budget is zero when thinking is unrestricted or when
+// there is no thinking block to close.
 //
-// The value that produced the budget is returned alongside it, because that is
-// what the response reports: a caller shown only a token count cannot tell a
-// level it sent from one the model carried.
-func thinkBudgetForCompletion(builtinParser parsers.Parser, templateStart, templateEnd string, think *api.ThinkValue, opts *api.Options) (budget int, applied *api.ThinkValue, start, end string) {
+// The bound comes from think_budget and from nowhere else: the request's
+// option when it sent one, the model's parameter otherwise (opts is the merge
+// of the two). The think value is the model's control -- on, off, or a level
+// handed to the model as written -- and never a bound. It is read here only to
+// see whether thinking is off.
+//
+// The budget is returned in the form it was written alongside the count,
+// because that is what the response reports.
+func thinkBudgetForCompletion(builtinParser parsers.Parser, templateStart, templateEnd string, think *api.ThinkValue, opts *api.Options) (budget int, applied *api.ThinkBudget, start, end string) {
 	if opts == nil {
 		return 0, nil, "", ""
 	}
 
 	// Thinking switched off is not "no preference": it is an answer, and the
 	// model's own think_budget parameter must not overrule it. Without this the
-	// fallback below armed the model's budget on a request that asked for no
-	// reasoning at all -- 25,600 tokens for a `max` parameter against a 32,000
-	// num_predict -- which leaves the runner watching for a thinking block it
-	// was told would not exist, and able to write the forced-close message into
-	// a response whose caller wants no reasoning in it.
+	// model's budget was armed on a request that asked for no reasoning at all
+	// -- 25,600 tokens for a `max` parameter against a 32,000 num_predict --
+	// which leaves the runner watching for a thinking block it was told would
+	// not exist, and able to write the forced-close message into a response
+	// whose caller wants no reasoning in it.
 	//
 	// Bool() is the predicate rather than a comparison against false, because
-	// thinking is switched off by more than one route and they do not agree on
-	// the value: `think: false` from the native API, `reasoning_effort: "none"`
-	// from the OpenAI-compatible one (thinkFromReasoningEffort turns it into the
-	// same bool), and `think: 0`, which Bool() already reads as off because a
-	// budget of no tokens is not a budget. A nil think is left alone -- that is
-	// a caller who said nothing, not one who said no, and a model with no
-	// thinking tags is already stopped by the check below.
+	// thinking is switched off by more than one route: `think: false` from the
+	// native API and `reasoning_effort: "none"` from the OpenAI-compatible one
+	// (thinkFromReasoningEffort turns it into the same bool). A nil think is
+	// left alone -- that is a caller who said nothing, not one who said no, and
+	// a model with no thinking tags is already stopped by the check below.
 	if think != nil && !think.Bool() {
 		return 0, nil, "", ""
 	}
@@ -3031,31 +3104,28 @@ func thinkBudgetForCompletion(builtinParser parsers.Parser, templateStart, templ
 	}
 
 	window := api.ThinkBudgetWindow(opts.NumCtx, opts.NumPredict)
-	budget, applied = think.BudgetTokens(window), think
-	if budget <= 0 {
-		budget, applied = opts.ThinkBudget.BudgetTokens(window), opts.ThinkBudget
-	}
+	budget = opts.ThinkBudget.Tokens(window)
 	if budget <= 0 {
 		return 0, nil, "", ""
 	}
-	return budget, applied, start, end
+	return budget, opts.ThinkBudget, start, end
 }
 
 // thinkBudgetForShow answers what a completion would be bounded by, without
 // running one: the budget that would apply, and the tokens it would resolve to,
-// against whichever think value and options the caller asked about.
+// against the options the caller asked about.
 //
-// Precedence is the completion path's, because an answer that disagreed with it
-// would be worse than no answer: a think value carrying its own budget wins
-// over the model's `think_budget` parameter. That parameter already reaches a
-// caller inside Parameters, but only as a line of text to parse, and a level
-// there says nothing about the tokens it stands for.
+// The budget is the `think_budget` in those options -- the model's parameter,
+// or the caller's own when it sent one with the request. That parameter already
+// reaches a caller inside Parameters, but only as a line of text to parse, and
+// a share there says nothing about the tokens it stands for. The think value
+// is asked about only to answer "off": a level bounds nothing.
 //
 // A model whose options set neither num_predict nor num_ctx has no window to
 // resolve against here — the runtime default supplies one only once a request
 // arrives — so the count is left at zero and omitted, and the responses report
 // the figure that actually applied.
-func thinkBudgetForShow(think *api.ThinkValue, options map[string]any) (*api.ThinkValue, int) {
+func thinkBudgetForShow(think *api.ThinkValue, options map[string]any) (*api.ThinkBudget, int) {
 	// The same answer the completion path gives, for the same reason: asked
 	// about a think value that switches thinking off, the model's own
 	// think_budget is not what would apply.
@@ -3063,38 +3133,30 @@ func thinkBudgetForShow(think *api.ThinkValue, options map[string]any) (*api.Thi
 		return nil, 0
 	}
 
-	numCtx, _ := optionAsInt(options["num_ctx"])
-	numPredict, _ := optionAsInt(options["num_predict"])
-	window := api.ThinkBudgetWindow(numCtx, numPredict)
-
-	if budget := think.BudgetTokens(window); budget > 0 {
-		return think, budget
-	}
-
 	raw, ok := options["think_budget"]
 	if !ok {
 		return nil, 0
 	}
 
-	fromModel := &api.ThinkValue{}
+	fromOptions := &api.ThinkBudget{}
 	switch v := raw.(type) {
 	case string:
-		fromModel.Value = v
-	case bool:
-		fromModel.Value = v
+		fromOptions.Value = v
 	default:
 		count, ok := optionAsInt(raw)
 		if !ok {
 			return nil, 0
 		}
-		fromModel.Value = count
+		fromOptions.Value = count
 	}
 
-	budget := fromModel.BudgetTokens(window)
+	numCtx, _ := optionAsInt(options["num_ctx"])
+	numPredict, _ := optionAsInt(options["num_predict"])
+	budget := fromOptions.Tokens(api.ThinkBudgetWindow(numCtx, numPredict))
 	if budget <= 0 {
 		return nil, 0
 	}
-	return fromModel, budget
+	return fromOptions, budget
 }
 
 // optionAsInt reads a numeric Modelfile parameter. Values arrive as whichever
@@ -3364,18 +3426,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		req.Runner = runner
 	}
 
-	name := modelRef.Name
-
-	name, err = getExistingName(name)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
-		return
-	}
-
-	m, err := GetModelForRunner(name.String(), req.Runner)
+	m, err := s.getExistingModelForRunner(modelRef.Name.String(), req.Runner)
 	if err != nil {
 		switch {
-		case os.IsNotExist(err):
+		case errors.Is(err, os.ErrNotExist):
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
 		case errors.Is(err, manifest.ErrNoCompatibleManifest):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -3437,16 +3491,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 			req.Options = map[string]any{}
 		}
 
-		var msgs []api.Message
-		if len(req.Messages) > 0 {
-			msgs = append(m.Messages, req.Messages...)
-			if req.Messages[0].Role != "system" && m.System != "" {
-				msgs = append([]api.Message{{Role: "system", Content: m.System}}, msgs...)
-			}
-		}
-
-		msgs = filterThinkTags(msgs, m)
-		req.Messages = msgs
+		req.Messages = chatMessagesForRequest(m, req.Messages)
 
 		for k, v := range m.Options {
 			if _, ok := req.Options[k]; !ok {
@@ -3548,7 +3593,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		}
 	}
 
-	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), req.Runner, caps, req.Options, req.KeepAlive, req.Shift)
+	r, m, opts, err := s.scheduleRunnerForModel(c.Request.Context(), m, caps, req.Options, req.KeepAlive, req.Shift)
 	if errors.Is(err, errCapabilityCompletion) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%q does not support chat", req.Model)})
 		return
@@ -3570,15 +3615,15 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	msgs := append(m.Messages, req.Messages...)
-	if req.Messages[0].Role != "system" && m.System != "" {
-		msgs = append([]api.Message{{Role: "system", Content: m.System}}, msgs...)
-	}
-	msgs = filterThinkTags(msgs, m)
+	msgs := chatMessagesForRequest(m, req.Messages)
 
+	parserName := parserNameForModel(m)
 	if shouldUseHarmony(m) {
-		if m.Config.Parser == "" {
-			m.Config.Parser = "harmony"
+		// harmony's Reasoning field only understands low/medium/high; map "max" to "high"
+		if req.Think != nil {
+			if s, ok := req.Think.Value.(string); ok && s == "max" {
+				req.Think.Value = "high"
+			}
 		}
 	}
 
@@ -3590,8 +3635,8 @@ func (s *Server) ChatHandler(c *gin.Context) {
 	var builtinParser parsers.Parser
 	processedTools := req.Tools
 
-	if m.Config.Parser != "" {
-		builtinParser = parsers.ParserForName(m.Config.Parser)
+	if parserName != "" {
+		builtinParser = parsers.ParserForName(parserName)
 		if builtinParser != nil {
 			// Determine last message for chat prefill
 			var lastMessage *api.Message
@@ -3652,7 +3697,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 	thinkBudget, thinkBudgetApplied, thinkStartTag, thinkEndTag := thinkBudgetForCompletion(builtinParser, openingTag, closingTag, budgetThink(requestedThink, req.Think), opts)
 
 	// xollama-hook: tool-call-progress — see docs/xollama/tool-call-progress.mdx
-	callProgress := newToolCallProgress(&req, m.Config.Parser)
+	callProgress := newToolCallProgress(&req, parserName)
 
 	ch := make(chan any)
 	go func() {
@@ -3713,7 +3758,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 			}
 
 			if builtinParser != nil {
-				slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser input", "parser", m.Config.Parser, "content", r.Content)
+				slog.Log(ctx, logutil.LevelTrace, "builtin parser input", "parser", parserName, "content", r.Content)
 
 				content, thinking, toolCalls, err := builtinParser.Add(r.Content, r.Done)
 				if err != nil {
@@ -3731,10 +3776,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
 				res.Message.ToolCalls = toolCalls
 
 				if res.Message.Content != "" || res.Message.Thinking != "" || len(res.Message.ToolCalls) > 0 || r.Done || len(res.Logprobs) > 0 {
-					slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser output", "parser", m.Config.Parser, "content", content, "thinking", thinking, "toolCalls", toolCalls, "done", r.Done)
+					slog.Log(ctx, logutil.LevelTrace, "builtin parser output", "parser", parserName, "content", content, "thinking", thinking, "toolCalls", toolCalls, "done", r.Done)
 					ch <- res
 				} else {
-					slog.Log(context.TODO(), logutil.LevelTrace, "builtin parser empty output", "parser", m.Config.Parser)
+					slog.Log(ctx, logutil.LevelTrace, "builtin parser empty output", "parser", parserName)
 				}
 				return
 			}
@@ -4041,7 +4086,7 @@ func countChatImages(msgs []api.Message) int {
 
 func handleScheduleError(c *gin.Context, name string, err error) {
 	switch {
-	case errors.Is(err, errCapabilities), errors.Is(err, errRequired):
+	case errors.Is(err, errCapabilities), errors.Is(err, errRequired), errors.Is(err, model.ErrInvalidThinkBudget):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, manifest.ErrNoCompatibleManifest):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -4056,6 +4101,19 @@ func handleScheduleError(c *gin.Context, name string, err error) {
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
+}
+
+func chatMessagesForRequest(m *Model, requestMessages []api.Message) []api.Message {
+	if len(requestMessages) == 0 {
+		return nil
+	}
+
+	// Loaded runners retain m, so request messages must not share its backing slice.
+	msgs := append(slices.Clone(m.Messages), requestMessages...)
+	if requestMessages[0].Role != "system" && m.System != "" {
+		msgs = append([]api.Message{{Role: "system", Content: m.System}}, msgs...)
+	}
+	return filterThinkTags(msgs, m)
 }
 
 func filterThinkTags(msgs []api.Message, m *Model) []api.Message {

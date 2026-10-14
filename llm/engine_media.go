@@ -750,7 +750,7 @@ func (r *mediaRunner) ApplyChatTemplate(context.Context, ChatRequest) (string, e
 	return "", errMediaOnly
 }
 
-func (r *mediaRunner) Embedding(context.Context, string) ([]float32, int, error) {
+func (r *mediaRunner) Embedding(context.Context, string, [][]byte) ([]float32, int, error) {
 	return nil, 0, errMediaOnly
 }
 

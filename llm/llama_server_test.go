@@ -953,8 +953,8 @@ func TestLlamaServerStatusErrorMessageIncludesOOMStatus(t *testing.T) {
 	}
 
 	got := runner.statusErrorMessage([]byte(`{"error":{"message":"Compute error."}}`))
-	if !strings.Contains(got, "Compute error") {
-		t.Fatalf("expected original response body, got %q", got)
+	if !strings.HasPrefix(got, "Compute error.\n") {
+		t.Fatalf("expected llama-server's error message, got %q", got)
 	}
 	if !IsOutOfMemoryMessage(got) {
 		t.Fatalf("expected OOM status detail to be detectable, got %q", got)
@@ -1715,7 +1715,7 @@ func TestLlamaServerEmbedding(t *testing.T) {
 		sem:  semaphore.NewWeighted(1),
 	}
 
-	embedding, count, err := runner.Embedding(t.Context(), "hello")
+	embedding, count, err := runner.Embedding(t.Context(), "hello", nil)
 	if err != nil {
 		t.Fatalf("Embedding error: %v", err)
 	}
@@ -1724,6 +1724,21 @@ func TestLlamaServerEmbedding(t *testing.T) {
 	}
 	if count != 2 {
 		t.Errorf("prompt_eval_count = %d, want 2", count)
+	}
+}
+
+func TestLlamaServerSystemOnePromptOverContext(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `{"error":{"code":500,"message":"input (9000 tokens) is too large to process. increase the physical batch size (current batch size: 8192)","type":"server_error"}}`)
+	}))
+	defer srv.Close()
+	runner := &llamaServerRunner{port: srv.Listener.Addr().(*net.TCPAddr).Port, client: srv.Client(), cmd: fakeRunningCmd(), sem: semaphore.NewWeighted(1)}
+
+	_, _, err := runner.SystemOne(t.Context(), json.RawMessage(`"x"`), json.RawMessage(`{"q":{"type":"noul","instructions":"q"}}`), nil)
+	var serr api.StatusError
+	if !errors.As(err, &serr) || serr.StatusCode != http.StatusBadRequest || serr.ErrorMessage != promptTooLongMessage {
+		t.Fatalf("err = %v, want 400 %q", err, promptTooLongMessage)
 	}
 }
 
@@ -1789,7 +1804,7 @@ func TestLlamaServerEmbeddingFallbackFormat(t *testing.T) {
 		sem:  semaphore.NewWeighted(1),
 	}
 
-	embedding, _, err := runner.Embedding(t.Context(), "hello")
+	embedding, _, err := runner.Embedding(t.Context(), "hello", nil)
 	if err != nil {
 		t.Fatalf("Embedding error: %v", err)
 	}
@@ -1822,7 +1837,7 @@ func TestLlamaServerEmbeddingFlatArrayFallback(t *testing.T) {
 		sem:  semaphore.NewWeighted(1),
 	}
 
-	embedding, _, err := runner.Embedding(t.Context(), "hello")
+	embedding, _, err := runner.Embedding(t.Context(), "hello", nil)
 	if err != nil {
 		t.Fatalf("Embedding error: %v", err)
 	}
@@ -1853,7 +1868,7 @@ func TestLlamaServerEmbeddingTooLargeError(t *testing.T) {
 		sem:  semaphore.NewWeighted(1),
 	}
 
-	_, _, err := runner.Embedding(t.Context(), "very long input")
+	_, _, err := runner.Embedding(t.Context(), "very long input", nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1912,6 +1927,40 @@ func TestEmbeddingBatchSize(t *testing.T) {
 			opts.NumBatch = tt.numBatch
 			if got := embeddingBatchSize(opts, tt.numParallel); got != tt.want {
 				t.Fatalf("embeddingBatchSize = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLlamaServerBatch(t *testing.T) {
+	tests := []struct {
+		name                 string
+		headBlocks, trainCtx uint64
+		numCtx, numBatch     int
+		completion           bool
+		wantBatch            int
+		wantMemory           uint64
+	}{
+		{"default generation", 0, 8192, 8192, 512, true, 512, 0},
+		{"medium generation", 0, 8192, 8192, 1024, true, 1024, 768 << 20},
+		{"large generation", 0, 8192, 8192, 2048, true, 2048, 2 << 30},
+		{"other non-completion models", 0, 8192, 8192, 2048, false, 2048, 0},
+		{"decision uses requested context", 4, 32768, 8192, 512, false, 8192, 2 << 30},
+		{"decision caps at trained context", 4, 1024, 8192, 512, false, 1024, 768 << 20},
+		{"decision without trained context", 4, 0, 8192, 512, false, 8192, 2 << 30},
+		{"decision with an already matching batch", 4, 8192, 8192, 8192, false, 8192, 2 << 30},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := loadTestGGUF(t, gguftest.KV{
+				"general.architecture":      "clef",
+				"clef.context_length":       tt.trainCtx,
+				"clef.decision.block_count": tt.headBlocks,
+			})
+			opts := api.Options{Runner: api.Runner{NumCtx: tt.numCtx, NumBatch: tt.numBatch}}
+			batch, memory := LlamaServerBatch(f, opts, tt.completion)
+			if batch != tt.wantBatch || memory != tt.wantMemory {
+				t.Fatalf("batch=%d memory=%d, want batch=%d memory=%d", batch, memory, tt.wantBatch, tt.wantMemory)
 			}
 		})
 	}
@@ -3794,58 +3843,72 @@ func TestLlamaServerChatTemplateKwargs(t *testing.T) {
 
 func TestLlamaServerChatRequestThinkBudget(t *testing.T) {
 	// llama-server owns the template on the chat path, so the budget in the
-	// body is the only thing bounding thinking there
+	// body is the only thing bounding thinking there. It comes from
+	// think_budget alone: a level in think is the model's control.
 	tests := []struct {
 		name        string
 		numCtx      int
 		numPredict  int
 		think       *api.ThinkValue
-		thinkBudget *api.ThinkValue
+		thinkBudget *api.ThinkBudget
 		want        any
 	}{
 		{
-			name:   "effort resolves against the context length",
-			numCtx: 32768,
-			think:  &api.ThinkValue{Value: "medium"},
-			want:   8192,
+			name:        "a share resolves against the context length",
+			numCtx:      32768,
+			think:       &api.ThinkValue{Value: true},
+			thinkBudget: &api.ThinkBudget{Value: "medium"},
+			want:        8192,
 		},
 		{
-			// a level leaves room to answer, so a capped response is the
-			// window it takes its share of
-			name:       "effort resolves against num_predict when the request caps the response",
-			numCtx:     128000,
-			numPredict: 32000,
-			think:      &api.ThinkValue{Value: "medium"},
-			want:       8000,
-		},
-		{
-			name:       "effort resolves against the context when num_predict is past it",
-			numCtx:     32768,
-			numPredict: 128000,
-			think:      &api.ThinkValue{Value: "medium"},
-			want:       8192,
-		},
-		{
-			name:       "effort resolves against the context when num_predict is unlimited",
-			numCtx:     32768,
-			numPredict: -1,
-			think:      &api.ThinkValue{Value: "medium"},
-			want:       8192,
-		},
-		{
-			name:        "the model think_budget level resolves against num_predict too",
+			// a share leaves room to answer, so a capped response is the
+			// window it is taken of
+			name:        "a share resolves against num_predict when the request caps the response",
 			numCtx:      128000,
 			numPredict:  32000,
 			think:       &api.ThinkValue{Value: true},
-			thinkBudget: &api.ThinkValue{Value: "medium"},
+			thinkBudget: &api.ThinkBudget{Value: "medium"},
 			want:        8000,
 		},
 		{
-			name:       "an explicit budget ignores num_predict",
-			numCtx:     128000,
-			numPredict: 32000,
-			think:      &api.ThinkValue{Value: 16000},
-			want:       16000,
+			name:        "a share resolves against the context when num_predict is past it",
+			numCtx:      32768,
+			numPredict:  128000,
+			thinkBudget: &api.ThinkBudget{Value: "medium"},
+			want:        8192,
+		},
+		{
+			name:        "a share resolves against the context when num_predict is unlimited",
+			numCtx:      32768,
+			numPredict:  -1,
+			thinkBudget: &api.ThinkBudget{Value: "medium"},
+			want:        8192,
+		},
+		{
+			name:        "a token count ignores num_predict",
+			numCtx:      128000,
+			numPredict:  32000,
+			think:       &api.ThinkValue{Value: true},
+			thinkBudget: &api.ThinkBudget{Value: 16000},
+			want:        16000,
+		},
+		{
+			name:   "a level is not a budget",
+			numCtx: 32768,
+			think:  &api.ThinkValue{Value: "medium"},
+		},
+		{
+			name:        "a level leaves the budget as it was set",
+			numCtx:      32768,
+			think:       &api.ThinkValue{Value: "high"},
+			thinkBudget: &api.ThinkBudget{Value: 2000},
+			want:        2000,
+		},
+		{
+			name:        "thinking off is not bounded",
+			numCtx:      32768,
+			think:       &api.ThinkValue{Value: false},
+			thinkBudget: &api.ThinkBudget{Value: "max"},
 		},
 		{
 			name:   "think true stays unrestricted",

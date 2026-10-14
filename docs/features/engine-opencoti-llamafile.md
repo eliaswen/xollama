@@ -185,26 +185,31 @@ than being dropped; see "Packaging".
 
 ### Decision models
 
-A decision model (`decision.type` in its GGUF, capability `decision`) is scored
-by `/v1/systemone` in one of two ways, and only one of them needs anything from
-the engine:
+A decision model (`decision.type` in its GGUF, capability `decision`) is
+scored, since upstream v0.40.4, by one `POST /v1/systemone` to the engine that
+loaded it: llama.cpp b11521's native decision support, for the `clef`
+architecture and every other decision type (Nimble, Tev1). Upstream deleted
+`llama/clef` and the old score path (`/completion` logprobs, `score_fields` on
+`/embedding`) with it, and refuses a model in the old format (a Clef or other
+decision GGUF on the `qwen35` architecture) with "downloaded in a format that
+is no longer supported", asking for a re-pull. Every decision model in
+solidPC's store was in that format on 2026-10-14.
 
-- **From token probabilities** (`nimble`): `/completion` with `n_probs` and a
-  logit bias. opencoti serves it as stock does; measured on c9, the answers are
-  within 0.006 of stock's.
-- **Through the Clef head** (`decision.type = clef`: `clef`, `clef-flash`):
-  extra tensors in the model and `score_fields` on `/embedding`, which upstream
-  compiles into `llama-server` from `llama/clef/`. opencoti through c9 has
-  neither, and does not load such a model ("wrong number of tensors; expected
-  549, got 427").
+opencoti through c13 has no `/v1/systemone` (requested as op-139, announced by
+the feature `systemone_v1`). So a decision model is served by stock
+`llama-server` while the pinned engine does not declare that feature:
+`decisionEngine` in `server/decision_engine.go` names `llamacpp` in the launch
+config, which is the path a model's own `engine: llamacpp` takes, logged once
+per model. An engine the model states itself is kept. On macOS, where no stock
+`llama-server` ships, the load is refused by name (`engine.StocklessRefusal`).
+The day the pin carries `feature systemone_v1` the function returns the config
+untouched. Owner's decision, 2026-10-14; measured on the v0.40.4 sync with the
+c12 engine pinned: a re-pulled `tev1` answered on stock (`bug` 0.946, 7.3 s on
+the CPU, load included). Gate: `scripts/gates/decision.sh` (G4).
 
-So a Clef model is served by stock `llama-server` while the pinned engine does
-not declare the feature `clef_score_v1`: `clefEngine` in
-`server/decision_engine.go` names `llamacpp` in the launch config, which is the
-path a model's own `engine: llamacpp` takes, logged once per model. An engine
-the model states itself is kept. Nothing is refused, and the day the pin carries
-`feature clef_score_v1` the function returns the config untouched (opencoti
-took the head for c10). Gate: `scripts/gates/decision.sh` (G4).
+Before v0.40.4 the rule was Clef-only (`clefEngine`, feature
+`clef_score_v1`, c9; opencoti took the head for c10) and Nimble stayed on
+opencoti, scored from token probabilities.
 
 ### The hook
 

@@ -1,8 +1,10 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -12,11 +14,9 @@ import (
 )
 
 // A model that states its thinking controls has an unsupported think value
-// replaced by its default before rendering. A thinking-token budget is never
-// one of those controls, so resolving first and budgeting second dropped every
-// budget on such a model, and let the default level arm a budget the caller
-// never asked for. The budget is read from what the caller sent; the resolved
-// value only decides whether the model thinks at all.
+// replaced by its default before rendering. None of that touches the budget:
+// the bound is think_budget, whatever level the request names and whatever the
+// model resolves it to. A level never arms a budget, and never disarms one.
 func TestThinkBudgetSurvivesThinkingResolution(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("OLLAMA_MODELS", t.TempDir())
@@ -30,16 +30,22 @@ func TestThinkBudgetSurvivesThinkingResolution(t *testing.T) {
 	}
 
 	for _, tt := range []struct {
-		name   string
-		think  any
-		budget int
+		name    string
+		think   any
+		options map[string]any
+		budget  int
 	}{
-		{"integer budget", 1500, 1500},
-		{"level the model does not state", "max", 4096 * 4 / 5},
-		{"level the model states", "low", 4096 / 8},
-		{"omitted: the model's default level is not a budget", nil, 0},
-		{"true", true, 0},
-		{"false", false, 0},
+		{"a level the model does not state is not a budget", "max", nil, 0},
+		{"a level the model states is not a budget", "low", nil, 0},
+		{"omitted: the model's default level is not a budget", nil, nil, 0},
+		{"true", true, nil, 0},
+		{"false", false, nil, 0},
+		{"a count with thinking on", true, map[string]any{"think_budget": 1500}, 1500},
+		{"a share with thinking on", true, map[string]any{"think_budget": "max"}, 4096 * 4 / 5},
+		{"a count beside a level the model states", "low", map[string]any{"think_budget": 1500}, 1500},
+		{"a count beside a level the model does not state", "max", map[string]any{"think_budget": 1500}, 1500},
+		{"a count with think omitted", nil, map[string]any{"think_budget": 1500}, 1500},
+		{"a count with thinking off", false, map[string]any{"think_budget": 1500}, 0},
 	} {
 		for _, endpoint := range []string{"chat", "generate"} {
 			t.Run(endpoint+"/"+tt.name, func(t *testing.T) {
@@ -49,15 +55,46 @@ func TestThinkBudgetSurvivesThinkingResolution(t *testing.T) {
 				}
 				var w *httptest.ResponseRecorder
 				if endpoint == "chat" {
-					w = createRequest(t, s.ChatHandler, api.ChatRequest{Model: "thinking-qwen", Messages: []api.Message{{Role: "user", Content: "hello"}}, Think: think, Stream: &stream})
+					w = createRequest(t, s.ChatHandler, api.ChatRequest{Model: "thinking-qwen", Messages: []api.Message{{Role: "user", Content: "hello"}}, Think: think, Options: tt.options, Stream: &stream})
 				} else {
-					w = createRequest(t, s.GenerateHandler, api.GenerateRequest{Model: "thinking-qwen", Prompt: "hello", Think: think, Stream: &stream})
+					w = createRequest(t, s.GenerateHandler, api.GenerateRequest{Model: "thinking-qwen", Prompt: "hello", Think: think, Options: tt.options, Stream: &stream})
 				}
 				if code := w.Code; code != http.StatusOK {
 					t.Fatalf("status %d", code)
 				}
 				if got := mock.CompletionRequest.ThinkBudget; got != tt.budget {
 					t.Errorf("runner got think budget %d, want %d", got, tt.budget)
+				}
+			})
+		}
+	}
+}
+
+// A think_budget the server cannot read is the client's mistake: it is refused
+// with 400 and the reason, on every route that takes options, never with 500.
+func TestInvalidThinkBudgetIsABadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("OLLAMA_MODELS", t.TempDir())
+	t.Setenv("OLLAMA_CONTEXT_LENGTH", "4096")
+	mock := mockRunner{CompletionResponse: llm.CompletionResponse{Content: "answer", Done: true, DoneReason: llm.DoneReasonStop}}
+	s := newServerWithMockRunner(t, &mock)
+	createMinimalGGUFModel(t, s, "budget-base", nil, "{{ .Prompt }}", nil)
+
+	for _, budget := range []any{"bogus", 1.5, -64, 0, true} {
+		for _, endpoint := range []string{"chat", "generate"} {
+			t.Run(fmt.Sprintf("%s/%v", endpoint, budget), func(t *testing.T) {
+				options := map[string]any{"think_budget": budget}
+				var w *httptest.ResponseRecorder
+				if endpoint == "chat" {
+					w = createRequest(t, s.ChatHandler, api.ChatRequest{Model: "budget-base", Messages: []api.Message{{Role: "user", Content: "hello"}}, Options: options, Stream: &stream})
+				} else {
+					w = createRequest(t, s.GenerateHandler, api.GenerateRequest{Model: "budget-base", Prompt: "hello", Options: options, Stream: &stream})
+				}
+				if w.Code != http.StatusBadRequest {
+					t.Fatalf("status %d, want 400: %s", w.Code, w.Body.String())
+				}
+				if !strings.Contains(w.Body.String(), "think budget") {
+					t.Errorf("the refusal does not name the budget: %s", w.Body.String())
 				}
 			})
 		}

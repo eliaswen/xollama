@@ -92,6 +92,13 @@ func (r *Gemma4Renderer) Render(messages []api.Message, tools []api.Tool, thinkV
 			sb.WriteString("<|channel>thought\n")
 			sb.WriteString(message.Thinking)
 			sb.WriteString("\n<channel|>")
+		} else if message.Role == "assistant" && r.emptyBlockOnNothink && !hasThink && !continueSameModelTurn && i > lastUserIdx {
+			// The empty thought channel the generation prompt opened this model
+			// turn with, rendered back as it was generated. Without it the next
+			// request's prompt diverges inside the turn and the cache re-reads
+			// it. Only where this message opened a model turn: a step that
+			// continues after a tool response was generated without one.
+			sb.WriteString("<|channel>thought\n<channel|>")
 		}
 
 		if len(message.ToolCalls) > 0 {

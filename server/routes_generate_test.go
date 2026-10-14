@@ -209,7 +209,7 @@ func TestEmbeddingHandlersUseRunnerSelection(t *testing.T) {
 		ModelFormat:  manifest.FormatSafetensors,
 		Capabilities: []string{string(model.CapabilityEmbedding)},
 	}, nil)
-	writeManifestListFixture(t, "embed-list",
+	writeManifestListFixture(t, "Embed-List",
 		manifestListFixtureChild{name: "embed-ggml", runner: manifest.RunnerGGML, format: manifest.FormatGGUF},
 		manifestListFixtureChild{name: "embed-mlx", runner: manifest.RunnerMLX, format: manifest.FormatSafetensors},
 	)
@@ -588,6 +588,24 @@ func TestChatHandlerHarmonyPreservesStructuralTokens(t *testing.T) {
 	}
 	if mock.CompletionRequest.Options != nil && slices.Contains(mock.CompletionRequest.Options.Stop, "<|call|>") {
 		t.Fatalf("expected stop sequences not to be patched with Harmony call terminator, got %#v", mock.CompletionRequest.Options)
+	}
+}
+
+func TestParserNameForModelDoesNotChangeConfig(t *testing.T) {
+	tmpl, err := ollamatemplate.Parse("<|start|><|end|>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &Model{Config: model.ConfigV2{ModelFamily: "gptoss"}, Template: tmpl}
+	if got := parserNameForModel(m); got != "harmony" {
+		t.Fatalf("parser = %q, want harmony", got)
+	}
+	if m.Config.Parser != "" {
+		t.Fatalf("model parser changed to %q", m.Config.Parser)
+	}
+	m.Config.Parser = "gemma4"
+	if got := parserNameForModel(m); got != "gemma4" {
+		t.Fatalf("explicit parser = %q, want gemma4", got)
 	}
 }
 
@@ -2712,7 +2730,7 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 			t.Errorf("expected content %q, got %q", "Based on my analysis, the solution is straightforward.", got)
 		}
 	})
-	// A level names a different number on every request, because it is a share
+	// A share names a different number on every request, because it is a part
 	// of the room the response has. A client that only sees "medium" cannot
 	// work out which number applied, and a budget carried by the model's own
 	// think_budget parameter is one the client never sent at all.
@@ -2732,11 +2750,12 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		w := createRequest(t, s.ChatHandler, api.ChatRequest{
 			Model:    "test-thinking",
 			Messages: []api.Message{{Role: "user", Content: "Analyze this"}},
-			Think:    &api.ThinkValue{Value: "medium"},
+			Think:    &api.ThinkValue{Value: true},
 			Stream:   &streamRequest,
 			Options: map[string]any{
-				"num_ctx":     32768,
-				"num_predict": 8000,
+				"num_ctx":      32768,
+				"num_predict":  8000,
+				"think_budget": "medium",
 			},
 		})
 
@@ -2754,8 +2773,7 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		if resp.ThinkBudgetTokens != 2000 {
 			t.Errorf("expected think budget tokens 2000, got %d", resp.ThinkBudgetTokens)
 		}
-		// The level is reported in the form it was written, so a caller can
-		// tell a level it sent apart from one the model carried.
+		// The budget is reported in the form it was written.
 		if resp.ThinkBudget == nil || resp.ThinkBudget.Value != "medium" {
 			t.Errorf("expected think budget %q, got %#v", "medium", resp.ThinkBudget)
 		}
@@ -2763,7 +2781,7 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 
 	// A fixed count is already the resolved figure, so both fields carry the
 	// same number. That is the point: one name means one thing whether the
-	// budget was written as a level or as a count.
+	// budget was written as a share or as a count.
 	t.Run("reports a fixed budget as both the value and the count", func(t *testing.T) {
 		mock.CompletionResponse = llm.CompletionResponse{
 			Content:            " thinking </think> done.",
@@ -2780,9 +2798,9 @@ func TestChatWithPromptEndingInThinkTag(t *testing.T) {
 		w := createRequest(t, s.ChatHandler, api.ChatRequest{
 			Model:    "test-thinking",
 			Messages: []api.Message{{Role: "user", Content: "Analyze this"}},
-			Think:    &api.ThinkValue{Value: 4096},
+			Think:    &api.ThinkValue{Value: true},
 			Stream:   &streamRequest,
-			Options:  map[string]any{"num_ctx": 32768, "num_predict": 8000},
+			Options:  map[string]any{"num_ctx": 32768, "num_predict": 8000, "think_budget": 4096},
 		})
 
 		if w.Code != http.StatusOK {

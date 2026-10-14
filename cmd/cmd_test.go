@@ -2498,6 +2498,44 @@ func TestApplyShowResponseToRunOptions(t *testing.T) {
 	}
 }
 
+func TestApplyShowResponseRefreshesMultimodal(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		info api.ShowResponse
+	}{
+		{
+			name: "decision vision",
+			info: api.ShowResponse{Capabilities: []model.Capability{model.CapabilityDecision, model.CapabilityVision}},
+		},
+		{
+			name: "audio",
+			info: api.ShowResponse{Capabilities: []model.Capability{model.CapabilityAudio}},
+		},
+		{
+			name: "legacy projector",
+			info: api.ShowResponse{ProjectorInfo: map[string]any{"general.architecture": "clip"}},
+		},
+		{
+			name: "legacy vision",
+			info: api.ShowResponse{ModelInfo: map[string]any{"mllama.vision.block_count": 32}},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := runOptions{}
+			applyShowResponseToRunOptions(&opts, &tt.info)
+			if !opts.MultiModal {
+				t.Fatal("loading a multimodal model did not enable media input")
+			}
+			applyShowResponseToRunOptions(&opts, &api.ShowResponse{
+				Capabilities: []model.Capability{model.CapabilityDecision},
+			})
+			if opts.MultiModal {
+				t.Fatal("loading a text-only model did not disable media input")
+			}
+		})
+	}
+}
+
 func TestRunOptions_Copy(t *testing.T) {
 	// Setup test data
 	originalKeepAlive := &api.Duration{Duration: 5 * time.Minute}
@@ -3144,45 +3182,6 @@ func TestFormerAgentEntryPointsAreRejected(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), "unknown") {
 				t.Fatalf("former agent entry point %q returned %v, want unknown command or flag", args, err)
-			}
-		})
-	}
-}
-
-func TestParseThinkFlag(t *testing.T) {
-	tests := []struct {
-		value   string
-		want    any
-		wantErr bool
-	}{
-		{value: "", want: true},
-		{value: "true", want: true},
-		{value: "false", want: false},
-		{value: "minimal", want: "minimal"},
-		{value: "low", want: "low"},
-		{value: "max", want: "max"},
-		{value: "8192", want: 8192},
-		{value: "0", wantErr: true},
-		{value: "-1", wantErr: true},
-		{value: "xhigh", want: "xhigh"},
-		{value: "none", want: "none"},
-		{value: "8192.5", wantErr: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.value, func(t *testing.T) {
-			think, err := parseThinkFlag(tt.value)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("parseThinkFlag(%q) = %v, want an error", tt.value, think.Value)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("parseThinkFlag(%q): %v", tt.value, err)
-			}
-			if think.Value != tt.want {
-				t.Errorf("parseThinkFlag(%q) = %v, want %v", tt.value, think.Value, tt.want)
 			}
 		})
 	}

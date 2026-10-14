@@ -2,15 +2,17 @@
 #
 # The MLX runtime a Windows install takes, pinned as a published artifact and
 # never built here. It is the fork's own build of upstream's MLX at the tag
-# (run 37737304380, commit d0508358, MLX a59cc231), the same 2,642 files as
+# (run 38561513795, commit eda37d24, MLX 97029597), the same 2,642 files as
 # upstream's ollama-windows-amd64-mlx.zip, with MLX_CUDA_BIN_DIR and
 # MLX_CUDNN_BIN_DIR set to "." so mlx.dll loads CUDA and cuDNN from its own
 # folder. Upstream's zip bakes "C:/Program Files/NVIDIA/CUDNN/bin/x64" into
 # mlx.dll: on a machine without cuDNN installed there, the first MLX operation
 # that needs cuDNN panics and the request hangs (measured on eleven2go at
-# v0.40.0). Measured on eleven2go (no cuDNN installed), 2026-10-08, on a v0.40.1
-# xollama: this one generates qwen3.5:0.8b (300 tokens, 68 tok/s warm), embeds
-# with embeddinggemma-2 and creates from safetensors (Qwen3-0.6B). mlx.dll,
+# v0.40.0). Measured on eleven2go (no cuDNN installed), 2026-10-14, on a v0.40.4
+# xollama (dev 46eba39a3, side server, scratch store): this one generates
+# qwen3.5:0.8b on MLX (300 tokens, 67.7 tok/s warm) and creates from
+# safetensors (Qwen3-0.6B, 316 layers, 111.7 tok/s), no panic (v0.40.1's
+# check, 2026-10-08: 68 tok/s, plus an embed with embeddinggemma-2). mlx.dll,
 # mlxc.dll, ollama_xgrammar.dll and libopenblas.dll are unsigned (upstream
 # signs them).
 #
@@ -38,9 +40,9 @@
 # fork's v0.40.2-thinkbudget (MLX_VERSION, MLX_C_VERSION and mlx/ did not move;
 # fork mail #926). Only the tag below changed.
 repo      mann1x/ollama
-tag       v0.40.3-thinkbudget
+tag       v0.40.4-thinkbudget
 asset     ollama-windows-amd64-mlx-reldir.zip
-sha256    31c743bded2e27639cf721bd41361e38beb478e4c7fb6c141518fb0164f89206
-upstream  v0.40.3
-mlx       a59cc23190f1e26fabcba8693607bb4c34b2ac2b
-mlx_c     ebc88f10caa1b625e6b581437a8dea6df8a70085
+sha256    29b2b14e5b30fd0ed1c6abf5f1bbd5a65daf6e95b2e47b064787b370e363f9ef
+upstream  v0.40.4
+mlx       97029597882f674a596958bc71fdec3213ccc192
+mlx_c     a341b4925024b88b2c593468f16e12f5e17315da

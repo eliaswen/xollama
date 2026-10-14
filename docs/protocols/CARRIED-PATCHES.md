@@ -27,6 +27,66 @@ first if a patch looks missing or out of date.
    other row in this file keys on the PR number, and these cannot. They are
    listed apart, below.
 
+**Status as of 2026-10-14: the set moved to upstream v0.40.4.** Manifest
+`054fe328` (`base: v0.40.4`, `integration.sha 3123bb66`, 25 patches, same
+order, none added or dropped; fork mail #1330; none retires, every carried
+upstream PR is still open, checked with `gh pr view`), consumed on
+`sync/upstream-v0.40.4` after `e321407af` merged the upstream tag (35 commits,
+114 files; conflicts `README.md`, which keeps the fork's, and the launch
+config in `llm/llama_server.go`, which keeps xollama's fields and adds
+upstream's `decision`). Each patch is its own `--no-ff` merge at the
+manifest's sha, in `patches[]` order; every one leaves the tree as its first
+parent, conflicts with its own v0.40.3 copy resolved to this side. Checked
+after the loop: `model/parsers`, `thinking`, `llama/compat`, `llama/server`,
+`LLAMA_CPP_VERSION`, `MLX_VERSION` and `MLX_C_VERSION` are byte-identical to the
+fork's `think-budget` at `054fe328` (`llama/clef` is gone on both sides).
+
+Upstream deleted `llama/clef` and `llama/compat/002-clef.patch` (llama.cpp
+b11521 scores decision models natively, on `/v1/systemone`), so the inputs
+digest moved: `fd08a01d…` README excluded, equal to the fork's. Runtimes were
+rebuilt (`v0.40.4-thinkbudget`, `eda37d24`); the Linux and macOS pins move in
+`c3ff5e034`; the Windows MLX reldir build is pending at the fork, and the
+Windows CPU runtime is rebuilt by `xollama-runtime.yaml` on the push to `dev`.
+
+| PR | branch | manifest sha | 2026-10-14 merge |
+|---|---|---|---|
+| #17563 | `up-repeat-guard` | `e540173b` | `623b7dfac` |
+| #17564 | `up-truncated-tool-calls` | `e381cf47` | `4765c42f2` |
+| #17565 | `up-gemma4-object-close` | `f0cc63f4` | `3d4089279` |
+| #17566 | `up-think-budget` | `953edd24` | `e8305cae2` |
+| #17567 | `up-mlx-libdl` | `06601f1a` | `df4938d17` |
+| #17626 | `up-gemma4-stray-channel-name` | `e2f639a4` | `cc5529193` |
+| #17914 | `qwen3coder-tolerate-malformed-tool-calls` | `63391884` | `b58751a3f` |
+| #18212 | `up-reasoning-budget-line-boundary` | `f03b279b` | `073b32440` |
+| #18281 | `up-native-thinking-replay` | `49c22550` | `1e2b618c3` |
+| #18288 | `up-gemma4-stray-closer` | `13b2f748` | `df4bd92fd` |
+| #18289 | `up-jinja-runner-reuse` | `2de84c10` | `ae444bd28` |
+| fork-only | `gemma4-toolcall-in-thinking` | `256ba097` | `039bc8933` |
+| #18624 | `qwen35-toolcall-in-thinking` | `37c57b6c` | `37db48370` |
+| fork-only | `up-gemma4-unparsed-tool-call-content` | `76825121` | `eef258040` |
+| fork-only | `up-toolcall-tags` | `d83d26b0` | `e7b675a24` |
+| fork-only | `up-codex-request-count-mtime` | `c8da681d` | `59b099193` |
+| fork-only | `up-fileutil-root-permission-tests` | `ef29615f` | `f4067c935` |
+| fork-only | `up-gofmt-vision-test-data` | `0d742bed` | `faf7c7ffc` |
+| fork-only | `up-lfm2-think-off-discard` | `35898171` | `3df7a8c0a` |
+| fork-only | `up-gemma4-assistant-shape` | `73ef56f6` | `58f26331f` |
+| fork-only | `up-gemma4-swallowed-key` | `d5e1980a` | `7d1036957` |
+| fork-only | `up-compat-readme` (stacked) | `91a29653` | `e11c2e13c` |
+| fork-only | `up-response-scope-think-budget` (stacked) | `37aeb2b0` | `b96d68e0c` |
+| fork-only | `up-modelfile-roundtrip` | `6531fdc0` | `1af84b398` |
+| fork-only | `up-qwen35-empty-think-history` | `bfd63324` | `3fb517260` |
+| fork-only | `up-mlxrunner-manifest-list` | `20dcfd9f` | `1d380ed81` |
+
+**2026-10-14: a twenty-sixth patch, `up-mlxrunner-manifest-list`** (fork-only,
+from v0.40.4; manifest `555ed808`; fork mail #1367, on the owner's word).
+The MLX runner opened a manifest list with the default runner order, so with
+a GGUF and an MLX child both on disk a `runner: mlx` request started the MLX
+runner on the GGUF child ("config.json not found in manifest"); upstream's own
+order off Apple silicon has it too. Both call sites now ask for the MLX child.
+Merged at its sha as `1d380ed81`, no conflicts. Checked on eleven2go: pull,
+pull `runner=mlx`, generate `runner=mlx` on `qwen3.5:0.8b` gives 67.7 and 68.3
+tok/s (was a 500).
+
 **Status as of 2026-10-11: the set moved to upstream v0.40.3.** Manifest
 `31c1a50e` (`base: v0.40.3`, `integration.sha cec947e9`, 24 patches, same
 order, none added or dropped; fork mail #1065), consumed on
@@ -44,7 +104,7 @@ differences). Every merge leaves the tree exactly as its first parent.
 | `up-repeat-guard` | `a4d49106` | `b99f17d0` | `8b0bb4c16` |
 | `up-truncated-tool-calls` | `f4cc2061` | `4a260b1a` | `b88921092` |
 | `up-gemma4-object-close` | `d9af5930` | `a5d1fc0d` | `ec46c1ecf` |
-| `up-think-budget` | `8d324d86` | `44343159` | `239573193` |
+| `up-think-budget` | `8d324d86` | `6c817c7c` | `4d3cb41a7` |
 | `up-mlx-libdl` | `8d030d4f` | `f6d2d623` | `65d3d338d` |
 | `up-gemma4-stray-channel-name` | `e4e6326d` | `9ec97a81` | `1e3832020` |
 | `qwen3coder-tolerate-malformed-tool-calls` | `e2af5819` | `744216ab` | `b0543f7b7` |
@@ -63,8 +123,27 @@ differences). Every merge leaves the tree exactly as its first parent.
 | `up-gemma4-assistant-shape` | `62a3172b` | `fede8b64` | `a5af58a55` |
 | `up-gemma4-swallowed-key` | `dc322cca` | `3a9441e5` | `9631b94b8` |
 | `up-compat-readme` | `2dcdaa77` | `d08a1c66` | `01269c8d3` |
-| `up-response-scope-think-budget` | `5785359d` | `9d54b7ca` | `1ae394ddc` |
+| `up-response-scope-think-budget` | `5785359d` | `47918b45` | `b96da23ba` |
 | `up-modelfile-roundtrip` | `fe6f4b23` | `c781abb1` | `4b8a1aba9` |
+| `up-qwen35-empty-think-history` | — | `03730b43` | `8ece2b537` |
+
+**2026-10-14: a twenty-fifth patch, `up-qwen35-empty-think-history`** (fork-only,
+from v0.40.3; manifest at think-budget `a344166e`, release
+`v0.40.3-thinkbudget.2`; fork mail #1314). Merged alone at its sha as
+`8ece2b537`, on the owner's word for `v0.40.3-xollama.5`. The same manifest
+also moves `up-think-budget` to `f8055cdd` and `up-response-scope-think-budget`
+to `47918b45` (the level/budget split): those are NOT taken here yet. They wait
+for Cerebriline (fork mail #1299). Cerebriline 4.100.252 shipped the same
+morning (fork mail #1315), and both were merged at those shas the same day
+(`d21c1375a`, `b96da23ba`; the earlier v0.40.3 merges were `239573193` at
+`44343159` and `1ae394ddc` at `9d54b7ca`). Conflicts: `cmd/cmd_test.go`
+(drops the patch's own `TestParseThinkFlag`, keeps xollama's tests) and four
+hunks in `llm/llama_server.go` / `server/routes.go` where the patch only
+re-aligned fields beside xollama's hooked ones. The runtimes did not move.
+Later that day `up-think-budget` moved to `6c817c7c` (one commit on
+`f8055cdd`, manifest at think-budget `626565df`; fork mail #1317): a
+`think_budget` the server cannot read is a 400, not a 500. Merged at that sha
+as `4d3cb41a7`, no conflicts.
 
 **Status as of 2026-10-10: the set moved to upstream v0.40.2.** Manifest
 `5a7be425` (`base: v0.40.2`, `integration.sha 21263f95`, 24 patches, same
