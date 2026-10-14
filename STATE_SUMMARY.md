@@ -5,6 +5,12 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-14 — `v0.40.4-xollama` is Latest (promoted 22:16, opencoti c13 r2 `2610141633001`, upstream v0.40.4).**
+> - Owner 21:17: "cut v0.40.4-xollama and promote it". PR #31, merge `a8924636a`, release run 38622830287, `tree matches v0.40.4-rc.1.xollama`. The rc.1 records commit had moved `dev`'s tree, so it was reverted (`0a488f4ec`) before the empty cut commit (`5dee36250`) and cherry-picked back after.
+> - Short check: eleven2go small installer over rc.1 exit 0 in 4 s, 3090 123.6–125.2 tok/s (claude-hooks paused its compaction bench there for it, #1401/#1404); Mac self-update from rc.1, 127.0. Discord announced; `:latest` moved on both registries by the post-promotion image run 38630500350 (the publish-time run failed on an HTTP/2 download error on amd64).
+> - Installed: eleven2go and the Mac mini on `0.40.4-xollama`; solidPC's service and pandorum unchanged (the owner's to ask for).
+> - The owner's word is spent: the next release on this base is `v0.40.4-xollama.1` and needs his word. Queue: opencoti c14 (CPU parity 97.8 % of stock on solidPC, dev `2610142041001`), c13 generation notices once `generation_notice_v1` ships, the c12 readers, the realtime proxy, the Whistle scheduler label.
+
 > **2026-10-14 — `v0.40.4-rc.1.xollama` published (pre-release, merge `12856dc06`) and passes every gate.**
 > - Release run 38611998336, image run 38614638318; 8 files match `sha256sum.txt`; numbers in `docs/protocols/VALIDATION.md`.
 > - G9 eleven2go (20:39–20:52): full installer over `.4` exit 0 in 110 s, small one exit 0 in 4 s; 3090 124.4–124.9, 9070 XT 100.4–103.0, iGPU 4.9. A 27B load (32k context) on the installed server at 20:26 belonged to neither automaticum nor this session; it had ended before the install.
