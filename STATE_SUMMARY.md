@@ -5,6 +5,35 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-14 — the v0.40.4 sync is complete on `dev`, and the c13 dev snapshot passes our gates.**
+> - Windows runtimes:
+>   - The CPU runtime pin is `runtime-windows-amd64-b11521-821795b6f80e` (`ce83b721b`); the digest and sha256 were checked.
+>   - The MLX pin is the fork's v0.40.4 reldir zip `29b2b14e…` (`5dcba1ad3`). On eleven2go with no cuDNN it generates `qwen3.5:0.8b` on MLX at 67.7 tok/s warm and creates from Qwen3-0.6B safetensors, with no panic.
+> - Found there, and fixed through the fork on the owner's word: the MLX runner opened a manifest list in the default runner order. A `runner: mlx` request with both children on disk therefore loaded the GGUF child and failed ("config.json not found"); upstream has the same defect. Fork patch `up-mlxrunner-manifest-list` `20dcfd9f`, merged as `1d380ed81`; the same sequence now generates 67.7 / 68.3 tok/s.
+> - The c13 dev snapshot (index `54f1bcca`, engine `2610141212001`) was gated on side branch `pin/c13-dev` (`49dd32c43`), on the v0.40.4 tree:
+>   - **solidPC** (`/srv/ml/c13dev`), G3:
+>     - compat 8/8;
+>     - llama3 77.1 tok/s (c12: 77.3);
+>     - four slots 307.4 (308.8);
+>     - overflow 3.01 (3.40, rerun pending).
+>   - **solidPC**, other gates:
+>     - G4: decision 7/7 on stock (bridge), chat paths all pass.
+>     - G6: speech and video pass.
+>     - G5: 6/6, with 0 crashes. The idle tag had 48 room refusals, answered (c12: 20).
+>   - **eleven2go**:
+>     - 3090 CUDA 124.2–124.8 tok/s;
+>     - 9070 XT Vulkan 100.3–102.9, and 103.5 after 120 s idle;
+>     - kill: engine gone in 830 ms;
+>     - iGPU 5.0;
+>     - speech 4/4.
+>   - **Mac mini**: qwen2.5:1.5b 124.7–128.8 tok/s, llama3 31.5–31.8, qwen3.5:2b 63.4–63.6; speech 7/7.
+> - bug-4060 case (Qwen3.6-35B-A3B UD-IQ3_XXS, whole model on the CPU; Ryzen 5 5600G AVX2, 6 threads, 300 tokens, median of 3 warm runs):
+>   - c12 r2: 3.54 tok/s;
+>   - c13 dev: 8.69 tok/s (2.5x, CPU variant AVX2);
+>   - stock llama-server b11521: 11.29 tok/s.
+>   - So c13 reaches 77% of stock on this CPU.
+> - opencoti published c13 r2 (engine `2610141633001`, `/v1/systemone` + `systemone_v1`, index `9849186f`); its release mail is pending.
+>
 > **2026-10-14 — `sync/upstream-v0.40.4`: upstream v0.40.4 and the fork's 25 patches at their v0.40.4 shas (manifest `054fe328`), for the next release. Not on `dev` yet.**
 > - `e321407af` merged the tag (35 commits, 114 files). The patches follow at the manifest's shas, each its own merge, none changing the tree; the merge shas are in `docs/protocols/CARRIED-PATCHES.md`. Shared paths are byte-identical to the fork's `think-budget`. The Linux and macOS runtime pins move to `v0.40.4-thinkbudget` (`c3ff5e034`; sha256 checked on a download; inputs digest `fd08a01d…`, equal to the fork's).
 > - Breaks in the merge, all fixed:

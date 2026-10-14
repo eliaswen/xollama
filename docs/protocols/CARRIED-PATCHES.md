@@ -75,6 +75,17 @@ Windows CPU runtime is rebuilt by `xollama-runtime.yaml` on the push to `dev`.
 | fork-only | `up-response-scope-think-budget` (stacked) | `37aeb2b0` | `b96d68e0c` |
 | fork-only | `up-modelfile-roundtrip` | `6531fdc0` | `1af84b398` |
 | fork-only | `up-qwen35-empty-think-history` | `bfd63324` | `3fb517260` |
+| fork-only | `up-mlxrunner-manifest-list` | `20dcfd9f` | `1d380ed81` |
+
+**2026-10-14: a twenty-sixth patch, `up-mlxrunner-manifest-list`** (fork-only,
+from v0.40.4; manifest `555ed808`; fork mail #1367, on the owner's word).
+The MLX runner opened a manifest list with the default runner order, so with
+a GGUF and an MLX child both on disk a `runner: mlx` request started the MLX
+runner on the GGUF child ("config.json not found in manifest"); upstream's own
+order off Apple silicon has it too. Both call sites now ask for the MLX child.
+Merged at its sha as `1d380ed81`, no conflicts. Checked on eleven2go: pull,
+pull `runner=mlx`, generate `runner=mlx` on `qwen3.5:0.8b` gives 67.7 and 68.3
+tok/s (was a 500).
 
 **Status as of 2026-10-11: the set moved to upstream v0.40.3.** Manifest
 `31c1a50e` (`base: v0.40.3`, `integration.sha cec947e9`, 24 patches, same
