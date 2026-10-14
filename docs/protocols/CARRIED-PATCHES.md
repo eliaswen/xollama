@@ -44,7 +44,7 @@ differences). Every merge leaves the tree exactly as its first parent.
 | `up-repeat-guard` | `a4d49106` | `b99f17d0` | `8b0bb4c16` |
 | `up-truncated-tool-calls` | `f4cc2061` | `4a260b1a` | `b88921092` |
 | `up-gemma4-object-close` | `d9af5930` | `a5d1fc0d` | `ec46c1ecf` |
-| `up-think-budget` | `8d324d86` | `44343159` | `239573193` |
+| `up-think-budget` | `8d324d86` | `f8055cdd` | `d21c1375a` |
 | `up-mlx-libdl` | `8d030d4f` | `f6d2d623` | `65d3d338d` |
 | `up-gemma4-stray-channel-name` | `e4e6326d` | `9ec97a81` | `1e3832020` |
 | `qwen3coder-tolerate-malformed-tool-calls` | `e2af5819` | `744216ab` | `b0543f7b7` |
@@ -63,7 +63,7 @@ differences). Every merge leaves the tree exactly as its first parent.
 | `up-gemma4-assistant-shape` | `62a3172b` | `fede8b64` | `a5af58a55` |
 | `up-gemma4-swallowed-key` | `dc322cca` | `3a9441e5` | `9631b94b8` |
 | `up-compat-readme` | `2dcdaa77` | `d08a1c66` | `01269c8d3` |
-| `up-response-scope-think-budget` | `5785359d` | `9d54b7ca` | `1ae394ddc` |
+| `up-response-scope-think-budget` | `5785359d` | `47918b45` | `b96da23ba` |
 | `up-modelfile-roundtrip` | `fe6f4b23` | `c781abb1` | `4b8a1aba9` |
 | `up-qwen35-empty-think-history` | — | `03730b43` | `8ece2b537` |
 
@@ -73,8 +73,13 @@ from v0.40.3; manifest at think-budget `a344166e`, release
 `8ece2b537`, on the owner's word for `v0.40.3-xollama.5`. The same manifest
 also moves `up-think-budget` to `f8055cdd` and `up-response-scope-think-budget`
 to `47918b45` (the level/budget split): those are NOT taken here yet. They wait
-for Cerebriline (fork mail #1299) on the branch `think-budget-split`, so the
-two rows above still name `44343159` and `9d54b7ca`. The runtimes did not move.
+for Cerebriline (fork mail #1299). Cerebriline 4.100.252 shipped the same
+morning (fork mail #1315), and both were merged at those shas the same day
+(`d21c1375a`, `b96da23ba`; the earlier v0.40.3 merges were `239573193` at
+`44343159` and `1ae394ddc` at `9d54b7ca`). Conflicts: `cmd/cmd_test.go`
+(drops the patch's own `TestParseThinkFlag`, keeps xollama's tests) and four
+hunks in `llm/llama_server.go` / `server/routes.go` where the patch only
+re-aligned fields beside xollama's hooked ones. The runtimes did not move.
 
 **Status as of 2026-10-10: the set moved to upstream v0.40.2.** Manifest
 `5a7be425` (`base: v0.40.2`, `integration.sha 21263f95`, 24 patches, same
