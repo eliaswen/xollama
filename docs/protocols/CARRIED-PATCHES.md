@@ -44,7 +44,7 @@ differences). Every merge leaves the tree exactly as its first parent.
 | `up-repeat-guard` | `a4d49106` | `b99f17d0` | `8b0bb4c16` |
 | `up-truncated-tool-calls` | `f4cc2061` | `4a260b1a` | `b88921092` |
 | `up-gemma4-object-close` | `d9af5930` | `a5d1fc0d` | `ec46c1ecf` |
-| `up-think-budget` | `8d324d86` | `f8055cdd` | `d21c1375a` |
+| `up-think-budget` | `8d324d86` | `6c817c7c` | `4d3cb41a7` |
 | `up-mlx-libdl` | `8d030d4f` | `f6d2d623` | `65d3d338d` |
 | `up-gemma4-stray-channel-name` | `e4e6326d` | `9ec97a81` | `1e3832020` |
 | `qwen3coder-tolerate-malformed-tool-calls` | `e2af5819` | `744216ab` | `b0543f7b7` |
@@ -80,6 +80,10 @@ morning (fork mail #1315), and both were merged at those shas the same day
 (drops the patch's own `TestParseThinkFlag`, keeps xollama's tests) and four
 hunks in `llm/llama_server.go` / `server/routes.go` where the patch only
 re-aligned fields beside xollama's hooked ones. The runtimes did not move.
+Later that day `up-think-budget` moved to `6c817c7c` (one commit on
+`f8055cdd`, manifest at think-budget `626565df`; fork mail #1317): a
+`think_budget` the server cannot read is a 400, not a 500. Merged at that sha
+as `4d3cb41a7`, no conflicts.
 
 **Status as of 2026-10-10: the set moved to upstream v0.40.2.** Manifest
 `5a7be425` (`base: v0.40.2`, `integration.sha 21263f95`, 24 patches, same

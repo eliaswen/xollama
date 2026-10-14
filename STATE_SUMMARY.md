@@ -5,6 +5,10 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-14 — the fork's `think_budget` refusal fix on `dev` (`up-think-budget` `6c817c7c`, merge `4d3cb41a7`) for `v0.40.3-xollama.5`.**
+> - A `think_budget` the server cannot read (`"bogus"`, 1.5, -64, 0, true) was answered 500 by `handleScheduleError`; it now wraps `model.ErrInvalidThinkBudget` and is a 400 with the same message (fork mail #1317, reported in #1316). One commit on `f8055cdd`, merged at its `PATCHES.json` sha with no conflicts.
+> - Checks: build, vet, lint 0 issues; `go test` on server, types/model, api, openai, middleware passes (the fork's `TestInvalidThinkBudgetIsABadRequest` included). Live (`/srv/ml/xc12/lfm/turns.sh split`, CPU, `qwen3.5:2b`): `"bogus"` → 400 `invalid think budget`; every other split row unchanged (64 → 64, `"low"` → 50, a number in `think` → 400, `"high"` no cap, think off ignores the budget).
+>
 > **2026-10-14 — `dev` carries the fork's thinking level/budget split (`up-think-budget` `f8055cdd`, `up-response-scope-think-budget` `47918b45`) for `v0.40.3-xollama.5`.**
 > - `think` is stock again (a switch or the model's level, never a cap; a number in it is refused); `options.think_budget` (or the model's `PARAMETER think_budget`) is the only cap. Held since the morning for Cerebriline, which sent its cap as `think: "high"`; Cerebriline 4.100.252 shipped 09:19 (fork mail #1315) and sends the cap as `options.think_budget`. The release on the split was the owner's instruction to the fork session ("...mail xollama so it can release a new xollama with this change").
 > - xollama's side (`abf4a8d4c`): a council member asked to reason gets `think: true` plus `options.think_budget` (a number in `think` would now be refused with 400); the council's share table moves to `ThinkBudget.Tokens`, the same table; `docs/xollama/think-budget.mdx` rewritten, Bonsai page corrected.
