@@ -399,7 +399,7 @@ func (cfg Config) OutputBudget() int {
 // reasoning, or 0 for none. capTokens is the member's reply cap, which the
 // reasoning is part of, and window its context. With a cap, a level is its
 // share of the cap (as Cerebriline maps a level onto its output budget, by
-// the table a chat request's level uses), "on" is medium, and a token budget
+// the table a request's think_budget share uses), "on" is medium, and a token budget
 // is held to four fifths of the cap so the reply keeps room. With none --
 // the member's own model sets it -- a level is a share of window and "on" is
 // xollama.DefaultCouncilThinkBudget.
@@ -422,5 +422,5 @@ func ThinkBudget(setting string, capTokens, window int) int {
 	if capTokens > 0 {
 		window = capTokens
 	}
-	return (&api.ThinkValue{Value: setting}).BudgetTokens(window)
+	return (&api.ThinkBudget{Value: setting}).Tokens(window)
 }

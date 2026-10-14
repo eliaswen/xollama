@@ -112,8 +112,9 @@ PARAMETER think_budget high
   whole response inside its thinking block. `think_budget high` closes the
   block once the model has used that share of what it may emit, after a
   message telling it to act. Reasoning that finishes sooner is unaffected.
-  Change it per request (`think`, or OpenAI's `reasoning_effort`), or with
-  `/set parameter think_budget max`. See
+  Change it per request (`think_budget` in `options`), or with
+  `/set parameter think_budget max`. `think` and `reasoning_effort` switch
+  thinking on and off; they do not change the budget. See
   [Bounding thinking](/xollama/think-budget).
 - **`num_ctx` is not set.** The architecture takes 262k natively and only a
   quarter of its layers carry a KV cache, so context is cheap here. The right

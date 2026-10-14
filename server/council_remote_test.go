@@ -154,23 +154,24 @@ func TestCouncilHostAllowed(t *testing.T) {
 }
 
 // A token budget goes only where it is understood: this server's own models,
-// and a model another xollama serves itself. A cloud model and a stock ollama
-// get think true, bounded by num_predict: the role's stated max_tokens, the
-// thinking inside it ("on" is medium, a quarter of it).
+// and a model another xollama serves itself. Every member gets think true; the
+// budget travels as options.think_budget ("on" is medium, a quarter of the
+// role's stated max_tokens). A cloud model and a stock ollama get none, and
+// num_predict, the reply cap, bounds the thinking.
 func TestAThinkingMemberGetsABudgetOnlyWhereOneIsUnderstood(t *testing.T) {
 	budget := float64(2048 / 4)
 	for _, tc := range []struct {
 		name           string
 		xollama, cloud bool
 		model          string
-		want           any
+		budget         any
 	}{
-		{"stock ollama", false, false, "", true},
+		{"stock ollama", false, false, "", nil},
 		{"xollama, its own model", true, false, "", budget},
-		{"xollama, a pulled cloud tag", true, true, "", true},
+		{"xollama, a pulled cloud tag", true, true, "", nil},
 		// Measured: a cloud reference's /api/show comes from ollama.com and
 		// says nothing of a remote host.
-		{"xollama, a cloud reference", true, false, "gemma4:31b-cloud", true},
+		{"xollama, a cloud reference", true, false, "gemma4:31b-cloud", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			councilProbes.reset()
@@ -190,8 +191,8 @@ func TestAThinkingMemberGetsABudgetOnlyWhereOneIsUnderstood(t *testing.T) {
 			}
 			for _, r := range remote.reqs {
 				opts, _ := r["options"].(map[string]any)
-				if r["think"] != tc.want || opts["num_predict"] != float64(2048) {
-					t.Errorf("think %v, num_predict %v; want %v and 2048", r["think"], opts["num_predict"], tc.want)
+				if r["think"] != true || opts["think_budget"] != tc.budget || opts["num_predict"] != float64(2048) {
+					t.Errorf("think %v, think_budget %v, num_predict %v; want true, %v and 2048", r["think"], opts["think_budget"], opts["num_predict"], tc.budget)
 				}
 			}
 		})
