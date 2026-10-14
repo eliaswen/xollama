@@ -5,6 +5,11 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-14 — `v0.40.4-rc.1.xollama` opened (upstream v0.40.4, opencoti c13).**
+> - Owner: ".5 on v0.40.4"; the candidate carries the v0.40.4 sync, the think-level/budget split, the Qwen3.5 think-off history fix (bug-273), the mlxrunner manifest-list fix and the c13 pin.
+> - Security check (`scripts/security-check.sh`, go1.26.9): govulncheck 0 reachable; Dependabot 99 open (was 99), none on fork-changed lines. Snapshot in `docs/protocols/security/govulncheck.txt`.
+> - Next: the dry run (first release on a new upstream base), hosted checks, merge, release run, then eleven2go G9, Mac and images.
+
 > **2026-10-14 — `dev` pins opencoti's c13 release (index `9849186f`, engine `2610141633001`, `f66ef6f70`); the gate set passes on every host.**
 > - Owner 17:38: "pin c13 and run the gates". c13 is r2: r1 was never published. It is the dev snapshot gated earlier, plus `POST /v1/systemone` (feature `systemone_v1`); the libraries are byte-identical. No defect row to retire.
 > - With `systemone_v1` in the pin, `decisionEngine` keeps decision models on opencoti, and the stock bridge is idle.
