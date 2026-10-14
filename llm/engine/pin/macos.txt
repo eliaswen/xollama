@@ -1,15 +1,15 @@
 format     2
 component  macos
-version    2610131352005
-built-from 2610130822001
+version    2610141455005
+built-from 2610141255001
 repo       ManniX-ITA/opencoti-llamafile
-rev        7ab4fd8de82bb08088c3ee1658744cfab4081334
+rev        b46dad3e28697384c2853f366cb494fc4d603cdf
 abi        ggml bac5050ddc8c58c51f0b059a7f9753b33af0ed79d355090e7c9a17ffaaaf340a
 abi        loader d6ff34022f1d3fb5af56ca0c80e3f4e552bf09f1bebdf0cb5f314a454bf38dbc
 abi-source exported
-engine-min 2610130818001
-gated-with 2610130822001
+engine-min 2610141212001
+gated-with 2610141255001
 requires   macos-aarch64  macos          13.0
-file  macos-aarch64  ape        components/macos/2610131352005/ape-macos-aarch64  07f550415a59415973ef877eec99a776dfa5263b06fdb1fd9cefb7b884f0f723  56896
-file  macos-aarch64  metal      components/macos/2610131352005/ggml-metal-aarch64.dylib  54415d062a889c5cee87befb38cf41a754ac214ff3b3c9aedad87a0de67e58bb  1633248
-file  any            build-info components/macos/2610131352005/BUILD_INFO.macos.md  1be86ac7199e30ab7104a2b64409bbdaa04dba6ed524ff19c77ec161e34e24c4  2944
+file  macos-aarch64  ape        components/macos/2610141455005/ape-macos-aarch64  07f550415a59415973ef877eec99a776dfa5263b06fdb1fd9cefb7b884f0f723  56896
+file  macos-aarch64  metal      components/macos/2610141455005/ggml-metal-aarch64.dylib  82449bd0be6041f991ef001e6ea6cbeb057a238e33b75fa9ea3b9d47b5029e25  1652688
+file  any            build-info components/macos/2610141455005/BUILD_INFO.macos.md  d08cde9a2461e9c76ff05bc3ea45c7e7657c7b82d05fa8fed4e28c39de3a62a9  2747
