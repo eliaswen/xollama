@@ -297,6 +297,15 @@ func (r *Qwen35Renderer) Render(messages []api.Message, tools []api.Tool, think 
 			sb.WriteString(imStartTag + message.Role + "\n" + content + imEndTag + "\n")
 		} else if message.Role == "assistant" {
 			renderAssistantThinkBlock := r.alwaysRenderAssistantThinkBlock || (isThinking && i > lastQueryIndex)
+			// With thinking off, the generation prompt ends in an empty think
+			// block and the model writes its turn after it. A turn after the
+			// last user message is rendered back exactly as it was generated,
+			// empty block included: without it the prompt diverges right after
+			// "assistant\n", and a recurrent model (Qwen3.5 and 3.6 are Gated
+			// Delta Net hybrids) can only restore a checkpoint before that, so
+			// every agent step evaluated the whole previous step again. Turns
+			// before the last user message keep the template's form.
+			renderEmptyThinkBlock := !renderAssistantThinkBlock && !isThinking && r.emitEmptyThinkOnNoThink && i > lastQueryIndex
 			contentReasoning, content := splitQwen35ReasoningContent(
 				content,
 				message.Thinking,
@@ -306,6 +315,8 @@ func (r *Qwen35Renderer) Render(messages []api.Message, tools []api.Tool, think 
 
 			if renderAssistantThinkBlock {
 				sb.WriteString(imStartTag + message.Role + "\n<think>\n" + contentReasoning + "\n</think>\n\n" + content)
+			} else if renderEmptyThinkBlock {
+				sb.WriteString(imStartTag + message.Role + "\n<think>\n\n</think>\n\n" + content)
 			} else {
 				sb.WriteString(imStartTag + message.Role + "\n" + content)
 			}
