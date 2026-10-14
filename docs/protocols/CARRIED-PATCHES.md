@@ -65,6 +65,16 @@ differences). Every merge leaves the tree exactly as its first parent.
 | `up-compat-readme` | `2dcdaa77` | `d08a1c66` | `01269c8d3` |
 | `up-response-scope-think-budget` | `5785359d` | `9d54b7ca` | `1ae394ddc` |
 | `up-modelfile-roundtrip` | `fe6f4b23` | `c781abb1` | `4b8a1aba9` |
+| `up-qwen35-empty-think-history` | — | `03730b43` | `8ece2b537` |
+
+**2026-10-14: a twenty-fifth patch, `up-qwen35-empty-think-history`** (fork-only,
+from v0.40.3; manifest at think-budget `a344166e`, release
+`v0.40.3-thinkbudget.2`; fork mail #1314). Merged alone at its sha as
+`8ece2b537`, on the owner's word for `v0.40.3-xollama.5`. The same manifest
+also moves `up-think-budget` to `f8055cdd` and `up-response-scope-think-budget`
+to `47918b45` (the level/budget split): those are NOT taken here yet. They wait
+for Cerebriline (fork mail #1299) on the branch `think-budget-split`, so the
+two rows above still name `44343159` and `9d54b7ca`. The runtimes did not move.
 
 **Status as of 2026-10-10: the set moved to upstream v0.40.2.** Manifest
 `5a7be425` (`base: v0.40.2`, `integration.sha 21263f95`, 24 patches, same
