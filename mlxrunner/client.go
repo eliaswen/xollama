@@ -66,7 +66,8 @@ func NewClient(modelName string, softContextLength int) (*Client, error) {
 		client:            http.DefaultClient,
 	}
 
-	modelManifest, err := manifest.ParseNamedManifest(model.ParseName(modelName))
+	// The same child the runner subprocess opens (model.Open).
+	modelManifest, err := manifest.ParseNamedManifestForRunner(model.ParseName(modelName), manifest.RunnerMLX)
 	if err != nil {
 		return nil, err
 	}
