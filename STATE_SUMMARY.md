@@ -5,6 +5,24 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-14 — `dev` pins opencoti's c13 release (index `9849186f`, engine `2610141633001`, `f66ef6f70`); the gate set passes on every host.**
+> - Owner 17:38: "pin c13 and run the gates". c13 is r2: r1 was never published. It is the dev snapshot gated earlier, plus `POST /v1/systemone` (feature `systemone_v1`); the libraries are byte-identical. No defect row to retire.
+> - With `systemone_v1` in the pin, `decisionEngine` keeps decision models on opencoti, and the stock bridge is idle.
+> - **solidPC** (`/srv/ml/c13`, 18:09–18:58):
+>   - G3: compat 8/8; llama3 77.4 tok/s; four slots 302.7; overflow 3.13 (dev snapshot 3.01, c12 3.40, c11 r4 2.13).
+>   - G4 decision 7/7 **on opencoti** (opencoti loads 2, stock 0, nothing routed). Chat paths all pass, 0 KV refusals.
+>   - G6: speech and video pass.
+>   - G5: 6/6 pass, 0 crashes; PolyKV 5 pools, 0 refusals. The idle tag had 27 room refusals, answered (dev snapshot 48, c12 20).
+>   - The installed service had a 930 MiB embedding engine (snowflake-arctic-embed2, a LAN client) resident on the 3090 during the first, stopped attempt; it was gone for this run.
+> - **eleven2go** (release engine, own DLLs, ABI match):
+>   - 3090 CUDA 124.2–125.1 tok/s;
+>   - 9070 XT Vulkan 100.3–103.0, 103.4 after 120 s idle;
+>   - kill: engine gone in 847 ms;
+>   - iGPU 5.2;
+>   - speech 4/4.
+> - **Mac mini**: qwen2.5:1.5b 123.1–128.8 tok/s, llama3 31.6–31.9, qwen3.5:2b 61.7–63.6; speech 7/7.
+> - bug-4060: c13 is 2.5 times c12 r2 on solidPC's CPU (8.69 vs 3.54 tok/s). Against stock, opencoti's interleaved runs give 91–93% with overlapping ranges: within solidPC's ±25% noise, not a measured gap (op-140 continues on bs2 for c14).
+>
 > **2026-10-14 — the v0.40.4 sync is complete on `dev`, and the c13 dev snapshot passes our gates.**
 > - Windows runtimes:
 >   - The CPU runtime pin is `runtime-windows-amd64-b11521-821795b6f80e` (`ce83b721b`); the digest and sha256 were checked.
