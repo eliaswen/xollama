@@ -67,7 +67,7 @@ func TestDecisionBenchmarkPolicies(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			t.Setenv("OLLAMA_HOST", server.URL)
+			t.Setenv("XOLLAMA_HOST", server.URL)
 			path := filepath.Join(t.TempDir(), "cases.jsonl")
 			if err := os.WriteFile(path, []byte(`{"id":"test,case","dataset":"test","request":{"state":"An ordinary message.","questions":{"result":{"type":"noul","instructions":"Is this a message?"}}},"expected":{"result":{"noul":true}}}`), 0o600); err != nil {
 				t.Fatal(err)
@@ -114,7 +114,7 @@ func TestDecisionBenchmarkOutputError(t *testing.T) {
 		fmt.Fprint(w, `{"model":"test-model","usage":{"input_tokens":20,"output_tokens":0},"answers":{"result":{"type":"noul","noul":1}}}`)
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv("OLLAMA_HOST", server.URL)
+	t.Setenv("XOLLAMA_HOST", server.URL)
 	path := filepath.Join(t.TempDir(), "cases.jsonl")
 	if err := os.WriteFile(path, []byte(`{"id":"one","dataset":"test","request":{"state":"Message.","questions":{"result":{"type":"noul"}}},"expected":{"result":{"noul":true}}}`), 0o600); err != nil {
 		t.Fatal(err)
@@ -215,7 +215,7 @@ func TestDecisionBenchmarkConcurrency(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv("OLLAMA_HOST", server.URL)
+	t.Setenv("XOLLAMA_HOST", server.URL)
 	path := filepath.Join(t.TempDir(), "cases.jsonl")
 	if err := os.WriteFile(path, []byte(`{"id":"one","dataset":"test","request":{"state":"Message.","questions":{"result":{"type":"noul"}}},"expected":{"result":{"noul":true}}}`), 0o600); err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestDecisionBenchmarkCancelsPeers(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv("OLLAMA_HOST", server.URL)
+	t.Setenv("XOLLAMA_HOST", server.URL)
 	path := filepath.Join(t.TempDir(), "cases.jsonl")
 	if err := os.WriteFile(path, []byte(`{"id":"one","dataset":"test","request":{"state":"Message.","questions":{"result":{"type":"noul"}}},"expected":{"result":{"noul":true}}}`), 0o600); err != nil {
 		t.Fatal(err)

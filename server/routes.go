@@ -3697,7 +3697,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 	thinkBudget, thinkBudgetApplied, thinkStartTag, thinkEndTag := thinkBudgetForCompletion(builtinParser, openingTag, closingTag, budgetThink(requestedThink, req.Think), opts)
 
 	// xollama-hook: tool-call-progress — see docs/xollama/tool-call-progress.mdx
-	callProgress := newToolCallProgress(&req, m.Config.Parser)
+	callProgress := newToolCallProgress(&req, parserName)
 
 	ch := make(chan any)
 	go func() {

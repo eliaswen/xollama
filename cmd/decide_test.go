@@ -35,7 +35,7 @@ func runDecide(t *testing.T, stdin string, handler http.HandlerFunc, args ...str
 		}
 		http.NotFound(w, r)
 	}))
-	t.Setenv("OLLAMA_HOST", mockServer.URL)
+	t.Setenv("XOLLAMA_HOST", mockServer.URL)
 	t.Cleanup(mockServer.Close)
 
 	cmd, _, err := NewCLI().Find([]string{"run"})

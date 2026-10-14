@@ -93,7 +93,7 @@ func TestResolveRunModelsCodexIncludesInstalledToolModels(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			t.Setenv("OLLAMA_HOST", server.URL)
+			t.Setenv("XOLLAMA_HOST", server.URL)
 			client, err := newLauncherClient(defaultLaunchPolicy(false, false))
 			if err != nil {
 				t.Fatal(err)
@@ -4506,7 +4506,7 @@ func TestResolveSingleIntegrationTargetPaymentGuidance(t *testing.T) {
 				}
 			}))
 			defer srv.Close()
-			t.Setenv("OLLAMA_HOST", srv.URL)
+			t.Setenv("XOLLAMA_HOST", srv.URL)
 			client, err := newLauncherClient(LaunchPolicy{Confirm: tt.mode})
 			if err != nil {
 				t.Fatal(err)
