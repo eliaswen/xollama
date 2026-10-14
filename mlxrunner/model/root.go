@@ -25,7 +25,9 @@ type Root struct {
 // Open loads a manifest for the given model name and scans tensor blobs for
 // quantization metadata.
 func Open(modelName string) (*Root, error) {
-	m, err := manifest.ParseNamedManifest(modeltypes.ParseName(modelName))
+	// The MLX runner serves only the MLX child of a manifest list; the
+	// platform default would pick llamacpp first off Apple silicon.
+	m, err := manifest.ParseNamedManifestForRunner(modeltypes.ParseName(modelName), manifest.RunnerMLX)
 	if err != nil {
 		return nil, err
 	}
