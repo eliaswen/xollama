@@ -392,7 +392,10 @@ xollama tweak model mannix/whisper:large-v3-turbo --device-backend=cuda
 
 A pinned device that is not there refuses the request, as it does for a chat
 model. Transcription, image and video engines run on the GPU; audio.cpp speech
-(Kokoro, Supertonic, KittenTTS) always runs on the CPU, whatever the pin says.
+(Kokoro, Supertonic, KittenTTS) always runs on the CPU, whatever the pin says,
+and so does Whistle on Windows and Linux (on a Mac it runs on Metal). xOllama
+places them there itself, so they book no GPU memory and `xollama ps` shows
+them on the CPU.
 
 ## Audio formats
 

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"runtime"
 	"slices"
 	"sort"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/format"
+	"github.com/ollama/ollama/fs/gguf"
 	"github.com/ollama/ollama/llm/engine"
 	"github.com/ollama/ollama/ml"
 	"github.com/ollama/ollama/types/xollama"
@@ -364,7 +366,7 @@ func NewMediaRunner(key string, m *xollama.Media, path func(string) string, size
 	}
 	return &mediaRunner{
 		key:      key,
-		cpu:      mediaOnCPU(m),
+		cpu:      mediaOnCPU(m, path),
 		args:     MediaArgs(m, path),
 		estimate: MediaEstimate(m, size),
 		need:     MediaFeatures(m),
@@ -396,17 +398,22 @@ type mediaRunner struct {
 }
 
 // mediaOnCPU reports whether every engine of m runs on the CPU: it states
-// device CPU, or it is audio.cpp, which has no GPU backend in the engine. A
-// speech model placed on a GPU would book memory it never uses and be launched
-// with a --gpu backend the engine may not have (solidPC, b117, 2026-10-03: a
-// Vulkan-only view of the host made every audio.cpp model fail to boot).
-func mediaOnCPU(m *xollama.Media) bool {
+// device CPU, or it is audio.cpp, which has no GPU backend in the engine, or a
+// Whistle speech-to-text model off macOS (whistleOnCPU). A speech model placed
+// on a GPU would book memory it never uses and be launched with a --gpu backend
+// the engine may not have (solidPC, b117, 2026-10-03: a Vulkan-only view of the
+// host made every audio.cpp model fail to boot).
+func mediaOnCPU(m *xollama.Media, path func(string) string) bool {
 	var devices []string
 	if m.Image != nil {
 		devices = append(devices, m.Image.Device)
 	}
 	if m.STT != nil {
-		devices = append(devices, m.STT.Device)
+		if whistleOnCPU(m.STT, path) {
+			devices = append(devices, "cpu")
+		} else {
+			devices = append(devices, m.STT.Device)
+		}
 	}
 	if m.TTS != nil {
 		if m.TTS.Engine == "audiocpp" {
@@ -424,6 +431,29 @@ func mediaOnCPU(m *xollama.Media) bool {
 		}
 	}
 	return len(devices) > 0
+}
+
+// mediaGOOS is the OS whistleOnCPU decides for; a variable so a test can state
+// either.
+var mediaGOOS = runtime.GOOS
+
+// whistleOnCPU reports whether s is a Whistle model the engine keeps on the
+// CPU. opencoti (c12 row 33.1, oc_stt_is_cpu_arch) runs a GGUF whose
+// general.architecture is "whistle" on the CPU whatever GPU it is given, Metal
+// excepted: its decoder is host code and no GPU library of the engine is gated
+// for its encoder. Placed on a GPU it booked VRAM it never used, and the
+// scheduler and `ps` named a GPU for a runner on the CPU (solidPC, c12,
+// 2026-10-13). A model that cannot be read is left to its stated device.
+func whistleOnCPU(s *xollama.STTMedia, path func(string) string) bool {
+	if mediaGOOS == "darwin" || s.Model == "" || path == nil {
+		return false
+	}
+	f, err := gguf.Open(path(s.Model))
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	return f.KeyValue("general.architecture").String() == "whistle"
 }
 
 // pickMediaGPU is the GPU with the most free memory that holds the estimate,
