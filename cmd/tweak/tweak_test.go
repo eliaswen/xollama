@@ -582,3 +582,37 @@ func TestTheDrafterSpecTypeHasNoEnvironmentFallback(t *testing.T) {
 	}
 	t.Fatal("no spec-type field")
 }
+
+// The two halves of the ring are asked one after the other, so the first
+// answer cannot be judged by the pair rule before the second is asked: the
+// owner picked q8_0 for kv-swa-k on a kvarn3 base and was refused with
+// "must be set together" until he gave up (2026-10-15).
+func TestTheFirstHalfOfTheRingWaitsForTheSecond(t *testing.T) {
+	current := &xollama.Config{KV: &xollama.KV{K: "kvarn3", V: "kvarn3"}}
+	cfg, out, err := run(t, current, []string{"--kv-swa-k", "--yes"}, "q8_0", "q8_0")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if strings.Contains(out, "! kv.k_swa and kv.v_swa must be set together") {
+		t.Fatalf("the first half was refused before the second was asked\n%s", out)
+	}
+	if cfg.KV == nil || cfg.KV.KSWA != "q8_0" || cfg.KV.VSWA != "q8_0" {
+		t.Fatalf("kv = %+v, want both halves q8_0", cfg.KV)
+	}
+}
+
+// Leaving the second half blank must not leave half a ring behind: the pair
+// rule is said at the second question, and a real answer settles it.
+func TestTheSecondHalfOfTheRingCannotBeLeftBlank(t *testing.T) {
+	current := &xollama.Config{KV: &xollama.KV{K: "kvarn3", V: "kvarn3"}}
+	cfg, out, err := run(t, current, []string{"--kv-swa-k", "--yes"}, "q8_0", "", "q8_0")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if !strings.Contains(out, "! kv.k_swa and kv.v_swa must be set together") {
+		t.Fatalf("a blank second half was accepted without a word\n%s", out)
+	}
+	if cfg.KV.VSWA != "q8_0" {
+		t.Fatalf("kv.v_swa = %q, want q8_0", cfg.KV.VSWA)
+	}
+}
