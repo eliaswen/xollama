@@ -75,3 +75,21 @@ around.
 A no-op, by build tag. Ollama installs per user under `%LOCALAPPDATA%`, so there
 is no unprivileged service account whose files an elevated process could make
 unusable.
+
+## A store shared with an older ollama
+
+Since upstream v0.40.0 a model's name lives in `manifests-v2/`, and upstream
+removes the old `manifests/` copy whenever it writes a single manifest: a
+create, a copy, every `xollama tweak model` save. An ollama older than v0.40.0
+reading the same store (`OLLAMA_MODELS` set for both) reads `manifests/` only.
+It stopped listing such a model, and at its next start its prune deleted every
+blob no `manifests/` entry named: on pandorum, 2026-10-15, 21 blobs of seven
+models, their GGUFs among them.
+
+xOllama keeps that copy (`shared-store` hook, `manifest/legacy_keep.go`). It
+is the anchor upstream itself writes after a pull: the manifest's layers, so
+the older ollama lists and loads the model, plus the manifest's own blob, so
+its prune keeps that too. A manifest list has no legacy form; its callers write
+upstream's anchor as before. Models changed before this fix are still missing
+from the older ollama: set `OLLAMA_NOPRUNE=1` for it, and save each such model
+once more with xOllama (any `tweak model` save) to write the copy.

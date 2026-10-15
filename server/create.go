@@ -931,6 +931,10 @@ func createModel(ctx context.Context, r api.CreateRequest, name model.Name, base
 	if err != nil {
 		return err
 	}
+	// xollama-hook: template-swallowed — never carry on a template that swallowed directives
+	if err := refuseSwallowedCarry(layers, r.Template, r.System, r.From); err != nil {
+		return err
+	}
 
 	configLayer, err := createConfigLayer(*config)
 	if err != nil {

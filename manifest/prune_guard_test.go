@@ -61,6 +61,10 @@ func TestAnUnreadableManifestStopsThePrune(t *testing.T) {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
+	// The name's legacy copy (shared-store hook) still lists the layer; gone too.
+	if err := removeLegacyManifestPaths(name); err != nil {
+		t.Fatal(err)
+	}
 	removed, err = RemoveUnreferencedBlobs(weights)
 	if err != nil {
 		t.Fatal(err)

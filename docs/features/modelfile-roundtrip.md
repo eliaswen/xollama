@@ -115,3 +115,10 @@ The patch also makes `ParseFile` refuse an unterminated quote on `TEMPLATE` or
 swallow every `RENDERER` / `PARSER` / `PARAMETER` line in between, silently
 (`parser/swallowed_directive_test.go`). `server/modelfile_roundtrip_test.go`
 still holds the round trip.
+
+A model created before that check, or by another ollama on the same store,
+keeps the swallowed lines in its template layer, and a create FROM it, a
+`tweak model` save included, carried the layer on silently. Such a create is
+refused now, naming the line, unless it sets its own TEMPLATE, and every load
+of such a model logs a warning (`template-swallowed` hook,
+`server/template_swallowed.go`).
