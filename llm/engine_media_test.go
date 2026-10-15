@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
+	gguftest "github.com/ollama/ollama/internal/testutil/gguf"
 	"github.com/ollama/ollama/ml"
 	"github.com/ollama/ollama/types/xollama"
 )
@@ -206,23 +208,74 @@ func TestATemplateOnCPUIsNeverPlacedOnAGPU(t *testing.T) {
 	}
 	// One engine left to the scheduler is enough to use a GPU.
 	m.STT.Device = ""
-	if mediaOnCPU(m) {
+	if mediaOnCPU(m, nil) {
 		t.Fatal("a template with one engine unpinned was kept on CPU")
 	}
 }
 
 func TestAudioCppSpeechIsNeverPlacedOnAGPU(t *testing.T) {
 	kokoro := &xollama.Media{TTS: &xollama.TTSMedia{Engine: "audiocpp", Model: d('a')}}
-	if !mediaOnCPU(kokoro) {
+	if !mediaOnCPU(kokoro, nil) {
 		t.Fatal("an audio.cpp speech model, which has no GPU backend, would be placed on a GPU")
 	}
 	outetts := &xollama.Media{TTS: &xollama.TTSMedia{Model: d('a'), Vocoder: d('b')}}
-	if mediaOnCPU(outetts) {
+	if mediaOnCPU(outetts, nil) {
 		t.Fatal("OuteTTS with no device stated was kept off the GPU")
 	}
 	mixed := &xollama.Media{TTS: kokoro.TTS, Image: &xollama.ImageMedia{Model: d('c')}}
-	if mediaOnCPU(mixed) {
+	if mediaOnCPU(mixed, nil) {
 		t.Fatal("an image engine beside audio.cpp was kept off the GPU")
+	}
+}
+
+// sttGGUF writes a speech-to-text model of the given architecture and returns
+// a path function that serves it for every digest.
+func sttGGUF(t *testing.T, arch string) func(string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "stt.gguf")
+	f, err := os.Create(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := gguftest.Write(f, gguftest.KV{"general.architecture": arch}, nil); err != nil {
+		t.Fatal(err)
+	}
+	return func(string) string { return p }
+}
+
+// The engine keeps a Whistle model on the CPU off macOS; placed on a GPU it
+// booked VRAM it never used and `ps` named CUDA (solidPC, c12, 2026-10-13).
+func TestAWhistleModelIsPlacedOnTheCPUOffMacOS(t *testing.T) {
+	old := mediaGOOS
+	t.Cleanup(func() { mediaGOOS = old })
+	whistle := &xollama.Media{STT: &xollama.STTMedia{Model: d('w')}}
+
+	for _, goos := range []string{"linux", "windows"} {
+		mediaGOOS = goos
+		r, err := NewMediaRunner("media:w", whistle, sttGGUF(t, "whistle"), func(string) int64 { return 1 })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !r.(*mediaRunner).cpu {
+			t.Fatalf("%s: a Whistle model would be placed on a GPU", goos)
+		}
+	}
+
+	mediaGOOS = "darwin"
+	if mediaOnCPU(whistle, sttGGUF(t, "whistle")) {
+		t.Fatal("darwin: a Whistle model was kept off Metal")
+	}
+	mediaGOOS = "linux"
+	if mediaOnCPU(whistle, sttGGUF(t, "whisper")) {
+		t.Fatal("a Whisper model, which the engine runs on a GPU, was kept on the CPU")
+	}
+	if mediaOnCPU(whistle, func(string) string { return filepath.Join(t.TempDir(), "missing") }) {
+		t.Fatal("an unreadable model was moved to the CPU")
+	}
+	beside := &xollama.Media{STT: whistle.STT, Image: &xollama.ImageMedia{Model: d('c')}}
+	if mediaOnCPU(beside, sttGGUF(t, "whistle")) {
+		t.Fatal("an image engine beside Whistle was kept off the GPU")
 	}
 }
 

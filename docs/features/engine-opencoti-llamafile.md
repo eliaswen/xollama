@@ -125,6 +125,15 @@ same component starts, so a re-logged allocation replaces the block instead of
 orphaning part of it. Engine-agnostic, contained in `memoryParsingWriter`, and
 regression-testable from the logs Phase 0 captured.
 
+A drafter is a second model in the same process, and its `load_tensors` and
+`sched_reserve` lines carry the target's component names. Reset by component
+alone, they deleted the target's buffers: on c13 r2 a 13 GiB Gemma 4 with its
+assistant head counted as 2.0 GB in `ps` and in the scheduler's VRAM (solidPC,
+2026-10-15). Each buffer is keyed by the model file the engine last named in a
+`llama_model_loader: loaded meta data … from <path>` line too, and a reset only
+clears that model's lines (`TestADrafterIsCountedBesideItsTargetNotInsteadOfIt`,
+`v0.40.4-xollama.1`; the same load now counts 15 GB).
+
 ## Design
 
 One additive package, `llm/engine/`, plus the smallest possible hook.

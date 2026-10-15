@@ -123,9 +123,16 @@ held to 14984 MiB free, 45k-token prompt, 256 tokens generated):
 So an attached drafter no longer costs anything on such a card, and it does
 not help there either. Two things stay open. The decision moves with about
 150 MiB of free memory from one boot to the next, so a card at the edge can
-keep the head on one load and drop it on another (opencoti's c12 list). And
-`xollama show` and `xollama ps` still list the drafter as attached when the
-engine dropped it: the load log is where to read it.
+keep the head on one load and drop it on another (opencoti's c12 list).
+
+What a load ended with is the engine's to say, and since `v0.40.4-xollama.1`
+xOllama reads it: opencoti keeps a record of each load's drafter
+(`drafter_state_v1`, c11 r3; `llm/engine_drafter_state.go`). `xollama ps` names
+a dropped drafter under its table, with the reason and the MiB the engine
+measured, and `xollama show` of a loaded model adds a `loaded` row (`drafting`,
+`not drafting`, or `dropped by the engine at load: …`); the JSON carries it as
+`drafter` on `/api/ps` and `drafter.loaded` on `/api/show`. A model that is not
+loaded, or runs on stock llama.cpp, has no such row: nothing has decided yet.
 
 ## Turning a drafter off
 

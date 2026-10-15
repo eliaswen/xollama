@@ -5,6 +5,28 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-15 — Whistle placed on the CPU, `show`/`ps` read the engine's drafter record, and a drafter no longer replaces its target in the memory count; `v0.40.4-xollama.1` is being cut (owner 04:17: "fix both and cut v0.40.4-xollama.1").**
+> - Owner on the two known issues `v0.40.4-xollama` shipped with: "you should have told me before the release about it" and "they are small defects, it would have costed nothing to do it before, now this is a new download for the users". From now on, a defect of ours found during a cycle is fixed before the candidate or named to the owner before the release; never parked in the notes' Known issues (`.wolf/cerebrum.md`, memory `fix-found-defects-dont-park-them`).
+> - Whistle (`llm/engine_media.go`, `whistleOnCPU`): opencoti keeps a GGUF whose `general.architecture` is `whistle` on the CPU (Metal excepted, `oc_stt_is_cpu_arch`); xollama now places it there off macOS. solidPC side server (c13 r2): `ps` `100% CPU`, the clip transcribed exactly; c12's gate had it booking 528 MiB of the 3090 under `Library:CUDA`.
+> - Drafter record (`drafter` hook; `llm/engine_drafter_state.go`, `server/drafter_state.go`): `/props` `opencoti.speculative.drafter` (`drafter_state_v1`, c11 r3) read for `ps` (a dropped head: `ProcessModelResponse.Drafter` and one line under the table) and `show` (`DrafterInfo.Loaded`, a `loaded` row, copied off the show cache). Live on the 3090, Gemma 4 A4B v9-agentic Q4_K_M + head, 64k: free card attached (head 638 MiB); 15700 MiB free KEPT (745 short, 399 would free); 16100 MiB free DROPPED, `fit_shortfall`, 605 short, 660 freed, the same in `ps`, `/api/ps`, `show` and the engine's log line (`/srv/ml/c41/run*.log`).
+> - Found while checking it, fixed: the memory parser (`memoryParsingWriter`, ours since `f40e0d18e`) reset buffers by component, so the head's `load_tensors`/`sched_reserve` lines deleted the target's: `ps` said 2.0 GB for that load and the scheduler counted it as the VRAM in use. Buffers are now keyed by the model file of the last loader line; the same load counts 15 GB.
+> - Not a defect: the original tag sets `PARAMETER num_gpu 99`, so with 13.9 GB free the engine's fit aborts ("n_gpu_layers already set by user") and the context fails to allocate; without the pin the same card partly offloads (65–67 tok/s).
+> - Guards, each verified by removal: `TestAWhistleModelIsPlacedOnTheCPUOffMacOS`, `TestPsHandlerCarriesTheDroppedDrafter`, `TestADrafterIsCountedBesideItsTargetNotInsteadOfIt`; plus `server/drafter_state_test.go`, `llm/engine_drafter_state_test.go`, `TestShowSaysADrafterTheEngineDroppedIsNotDrafting`. `go test` of api, cmd, llm, server and `golangci-lint` clean.
+> - Left: `v0.40.4-xollama.1` (no candidate; full check: eleven2go, Mac mini after opencoti's lock ends at 05:55, amd64 and Pi images), then promotion. Queue as before minus the two fixed items.
+
+> **2026-10-14 — `v0.40.4-xollama` is Latest (promoted 22:16, opencoti c13 r2 `2610141633001`, upstream v0.40.4).**
+> - Owner 21:17: "cut v0.40.4-xollama and promote it". PR #31, merge `a8924636a`, release run 38622830287, `tree matches v0.40.4-rc.1.xollama`. The rc.1 records commit had moved `dev`'s tree, so it was reverted (`0a488f4ec`) before the empty cut commit (`5dee36250`) and cherry-picked back after.
+> - Short check: eleven2go small installer over rc.1 exit 0 in 4 s, 3090 123.6–125.2 tok/s (claude-hooks paused its compaction bench there for it, #1401/#1404); Mac self-update from rc.1, 127.0. Discord announced; `:latest` moved on both registries by the post-promotion image run 38630500350 (the publish-time run failed on an HTTP/2 download error on amd64).
+> - Installed: eleven2go and the Mac mini on `0.40.4-xollama`; solidPC's service and pandorum unchanged (the owner's to ask for).
+> - The owner's word is spent: the next release on this base is `v0.40.4-xollama.1` and needs his word. Queue: opencoti c14 (CPU parity 97.8 % of stock on solidPC, dev `2610142041001`), c13 generation notices once `generation_notice_v1` ships, the c12 readers, the realtime proxy (the Whistle label: fixed 2026-10-15).
+
+> **2026-10-14 — `v0.40.4-rc.1.xollama` published (pre-release, merge `12856dc06`) and passes every gate.**
+> - Release run 38611998336, image run 38614638318; 8 files match `sha256sum.txt`; numbers in `docs/protocols/VALIDATION.md`.
+> - G9 eleven2go (20:39–20:52): full installer over `.4` exit 0 in 110 s, small one exit 0 in 4 s; 3090 124.4–124.9, 9070 XT 100.4–103.0, iGPU 4.9. A 27B load (32k context) on the installed server at 20:26 belonged to neither automaticum nor this session; it had ended before the install.
+> - G11 Mac mini: workflow app notarized, 123–129 / 31.6–31.9 / 61.4–63.3 tok/s, speech 7/7; self-update from `.4` applied, 126.5–127.3.
+> - G10: amd64 image on solidPC 84.3–85.7 (llama.cpp 85.2–85.6), speech 4/4; arm64 on dietpi5 9.6–10.1 (10.5–10.7), speech 3/3; both images removed.
+> - Next: `v0.40.4-xollama` from this tree (short check), on the owner's word.
+
 > **2026-10-14 — `v0.40.4-rc.1.xollama` opened (upstream v0.40.4, opencoti c13).**
 > - Owner: ".5 on v0.40.4"; the candidate carries the v0.40.4 sync, the think-level/budget split, the Qwen3.5 think-off history fix (bug-273), the mlxrunner manifest-list fix and the c13 pin.
 > - Security check (`scripts/security-check.sh`, go1.26.9): govulncheck 0 reachable; Dependabot 99 open (was 99), none on fork-changed lines. Snapshot in `docs/protocols/security/govulncheck.txt`.
@@ -2489,15 +2511,13 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.0-xollama.1` is the latest release (2026-10-08): upstream v0.40.0, the
-fork's carried patches, opencoti c10 (`2610072136001`), Clef on opencoti,
-opencoti first on every platform and the only engine on macOS, the Windows
-MLX runtime downloaded by the installer and needing no cuDNN install. `dev`
-is upstream v0.40.1 with every runtime pin moved, xo-20 (one GPU through two
-backends), the engine on opencoti c10 r3 (`2610090401001`), `x/net` 0.60.0
-and the council continue fix; `v0.40.1-rc.1.xollama` is cut from it. Next:
-opencoti c11 (bug-3957, the two-GPU KV window; Ternary Bonsai 2 27B) when it
-is published. The Agentic Council Chat is in Phase 11.
+`v0.40.4-xollama` is the latest release (2026-10-14): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r2 (`2610141633001`). `dev` adds the
+three fixes of `v0.40.4-xollama.1` (Whistle on the CPU, the engine's drafter
+record in `show`/`ps`, a drafter counted beside its target), which is being
+cut (owner, 2026-10-15). Next: opencoti c14 (CPU parity) when it is
+published and measured, c13 generation notices, the c12 readers, the
+realtime proxy. The Agentic Council Chat is in Phase 11.
 
 ## What exists today
 

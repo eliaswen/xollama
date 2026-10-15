@@ -1981,6 +1981,9 @@ func (s *Server) ShowHandler(c *gin.Context) {
 		resp.ModelInfo["general.basename"] = requestedModel
 	}
 
+	// xollama-hook: drafter — see server/drafter_state.go
+	resp = s.withLoadedDrafter(c.Request.Context(), name, resp)
+
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -3017,6 +3020,8 @@ func (s *Server) PsHandler(c *gin.Context) {
 			ContextLength: v.contextLength,
 			Runner:        runner,
 		}
+		// xollama-hook: drafter — see server/drafter_state.go
+		mr.Drafter = psDrafter(c.Request.Context(), v.llama)
 
 		models = append(models, mr)
 	}

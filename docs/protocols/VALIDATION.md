@@ -199,6 +199,31 @@ self-update from `.3`, 126.5 to 127.0. G10 on the tag: amd64 85.8 to 85.9
 against 85.9 to 86.2, speech 4/4; arm64 10.0 to 10.1 against 10.8 to 11.0,
 speech 3/3. Promoted.
 
+**`v0.40.4-xollama`** (2026-10-14, the tree of `v0.40.4-rc.1.xollama`, short
+check; PR #31, merge `a8924636a`, release run 38622830287, `tree matches`;
+payload id `042f1124…` unchanged). G12: 8 files match. G9: the small installer
+over the candidate exit 0 in 4 s; 3090 123.6 to 125.2 tok/s. G11, the update
+path: the Mac's installed app updated itself from rc.1, 127.0 tok/s. Promoted
+22:16, Discord announced. The image run started at publish failed on amd64 (an
+HTTP/2 stream error downloading an engine file; arm64 built); the run on the
+tag after promotion (38630500350) built both and moved `:latest` on Docker Hub
+(`7113fc17…`) and GHCR (`7ab1633a…`). To ship the candidate's tree, `dev`
+reverted its rc.1 records commit (`0a488f4ec`) before the cut and took it back
+after.
+
+**`v0.40.4-rc.1.xollama`** (2026-10-14, the first build on upstream v0.40.4,
+PR #30, merge `12856dc06`, release run 38611998336 after dry run 38603344961,
+image run 38614638318; engine c13 `2610141633001`, index `9849186f`; payload
+id `042f1124…`; the solidPC gate set, G3 to G6 with G4 on opencoti 7/7, ran on
+the pin, `5efd7f573`). G2: every hosted leg passes. G12: 8 files match. G9:
+full installer over `0.40.3-xollama.4` exit 0 in 110 s, 3090 124.4 to 124.9,
+9070 XT 100.4 cold and 103.0, iGPU 4.9; small installer exit 0 in 4 s, same
+version and payload id. G11 on the workflow's app: notarized and stapled,
+`qwen2.5:1.5b` 123.1 to 128.7, `llama3` 31.6 to 31.9, `qwen3.5:2b` 61.4 to
+63.3, speech 7 clips, 0 crash lines; self-update from `.4`, 126.5 to 127.3.
+G10 on the tag: amd64 84.3 to 85.7 against 85.2 to 85.6, speech 4/4; arm64
+9.6 to 10.1 against 10.5 to 10.7, speech 3/3. Candidate: not promoted.
+
 **The pin on opencoti's c12 r2** (2026-10-13, index `66f4b48c`, engine
 `2610131908001`, r1 + the LFM2 parallel-request fix, libraries unchanged).
 LFM2.5 1.2B on the CPU, four slots, four requests in flight, five rounds
