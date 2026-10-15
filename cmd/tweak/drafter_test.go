@@ -276,3 +276,36 @@ func TestDrafterRowsSayWhatIsPublishedForAModelWithout(t *testing.T) {
 		t.Fatalf("rows = %s\nwant   %s", got, want)
 	}
 }
+
+func TestShowSaysADrafterTheEngineDroppedIsNotDrafting(t *testing.T) {
+	short, freed := int64(51), int64(614)
+	d := &api.DrafterInfo{Source: "attached", SpecType: "draft-mtp", Loaded: &api.DrafterState{
+		State: "dropped", Kind: "assistant", Reason: "fit_shortfall", ShortfallMiB: &short, FreedMiB: &freed,
+	}}
+	want := "dropped by the engine at load: the KV window was 51 MiB short of resident with it (614 MiB freed)"
+	var got string
+	for _, row := range DrafterRows(d) {
+		if row[1] == "loaded" {
+			got = row[2]
+		}
+	}
+	if got != want {
+		t.Fatalf("loaded row = %q, want %q", got, want)
+	}
+
+	d.Loaded = nil
+	for _, row := range DrafterRows(d) {
+		if row[1] == "loaded" {
+			t.Fatal("a model not loaded got a loaded row")
+		}
+	}
+
+	for state, want := range map[string]string{"attached": "drafting", "none": "not drafting"} {
+		if got := DrafterStateText(&api.DrafterState{State: state}); got != want {
+			t.Fatalf("%s: %q, want %q", state, got, want)
+		}
+	}
+	if got := DrafterStateText(&api.DrafterState{State: "dropped", Reason: "kv_spilled"}); got != "dropped by the engine at load: it would have spilled the KV to host memory" {
+		t.Fatalf("kv_spilled: %q", got)
+	}
+}

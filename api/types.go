@@ -1055,6 +1055,32 @@ type DrafterInfo struct {
 	// drafter) or "engine" (a built-in head left to opencoti).
 	Tokens     int    `json:"tokens,omitempty"`
 	TokensFrom string `json:"tokens_from,omitempty"`
+
+	// Loaded is what the engine serving this model now did with the
+	// drafter, when the model is loaded on an engine that reports it
+	// (opencoti's drafter_state_v1). Nil otherwise: the rows above say what a
+	// load would use, this says what the load in memory ended with.
+	Loaded *DrafterState `json:"loaded,omitempty"`
+}
+
+// DrafterState is the engine's record of the drafter a load ended with
+// (opencoti drafter_state_v1, /props opencoti.speculative.drafter). The engine
+// may drop a configured drafter at load, when the head would keep the KV
+// window from being resident; the configuration still names it.
+type DrafterState struct {
+	// State is "attached", "dropped" or "none".
+	State string `json:"state"`
+	// Kind is "assistant", "nextn" or "model", empty for none.
+	Kind string `json:"kind,omitempty"`
+	// Reason says why a drafter was dropped: "fit_shortfall",
+	// "no_device_memory", "kv_spilled", or a value newer than this build.
+	Reason string `json:"reason,omitempty"`
+	// ShortfallMiB is how far the window was from resident with the head,
+	// HeadMiB what the head took, FreedMiB what the drop gave back. Each is
+	// measured by the engine, or absent.
+	ShortfallMiB *int64 `json:"shortfall_mib,omitempty"`
+	HeadMiB      *int64 `json:"head_mib,omitempty"`
+	FreedMiB     *int64 `json:"freed_mib,omitempty"`
 }
 
 // DrafterSourceNone is DrafterInfo.Source for a model with no drafter that
@@ -1200,6 +1226,13 @@ type ProcessModelResponse struct {
 	SizeVRAM      int64        `json:"size_vram"`
 	ContextLength int          `json:"context_length"`
 	Runner        string       `json:"runner,omitempty"`
+
+	// Drafter is the engine's record of a drafter it dropped at load, so a
+	// listing does not count on a drafter that is not drafting. Nil unless
+	// the engine reports one dropped (opencoti's drafter_state_v1).
+	//
+	// xollama-hook: drafter
+	Drafter *DrafterState `json:"drafter,omitempty"`
 }
 
 type TokenResponse struct {

@@ -1291,6 +1291,14 @@ func ListRunningHandler(cmd *cobra.Command, args []string) error {
 	table.AppendBulk(data)
 	table.Render()
 
+	// xollama-hook: drafter — a drafter the engine dropped, said under the
+	// table so the listing itself stays upstream's.
+	for _, m := range models.Models {
+		if m.Drafter != nil && (len(args) == 0 || strings.HasPrefix(m.Name, args[0])) {
+			fmt.Printf("%s: drafter %s\n", m.Name, tweak.DrafterStateText(m.Drafter))
+		}
+	}
+
 	return nil
 }
 

@@ -393,7 +393,44 @@ func DrafterRows(d *api.DrafterInfo) (out [][]string) {
 		out = append(out, []string{"", "published", r.Source})
 		out = append(out, []string{"", "attach it", "--drafter=auto"})
 	}
+	if l := d.Loaded; l != nil {
+		out = append(out, []string{"", "loaded", DrafterStateText(l)})
+	}
 	return out
+}
+
+// DrafterStateText says what the engine serving a model did with its drafter
+// (opencoti's drafter_state_v1), for `show` and `ps`.
+func DrafterStateText(d *api.DrafterState) string {
+	switch d.State {
+	case "attached":
+		if d.HeadMiB != nil {
+			return fmt.Sprintf("drafting (the head took %d MiB)", *d.HeadMiB)
+		}
+		return "drafting"
+	case "none":
+		return "not drafting"
+	}
+	why := d.Reason
+	switch d.Reason {
+	case "fit_shortfall":
+		why = "it would keep the KV window from being resident"
+		if d.ShortfallMiB != nil {
+			why = fmt.Sprintf("the KV window was %d MiB short of resident with it", *d.ShortfallMiB)
+		}
+	case "no_device_memory":
+		why = "no device memory was left for it"
+	case "kv_spilled":
+		why = "it would have spilled the KV to host memory"
+	}
+	text := "dropped by the engine at load"
+	if why != "" {
+		text += ": " + why
+	}
+	if d.FreedMiB != nil {
+		text += fmt.Sprintf(" (%d MiB freed)", *d.FreedMiB)
+	}
+	return text
 }
 
 // The two rows go in front of spec-type, so a walk asks which drafter before
