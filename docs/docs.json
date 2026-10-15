@@ -189,6 +189,7 @@
               "/xollama/dca",
               "/xollama/sessions",
               "/xollama/introspection",
+              "/xollama/notices",
               "/xollama/opencoti-tuning",
               "/xollama/default-port",
               "/xollama/api-key",

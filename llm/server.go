@@ -367,6 +367,10 @@ type CompletionRequest struct {
 	// Applied only where sessions exist (llm/engine_council.go); nil for every
 	// request that is not a council's.
 	Placement *Placement
+
+	// xollama-hook: notices -- the client's `notices` object, sent only to an
+	// engine that declares generation_notice_v1 (llm/engine_notice.go).
+	Notices json.RawMessage
 }
 
 type ChatRequest struct {
@@ -401,6 +405,9 @@ type ChatRequest struct {
 	// Applied only where sessions exist (llm/engine_council.go); nil for every
 	// request that is not a council's.
 	Placement *Placement
+
+	// xollama-hook: notices -- as CompletionRequest.Notices.
+	Notices json.RawMessage
 }
 
 type ChatResponse struct {

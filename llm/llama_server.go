@@ -1894,6 +1894,9 @@ type llamaServerCompletionRequest struct {
 	// outside a council's placement, so every other body is unchanged.
 	NumCtx    int `json:"num_ctx,omitempty"`
 	NumCtxMin int `json:"num_ctx_min,omitempty"`
+	// xollama-hook: notices -- opencoti's generation notices, only on an
+	// engine that declares them (llm/engine_notice.go).
+	Notices json.RawMessage `json:"notices,omitempty"`
 }
 
 // schemaGrammars caches the grammars llama-server derives from JSON schemas,
@@ -2230,6 +2233,11 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 		poolID = s.poolFor(req.PoolKey)
 	}
 	applySession(&lsReq, s.usedOpencoti, s.launch.config, req.SessionID, poolID)
+	// xollama-hook: notices
+	if n := s.noticesFor(ctx, req.Notices); n != nil {
+		lsReq.Notices = n
+		defer s.trackNotice(n)()
+	}
 	// xollama-hook: council -- a placed call takes the council's pool and
 	// window, and teaches the automatic pools nothing.
 	if pool, n, nmin := placementFields(s.usedOpencoti, s.launch.config, req.Placement); pool != nil || n > 0 {
@@ -2634,6 +2642,11 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 	lsReq, err := s.llamaServerChatRequest(req, true)
 	if err != nil {
 		return err
+	}
+	// xollama-hook: notices -- the chat path's copy.
+	if n := s.noticesFor(ctx, req.Notices); n != nil {
+		lsReq["notices"] = n
+		defer s.trackNotice(n)()
 	}
 
 	buffer := &bytes.Buffer{}

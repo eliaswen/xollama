@@ -192,6 +192,11 @@ type ChatRequest struct {
 	// ignored. See docs/xollama/sessions.mdx.
 	SessionID string `json:"session_id,omitempty"`
 
+	// xollama-hook: notices — Notices is opencoti's generation-notices request
+	// object (contract v1), passed to the engine unchanged when it plants
+	// notices and dropped otherwise. See docs/xollama/notices.mdx.
+	Notices json.RawMessage `json:"notices,omitempty"`
+
 	// Truncate is a boolean that, when set to true, truncates the chat history messages
 	// if the rendered prompt exceeds the context length limit.
 	Truncate *bool `json:"truncate,omitempty"`

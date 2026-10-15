@@ -70,3 +70,22 @@ func HasSystemOne() bool {
 	}
 	return pin.HasFeature(featureSystemOne)
 }
+
+// featureGenerationNotice is the engine's generation notices, contract v1
+// (opencoti c13 r3, mail #1446/#1452): a request's top-level `notices`, a line
+// planted inline starting with NoticeMarker, and POST /v1/notice.
+const featureGenerationNotice = "generation_notice_v1"
+
+// NoticeMarker starts every line the engine plants under contract v1 (owner,
+// 2026-10-15). The engine's /props says it too; v1 fixes it.
+const NoticeMarker = "[notice]"
+
+// HasGenerationNotice reports whether the engine this build ships plants
+// generation notices.
+func HasGenerationNotice() bool {
+	pin, err := DefaultPin()
+	if err != nil {
+		return false
+	}
+	return pin.HasFeature(featureGenerationNotice)
+}

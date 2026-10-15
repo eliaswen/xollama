@@ -2532,6 +2532,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST(api.XollamaSettingsPath, s.SettingsHandler)
 	r.POST(api.XollamaLinkProbePath, s.LinkProbeHandler)
 	r.POST(api.XollamaMediaPullPath, s.MediaPullHandler) // xollama-hook: media
+	r.POST(api.XollamaNoticePath, s.NoticeHandler)       // xollama-hook: notices
 	r.GET("/api/status", s.StatusHandler)
 	// Codex uses this existing Ollama listener for both native and Ollama
 	// models. The proxy selects the upstream per request.
@@ -3737,6 +3738,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 			// xollama-hook: council -- a council member's pool and window.
 			Placement: councilPlacement(c),
+			Notices:   req.Notices, // xollama-hook: notices
 		}, func(r llm.CompletionResponse) {
 			callProgress.step(ch, r.Content) // xollama-hook: tool-call-progress
 			res := api.ChatResponse{
@@ -3941,6 +3943,7 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 		PoolKey:     poolKeyForRequest(m, msgs, req.Tools),
 		// xollama-hook: council -- a council member's pool and window.
 		Placement: councilPlacement(c),
+		Notices:   req.Notices, // xollama-hook: notices
 	}, truncate)
 	if err != nil {
 		slog.Error("chat template prompt error", "error", err)

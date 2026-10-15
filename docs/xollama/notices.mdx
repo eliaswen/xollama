@@ -1,0 +1,84 @@
+---
+title: Generation notices
+---
+
+A model cannot see how much room it has left. It thinks until a budget cuts
+it off, or writes an answer the output cap ends mid-sentence. With
+generation notices, the opencoti engine tells it: when a phase's room runs
+low, it writes one line into the model's own output at the next break in
+prose, and the model reads it as it goes on.
+
+```
+[notice] 240 tokens left for the answer — finish now.
+```
+
+Notices are **off unless a client asks for them**, request by request. They
+need an engine that plants them (opencoti `generation_notice_v1`); on any
+other engine, and with `XOLLAMA_ENGINE=llamacpp`, the request is upstream's and
+nothing is planted.
+
+## Does this server have them?
+
+```sh
+curl -s localhost:22434/api/xollama | jq '.features, .generation_notice'
+```
+
+A server that plants notices lists `generation_notice_v1` and carries the
+block below. Without both, send nothing.
+
+```json
+{ "version": 1, "marker": "[notice]" }
+```
+
+## Asking for them
+
+Add a top-level `notices` object to `POST /api/chat`. xOllama passes it to
+the engine unchanged.
+
+```json
+{
+  "model": "qwen3.6:27b",
+  "messages": [{ "role": "user", "content": "…" }],
+  "notices": {
+    "key": "session-42:7f3a",
+    "think":  [{ "at_percent": 60 }, { "at_percent": 80 }],
+    "answer": [{ "at_percent": 80 }, { "left": 200, "text": "{n} tokens left, conclude." }]
+  }
+}
+```
+
+- A step is `{"at_percent": 1..99}`, the share of that phase's room used, or
+  `{"left": N}`, tokens left. `text` is optional (`{n}` is the tokens left);
+  the engine's wording is used without it. A malformed step is a 400.
+- The answer's room is the smaller of the output cap and the context left;
+  thinking's is the thinking budget when one is set, else the room left when
+  thinking starts. Thinking steps fire again after a tool call resets the
+  budget; answer steps fire once per reply.
+- `key` is needed only for the waiting call below. Use a fresh one per
+  request.
+
+## The line stays in the text
+
+The notice arrives in the normal stream, in `thinking` while the model thinks
+and in `content` while it answers, on its own line and never inside code, a
+table or a tool call. Every planted line starts with the marker and one space.
+
+**Hide it, do not remove it.** Show the user the text without lines starting
+with the marker, but store and send back the message exactly as it came. The
+engine's cache holds the line; a history without it is re-read from that point
+on the next turn.
+
+## A message is waiting
+
+When the user queues a message while a reply is running, tell the engine, so
+the model can finish briefly:
+
+```sh
+curl -s localhost:22434/api/xollama/notice \
+  -d '{"key": "session-42:7f3a", "kind": "message_waiting"}'
+```
+
+The engine plants a notice at the next break; the message itself never
+reaches the model. The answer is `200` when a running request has the key,
+`404` when none does (it has already ended: ignore it), `400` for an unknown
+kind and `409` when two running requests share the key.
