@@ -3530,9 +3530,20 @@ type memoryParsingWriter struct {
 	// re-stating its whole allocation, so its previous entries are dropped
 	// first — see the comment in Write.
 	lastComponent string
+
+	// model is the file the engine last named in a model-loader line. A
+	// drafter is a second model in the same process, and its load_tensors,
+	// KV and compute lines carry the same component names as the target's.
+	// Keyed by component alone they replaced the target's: on opencoti a
+	// 13 GiB Gemma 4 with its assistant head was reported as 2.0 GB, the
+	// head's own buffers (solidPC, c13 r2, 2026-10-15). Each model's lines
+	// now count apart.
+	model string
 }
 
 type memoryBufferKey struct {
+	// model is the file the buffer belongs to (memoryParsingWriter.model).
+	model     string
 	component string
 	backend   string
 	kind      string
@@ -3572,6 +3583,10 @@ var deviceFreeRegex = regexp.MustCompile(`using device (\S+)\s+\(.*\)\s+-\s+(\d+
 //
 // KVarN precedes KV in the alternation: Go's regexp is leftmost-first, so "KV"
 // would match the prefix of "KVarN" and then fail on the following " buffer".
+// modelLoaderRegex is llama.cpp's line opening each model file it loads, the
+// target's and then a drafter's.
+var modelLoaderRegex = regexp.MustCompile(`llama_model_loader: loaded meta data with \d+ key-value pairs and \d+ tensors from (\S+)`)
+
 var bufferSizeRegex = regexp.MustCompile(`(?m)(?:^|\n)[^\n:]*?([A-Za-z_][A-Za-z0-9_]*):\s+(\S+)\s+(model|KVarN|KV|compute|output|RS)\s+buffer(?:\s+\(stream\s+(\d+)\))?\s+size\s*=\s*([\d.]+)\s*MiB`)
 
 var (
@@ -3635,54 +3650,71 @@ func (w *memoryParsingWriter) Write(b []byte) (int, error) {
 					w.runner.gpuLayerOverflow += int(overflowing)
 				}
 			}
-			for _, match := range bufferSizeRegex.FindAllSubmatch(b, -1) {
-				component := string(match[1])
-				backendName := string(match[2])
-				// KVarN is a KV cache under another name; count it as one.
-				kind := string(match[3])
-				if kind == "KVarN" {
-					kind = "KV"
-				}
-				stream := string(match[4])
-				if mib, err := strconv.ParseFloat(string(match[5]), 64); err == nil {
-					if w.buffers == nil {
-						w.buffers = make(map[memoryBufferKey]memoryBuffer)
-					}
-					// Per-key overwrite alone is not enough when a component
-					// re-logs a *smaller* set of buffers than it did before.
-					// An engine that revises an allocation plan — opencoti's
-					// rolling-KV sizing converges over two passes, and the
-					// first pass splits the KV cache across CUDA0 and
-					// CUDA_Host while later passes keep it all on CUDA0 —
-					// only restates the devices it still uses. The dropped
-					// device's line is never superseded, so its bytes linger
-					// and memTotal is overstated by the size of an allocation
-					// that no longer exists.
-					//
-					// A component beginning a new run of lines is restating
-					// its whole allocation, not adding to it, so drop what it
-					// said last time first. Lines from one block are
-					// contiguous, so this never discards a half-read block.
-					if component != w.lastComponent {
-						for key := range w.buffers {
-							if key.component == component {
-								delete(w.buffers, key)
-							}
-						}
-						w.lastComponent = component
-					}
-					w.buffers[memoryBufferKey{
-						component: component,
-						backend:   backendName,
-						kind:      kind,
-						stream:    stream,
-					}] = memoryBuffer{bytes: uint64(mib * 1024 * 1024)}
-					w.updateRunnerMemoryLocked()
-				}
+			for _, line := range bytes.SplitAfter(b, []byte("\n")) {
+				w.parseBufferLineLocked(line)
 			}
 		}()
 	}
 	return w.inner.Write(b)
+}
+
+// parseBufferLineLocked reads one line for the model it opens or a buffer it
+// sizes. Line by line, so a loader line and the buffers after it in one write
+// are taken in order.
+func (w *memoryParsingWriter) parseBufferLineLocked(line []byte) {
+	if match := modelLoaderRegex.FindSubmatch(line); match != nil {
+		if model := string(match[1]); model != w.model {
+			w.model = model
+			w.lastComponent = ""
+		}
+		return
+	}
+	for _, match := range bufferSizeRegex.FindAllSubmatch(line, -1) {
+		component := string(match[1])
+		backendName := string(match[2])
+		// KVarN is a KV cache under another name; count it as one.
+		kind := string(match[3])
+		if kind == "KVarN" {
+			kind = "KV"
+		}
+		stream := string(match[4])
+		if mib, err := strconv.ParseFloat(string(match[5]), 64); err == nil {
+			if w.buffers == nil {
+				w.buffers = make(map[memoryBufferKey]memoryBuffer)
+			}
+			// Per-key overwrite alone is not enough when a component
+			// re-logs a *smaller* set of buffers than it did before.
+			// An engine that revises an allocation plan — opencoti's
+			// rolling-KV sizing converges over two passes, and the
+			// first pass splits the KV cache across CUDA0 and
+			// CUDA_Host while later passes keep it all on CUDA0 —
+			// only restates the devices it still uses. The dropped
+			// device's line is never superseded, so its bytes linger
+			// and memTotal is overstated by the size of an allocation
+			// that no longer exists.
+			//
+			// A component beginning a new run of lines is restating
+			// its whole allocation, not adding to it, so drop what it
+			// said last time first. Lines from one block are
+			// contiguous, so this never discards a half-read block.
+			if component != w.lastComponent {
+				for key := range w.buffers {
+					if key.component == component && key.model == w.model {
+						delete(w.buffers, key)
+					}
+				}
+				w.lastComponent = component
+			}
+			w.buffers[memoryBufferKey{
+				model:     w.model,
+				component: component,
+				backend:   backendName,
+				kind:      kind,
+				stream:    stream,
+			}] = memoryBuffer{bytes: uint64(mib * 1024 * 1024)}
+			w.updateRunnerMemoryLocked()
+		}
+	}
 }
 
 func (w *memoryParsingWriter) updateRunnerMemoryLocked() {
