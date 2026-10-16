@@ -12,25 +12,29 @@ import (
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/llm"
 	"github.com/ollama/ollama/llm/engine"
+	"github.com/ollama/ollama/ml"
+	"github.com/ollama/ollama/types/xollama"
 )
 
 // xollama-hook: notices — see docs/xollama/notices.mdx.
 
 // noticesServed reports whether this server offers generation notices: the
-// engine it ships declares them and is not switched off for stock llama.cpp.
-// A client reads it from /api/xollama and sends `notices` only when it is.
+// engine it starts plants them under contract v2 (the pin says so, or an
+// operator's XOLLAMA_ENGINE_PATH answers --print-notice-config) and is not
+// switched off for stock llama.cpp. A client reads it from /api/xollama and
+// sends `notices` only when it is.
 var noticesServed = func() bool {
-	return engine.HasGenerationNotice() && !strings.EqualFold(envconfig.Engine(), "llamacpp")
+	return !strings.EqualFold(envconfig.Engine(), "llamacpp") && engine.NoticesServed(ml.LibOllamaPath)
 }
 
-// generationNotice is the capability block /api/xollama carries beside the
-// feature: the client takes the marker it hides from here, and without the
-// block the planted lines would show in its chat.
+// generationNotice is the block /api/xollama carries beside the feature: the
+// server's default templates and the spans a client hides. A model's own are
+// on /api/show (modelGenerationNotice).
 func generationNotice() *api.GenerationNotice {
 	if !noticesServed() {
 		return nil
 	}
-	return &api.GenerationNotice{Version: 1, Marker: engine.NoticeMarker}
+	return noticeBlock(xollama.DefaultNoticeTemplates)
 }
 
 // NoticeHandler serves POST /api/xollama/notice: a client says a message is
@@ -49,7 +53,7 @@ func (s *Server) NoticeHandler(c *gin.Context) {
 		return
 	}
 	if req.Kind != api.NoticeKindMessageWaiting {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "unknown kind " + `"` + req.Kind + `"` + `; contract v1 has "message_waiting"`})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "unknown kind " + `"` + req.Kind + `"` + `; the one kind is "message_waiting"`})
 		return
 	}
 	status, body, err := llm.PostNotice(c.Request.Context(), req.Key, req.Kind)

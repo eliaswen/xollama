@@ -226,6 +226,12 @@ settings mean is in the page each section links to.
 | `--video-seed` | `media.video.defaults.seed` | N, unset | Seed |  |  |
 | `--video-format` | `media.video.defaults.output_format` | mp4, webm, webp, avi, unset | Video container |  |  |
 
+## notices
+
+| Flag | Setting | Values | What it is | Server | Falls back to |
+|---|---|---|---|---|---|
+| `--notice-templates` | `notices.templates` | PATH, hf.co/OWNER/REPO/FILE, sha256:DIGEST, unset | Notice templates — what the engine plants when room runs low |  |  |
+
 ## The command's own flags
 
 | Flag | What it does |
@@ -235,4 +241,4 @@ settings mean is in the page each section links to.
 | `--clear` | Remove the model's xollama config entirely (an attached drafter stays; `--drafter=none` detaches it) |
 | `-y`, `--yes` | Do not ask for confirmation before writing |
 
-142 settings. `xollama tweak model --help` prints the same list as your build has it.
+143 settings. `xollama tweak model --help` prints the same list as your build has it.

@@ -7,16 +7,20 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/ollama/ollama/llm/engine"
+	"github.com/ollama/ollama/ml"
 )
 
 // xollama-hook: notices
 //
-// Generation notices, opencoti contract v1 (c13 r3; mails #1446, #1452): a
+// Generation notices, opencoti contract v2 (c13 r3; mails #1487-#1495): a
 // client opts in per request with a top-level `notices` object, and the engine
-// plants a line starting "[notice] " inline in the model's own output when a
-// phase's room runs low or a message is waiting. xollama passes the object
-// through unchanged, leaves the line in the content (the client hides it and
-// keeps it in history, owner 2026-10-14), and routes the waiting call to the
+// plants a templated notice inline in the model's own output when a phase's
+// room runs low or a message is waiting. xollama passes the object through
+// unchanged, leaves the notice in the content (the client hides it and keeps
+// it in history, owner 2026-10-14), starts the engine with the model's
+// templates (appendNoticeTemplatesArgs), and routes the waiting call to the
 // runner holding the request with that key.
 
 // noticeTimeout bounds a waiting call: the engine answers it from a table.
@@ -31,7 +35,7 @@ var noticeKeys = struct {
 }{m: map[string]*llamaServerRunner{}}
 
 // noticesFor is what this request sends the engine as `notices`: the client's
-// object unchanged on an engine that declares generation_notice_v1, nothing on
+// object unchanged on an engine that declares generation_notice_v2, nothing on
 // any other, so a stock llama.cpp body stays upstream's.
 func (s *llamaServerRunner) noticesFor(ctx context.Context, raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 || !s.usedOpencoti || !s.Features(ctx)[featureGenerationNotice] {
@@ -40,7 +44,22 @@ func (s *llamaServerRunner) noticesFor(ctx context.Context, raw json.RawMessage)
 	return raw
 }
 
-const featureGenerationNotice = "generation_notice_v1"
+const featureGenerationNotice = engine.FeatureGenerationNotice
+
+// appendNoticeTemplatesArgs starts the engine with the model's notice
+// templates: its own layer, else xollama's defaults (server/xollama_notices.go
+// fills the path). Only on opencoti, and only on an engine that takes the
+// flag: an older one refuses the whole command line for it.
+func appendNoticeTemplatesArgs(args []string, path string, usedOpencoti bool) []string {
+	if path == "" || !usedOpencoti || !engineTakesNoticeTemplates() {
+		return args
+	}
+	return append(args, "--notice-templates", path)
+}
+
+// engineTakesNoticeTemplates is engine.NoticesServed behind a seam, so a test
+// does not run the engine.
+var engineTakesNoticeTemplates = func() bool { return engine.NoticesServed(ml.LibOllamaPath) }
 
 // trackNotice keeps the request's key routable for the waiting call while the
 // request runs, and returns the release. A key already held by another

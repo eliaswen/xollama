@@ -72,9 +72,11 @@ type Model struct {
 	ModelShardPaths []string
 	DraftPath       string
 	DraftShardPaths []string
-	ParentModel     string
-	HasChatTemplate bool
-	HasGoTemplate   bool
+	// xollama-hook: notices -- the model's notice templates layer, if any.
+	NoticeTemplatesPath string
+	ParentModel         string
+	HasChatTemplate     bool
+	HasGoTemplate       bool
 	// ThinkOpenTag and ThinkCloseTag are the reasoning tags the GGUF chat
 	// template renders between, for a model that has no renderer, no parser and
 	// no Go template. They are the last place a thinking budget can learn where
@@ -839,6 +841,8 @@ func modelFromManifest(n model.Name, mf *manifest.Manifest) (*Model, error) {
 			} else {
 				m.DraftShardPaths = append(m.DraftShardPaths, filename)
 			}
+		case xollama.MediaTypeNotices: // xollama-hook: notices
+			m.NoticeTemplatesPath = filename
 		case "application/vnd.ollama.image.embed":
 			// Deprecated in versions  > 0.1.2
 			// TODO: remove this warning in a future version

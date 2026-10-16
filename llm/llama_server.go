@@ -626,6 +626,8 @@ func startLlamaServer(launch llamaServerLaunchConfig, out io.Writer) (cmd *exec.
 	}
 	// xollama-hook: drafter — see docs/features/gemma4-drafter.md
 	args = appendDraftOffArgs(args, launch.draftType, launch.config.DraftOff && launch.opts.DraftNumPredict <= 0, usedOpencoti)
+	// xollama-hook: notices -- the model's notice templates (llm/engine_notice.go).
+	args = appendNoticeTemplatesArgs(args, launch.config.NoticeTemplatesPath, usedOpencoti)
 
 	// xollama-hook: engine-args — the operator's append-only escape hatch, for
 	// engine flags with no LLAMA_ARG_* twin. LAST on purpose: llama-server
@@ -2108,6 +2110,8 @@ type llamaServerTimings struct {
 	PromptMS  float64 `json:"prompt_ms"`
 	PredictN  int     `json:"predicted_n"`
 	PredictMS float64 `json:"predicted_ms"`
+	// xollama-hook: notices -- opencoti contract v2.
+	NoticesPlanted int `json:"notices_planted"`
 }
 
 func (t llamaServerTimings) promptEvalCount() int {
@@ -2432,6 +2436,7 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 					PromptEvalDuration:    time.Duration(lsResp.Timings.PromptMS * float64(time.Millisecond)),
 					EvalCount:             lsResp.Timings.PredictN,
 					EvalDuration:          time.Duration(lsResp.Timings.PredictMS * float64(time.Millisecond)),
+					NoticesPlanted:        lsResp.Timings.NoticesPlanted, // xollama-hook: notices
 				}
 				hasFinalResp = true
 			}
@@ -2771,6 +2776,7 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 				resp.PromptEvalDuration = time.Duration(lsResp.Timings.PromptMS * float64(time.Millisecond))
 				resp.EvalCount = lsResp.Timings.PredictN
 				resp.EvalDuration = time.Duration(lsResp.Timings.PredictMS * float64(time.Millisecond))
+				resp.NoticesPlanted = lsResp.Timings.NoticesPlanted // xollama-hook: notices
 				toolCalls, err := accumulatedToolCalls(toolCalls)
 				if err != nil {
 					return err

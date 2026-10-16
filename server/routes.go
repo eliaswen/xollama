@@ -2248,6 +2248,7 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 
 	// xollama-hook: model-config — see docs/features/model-config.md
 	resp.Drafter = drafterShowInfo(m, kvData, tensors, drafterSpecTypePin(m))
+	resp.GenerationNotice = modelGenerationNotice(m) // xollama-hook: notices
 
 	return resp, nil
 }
@@ -3271,6 +3272,9 @@ func llamaServerConfigForModel(m *Model) llm.LlamaServerConfig {
 		// xollama-hook: council -- pool seats for the council's pool tree.
 		CouncilPools: councilPoolSeats(m),
 		CouncilSlots: councilSlots(m),
+
+		// xollama-hook: notices -- the model's templates, else the defaults.
+		NoticeTemplatesPath: noticeTemplatesPath(m),
 	}
 }
 
@@ -3752,6 +3756,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 					PromptEvalDuration:    r.PromptEvalDuration,
 					EvalCount:             r.EvalCount,
 					EvalDuration:          r.EvalDuration,
+					NoticesPlanted:        r.NoticesPlanted, // xollama-hook: notices
 				},
 				Logprobs: toAPILogprobs(r.Logprobs),
 			}
@@ -3995,6 +4000,7 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 					PromptEvalDuration:    r.PromptEvalDuration,
 					EvalCount:             r.EvalCount,
 					EvalDuration:          r.EvalDuration,
+					NoticesPlanted:        r.NoticesPlanted, // xollama-hook: notices
 				},
 				Logprobs: toAPILogprobs(r.Logprobs),
 			}

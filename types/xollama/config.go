@@ -106,6 +106,10 @@ type Config struct {
 
 	// Media attaches opencoti's media engines (media.go). Schema v7.
 	Media *Media `json:"media,omitempty"`
+
+	// Notices names the model's generation-notice templates for a create
+	// (notices.go). Never stored: the MediaTypeNotices layer is the truth.
+	Notices *Notices `json:"notices,omitempty"`
 }
 
 // Slots holds this model's serving-capacity settings.
@@ -383,6 +387,9 @@ func (c *Config) Validate() error {
 	if err := c.Draft.validateHead(); err != nil {
 		return err
 	}
+	if err := c.Notices.validate(); err != nil {
+		return err
+	}
 	// A pool is a shared prefix between requests the engine knows are
 	// different conversations, so it has nothing to key on without affinity.
 	// Refuse the combination at create time rather than serving a model whose
@@ -579,6 +586,7 @@ func (c *Config) IsZero() bool {
 	return c.Engine == "" &&
 		c.FlashAttention == "" &&
 		c.Draft.IsZero() &&
+		c.Notices.IsZero() &&
 		(c.KV == nil || c.KV.RollingWindow == "") &&
 		c.Fit.IsZero() &&
 		(c.KV == nil || (c.KV.K == "" && c.KV.V == "" && c.KV.KSWA == "" && c.KV.VSWA == "" &&

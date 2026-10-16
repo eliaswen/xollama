@@ -71,21 +71,19 @@ func HasSystemOne() bool {
 	return pin.HasFeature(featureSystemOne)
 }
 
-// featureGenerationNotice is the engine's generation notices, contract v1
-// (opencoti c13 r3, mail #1446/#1452): a request's top-level `notices`, a line
-// planted inline starting with NoticeMarker, and POST /v1/notice.
-const featureGenerationNotice = "generation_notice_v1"
-
-// NoticeMarker starts every line the engine plants under contract v1 (owner,
-// 2026-10-15). The engine's /props says it too; v1 fixes it.
-const NoticeMarker = "[notice]"
+// FeatureGenerationNotice is the engine's generation notices, contract v2
+// (opencoti c13 r3, mails #1487-#1495): a request's top-level `notices` with
+// per-step templates, --notice-templates FILE, --print-notice-config, and
+// POST /v1/notice. Contract v1 was never pinned and is superseded.
+const FeatureGenerationNotice = "generation_notice_v2"
 
 // HasGenerationNotice reports whether the engine this build ships plants
-// generation notices.
+// generation notices. An operator's XOLLAMA_ENGINE_PATH is asked instead
+// (NoticesFor), since the pin does not describe it.
 func HasGenerationNotice() bool {
 	pin, err := DefaultPin()
 	if err != nil {
 		return false
 	}
-	return pin.HasFeature(featureGenerationNotice)
+	return pin.HasFeature(FeatureGenerationNotice)
 }

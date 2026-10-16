@@ -312,6 +312,11 @@ func (s *Server) CreateHandler(c *gin.Context) {
 			send(gin.H{"error": err.Error(), "status": http.StatusBadRequest})
 			return
 		}
+		// xollama-hook: notices — see docs/xollama/notices.mdx
+		if baseLayers, err = applyNoticeTemplates(c.Request.Context(), &r, baseLayers); err != nil {
+			send(gin.H{"error": err.Error(), "status": http.StatusBadRequest})
+			return
+		}
 
 		// Info is not currently exposed by Modelfiles, but allows overriding various
 		// config values.

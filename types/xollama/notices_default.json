@@ -1,0 +1,39 @@
+{
+  "think": [
+    {
+      "at_percent": 60,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    },
+    {
+      "at_percent": 70,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    },
+    {
+      "at_percent": 80,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    },
+    {
+      "at_percent": 90,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    }
+  ],
+  "answer": [
+    {
+      "at_percent": 60,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    },
+    {
+      "at_percent": 70,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    },
+    {
+      "at_percent": 80,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    },
+    {
+      "at_percent": 90,
+      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+    }
+  ],
+  "message": "<engine_status output_budget=\"{left}\">A new message is waiting — finish this reply briefly. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+}

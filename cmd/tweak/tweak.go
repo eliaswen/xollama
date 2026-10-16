@@ -477,6 +477,9 @@ func write(cmd *cobra.Command, client *api.Client, name string, cfg *xollama.Con
 	if err := fetchDrafter(cmd.Context(), client, cfg, out); err != nil {
 		return err
 	}
+	if err := uploadNoticeTemplates(cmd.Context(), client, cfg, out); err != nil { // xollama-hook: notices
+		return err
+	}
 	if err := client.Create(cmd.Context(), req, fn); err != nil {
 		return err
 	}

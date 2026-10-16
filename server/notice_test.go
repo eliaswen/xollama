@@ -36,17 +36,18 @@ func identity(t *testing.T) api.XollamaIdentity {
 	return id
 }
 
-// Cerebriline takes the marker only from the block: without it the planted
-// lines would show in its chat (ollama #1449), so the feature never goes out
-// alone.
-func TestNoticesAreAdvertisedWithTheirMarkerOnlyWhenTheEngineHasThem(t *testing.T) {
+// A client takes the spans it hides only from the block: without it the
+// planted notices would show in its chat (ollama #1449), so the feature never
+// goes out alone.
+func TestNoticesAreAdvertisedWithTheirHideSpansOnlyWhenTheEngineHasThem(t *testing.T) {
 	withNoticesServed(t, true)
 	id := identity(t)
 	if !slices.Contains(id.Features, api.FeatureGenerationNotice) {
 		t.Fatalf("features %v lack %s", id.Features, api.FeatureGenerationNotice)
 	}
-	if id.GenerationNotice == nil || id.GenerationNotice.Version != 1 || id.GenerationNotice.Marker != "[notice]" {
-		t.Fatalf("generation_notice = %+v, want version 1 marker [notice]", id.GenerationNotice)
+	g := id.GenerationNotice
+	if g == nil || g.Version != 2 || len(g.Hide) != 1 || g.Hide[0].Open != "<engine_status" || g.Hide[0].Close == nil || *g.Hide[0].Close != "</engine_status>" {
+		t.Fatalf("generation_notice = %+v, want version 2 hiding <engine_status ... </engine_status>", g)
 	}
 
 	withNoticesServed(t, false)

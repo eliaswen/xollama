@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// noticeEngine is an engine that declares generation_notice_v1 in /props
+// noticeEngine is an engine that declares generation_notice_v2 in /props
 // (when declares is true) and answers POST /v1/notice for the keys given.
 func noticeEngine(t *testing.T, declares bool, running map[string]bool) (*llamaServerRunner, *[]string) {
 	t.Helper()
@@ -48,7 +48,7 @@ const clientNotices = `{"key":"sess:abc","think":[{"at_percent":60}],"answer":[{
 func TestNoticesGoOnlyToAnEngineThatPlantsThem(t *testing.T) {
 	s, _ := noticeEngine(t, true, nil)
 	if got := s.noticesFor(t.Context(), json.RawMessage(clientNotices)); string(got) != clientNotices {
-		t.Fatalf("an engine declaring generation_notice_v1 got %q, want the client's object unchanged", got)
+		t.Fatalf("an engine declaring generation_notice_v2 got %q, want the client's object unchanged", got)
 	}
 
 	old, _ := noticeEngine(t, false, nil)

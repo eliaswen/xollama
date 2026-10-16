@@ -289,6 +289,9 @@ func prune(c *xollama.Config) {
 	if c.Draft.IsZero() {
 		c.Draft = nil
 	}
+	if c.Notices.IsZero() {
+		c.Notices = nil
+	}
 	if c.Fit.IsZero() {
 		c.Fit = nil
 	}

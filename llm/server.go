@@ -114,6 +114,11 @@ type LlamaServerConfig struct {
 	// (llm/engine_council_slots.go); -c is not sized by it. Zero for a model
 	// that is not a council.
 	CouncilSlots int
+
+	// xollama-hook: notices -- the --notice-templates file: the model's own
+	// templates layer, else xollama's defaults. Empty starts the engine with
+	// its built-in ladder.
+	NoticeTemplatesPath string
 }
 
 // enginePin returns the engine this model says it needs, or "".
@@ -420,6 +425,8 @@ type ChatResponse struct {
 	EvalCount             int           `json:"eval_count"`
 	EvalDuration          time.Duration `json:"eval_duration"`
 	Logprobs              []Logprob     `json:"logprobs,omitempty"`
+	// xollama-hook: notices -- the engine's timings.notices_planted.
+	NoticesPlanted int `json:"notices_planted,omitempty"`
 }
 
 // DoneReason represents the reason why a completion response is done
@@ -471,4 +478,7 @@ type CompletionResponse struct {
 
 	// Logprobs contains log probability information if requested
 	Logprobs []Logprob `json:"logprobs,omitempty"`
+
+	// xollama-hook: notices -- the engine's timings.notices_planted.
+	NoticesPlanted int `json:"notices_planted,omitempty"`
 }
