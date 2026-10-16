@@ -414,6 +414,10 @@ func removeNamedManifestPathsForDigest(digest string) error {
 		if err := os.Remove(ref.path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
+		// xollama-hook: shared-store — the name's kept legacy copy goes with it
+		if err := removeLegacyManifestPaths(n); err != nil {
+			return err
+		}
 	}
 
 	return pruneManifestRoots()
@@ -1178,7 +1182,8 @@ func writeManifestData(name model.Name, data []byte, removeLegacy bool) error {
 		return nil
 	}
 
-	return removeLegacyManifestPaths(name)
+	// xollama-hook: shared-store — keep a legacy copy an older ollama on the same store reads
+	return keepLegacyManifest(name, data, digest)
 }
 
 // WriteLegacyAnchor writes mf as a legacy manifest at name with the v2
@@ -1232,6 +1237,12 @@ func WriteLegacyManifestData(name model.Name, data []byte) error {
 	manifestStoreMu.Lock()
 	defer manifestStoreMu.Unlock()
 
+	return writeLegacyManifestData(name, data)
+}
+
+// writeLegacyManifestData is WriteLegacyManifestData with manifestStoreMu
+// already held (xollama-hook: shared-store).
+func writeLegacyManifestData(name model.Name, data []byte) error {
 	name = normalizeLogicalName(name)
 	if !legacyManifestPathSupported(name) {
 		return nil
@@ -1619,6 +1630,10 @@ func MigrateManifestLinks() (int, error) {
 		data, err := readManifestPath(match, manifests)
 		if err != nil {
 			return migrated, err
+		}
+		// xollama-hook: shared-store — a kept legacy copy of the current manifest is not a model to migrate
+		if legacyAnchorCurrent(n, data) {
+			continue
 		}
 		if err := WriteManifestData(normalizeLogicalName(n), data); err != nil {
 			return migrated, err

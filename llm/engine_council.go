@@ -34,6 +34,9 @@ type Placement struct {
 	// a worker never does (it is charged against its owner).
 	NumCtx    int
 	NumCtxMin int
+	// NumCtxHold false asks for a window that is not held after the request
+	// (opencoti elastic_window_unheld_v1); see ctxHoldFor.
+	NumCtxHold *bool
 }
 
 // placementFields decides what a placed call carries, given the engine.

@@ -2248,6 +2248,7 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 
 	// xollama-hook: model-config — see docs/features/model-config.md
 	resp.Drafter = drafterShowInfo(m, kvData, tensors, drafterSpecTypePin(m))
+	resp.GenerationNotice = modelGenerationNotice(m) // xollama-hook: notices
 
 	return resp, nil
 }
@@ -2532,6 +2533,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST(api.XollamaSettingsPath, s.SettingsHandler)
 	r.POST(api.XollamaLinkProbePath, s.LinkProbeHandler)
 	r.POST(api.XollamaMediaPullPath, s.MediaPullHandler) // xollama-hook: media
+	r.POST(api.XollamaNoticePath, s.NoticeHandler)       // xollama-hook: notices
 	r.GET("/api/status", s.StatusHandler)
 	// Codex uses this existing Ollama listener for both native and Ollama
 	// models. The proxy selects the upstream per request.
@@ -3270,6 +3272,9 @@ func llamaServerConfigForModel(m *Model) llm.LlamaServerConfig {
 		// xollama-hook: council -- pool seats for the council's pool tree.
 		CouncilPools: councilPoolSeats(m),
 		CouncilSlots: councilSlots(m),
+
+		// xollama-hook: notices -- the model's templates, else the defaults.
+		NoticeTemplatesPath: noticeTemplatesPath(m),
 	}
 }
 
@@ -3737,6 +3742,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 			// xollama-hook: council -- a council member's pool and window.
 			Placement: councilPlacement(c),
+			Notices:   req.Notices, // xollama-hook: notices
 		}, func(r llm.CompletionResponse) {
 			callProgress.step(ch, r.Content) // xollama-hook: tool-call-progress
 			res := api.ChatResponse{
@@ -3750,6 +3756,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 					PromptEvalDuration:    r.PromptEvalDuration,
 					EvalCount:             r.EvalCount,
 					EvalDuration:          r.EvalDuration,
+					NoticesPlanted:        r.NoticesPlanted, // xollama-hook: notices
 				},
 				Logprobs: toAPILogprobs(r.Logprobs),
 			}
@@ -3941,6 +3948,7 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 		PoolKey:     poolKeyForRequest(m, msgs, req.Tools),
 		// xollama-hook: council -- a council member's pool and window.
 		Placement: councilPlacement(c),
+		Notices:   req.Notices, // xollama-hook: notices
 	}, truncate)
 	if err != nil {
 		slog.Error("chat template prompt error", "error", err)
@@ -3992,6 +4000,7 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 					PromptEvalDuration:    r.PromptEvalDuration,
 					EvalCount:             r.EvalCount,
 					EvalDuration:          r.EvalDuration,
+					NoticesPlanted:        r.NoticesPlanted, // xollama-hook: notices
 				},
 				Logprobs: toAPILogprobs(r.Logprobs),
 			}

@@ -199,6 +199,27 @@ self-update from `.3`, 126.5 to 127.0. G10 on the tag: amd64 85.8 to 85.9
 against 85.9 to 86.2, speech 4/4; arm64 10.0 to 10.1 against 10.8 to 11.0,
 speech 3/3. Promoted.
 
+**`v0.40.4-xollama.1`** (2026-10-15, re-release, full check; PR #32, merge
+`ff9ebd5bb`, release run 38674551088; engine c13 r2 `2610141633001`, payload id
+`042f1124…` unchanged, so Windows takes the small updater). Fixes: Whistle on
+the CPU, the engine's drafter record in `show`/`ps`, a drafter counted beside
+its target. G12: 8 files match. G9 eleven2go: `xOllamaSetup.exe` over
+`0.40.4-xollama` exit 0 in 30 s (run twice by mistake, both 0); 3090 124.2 to
+124.6 tok/s, 9070 XT 102.7 to 103.3, iGPU 4.8 to 4.9, displays OK; Whistle
+`100% CPU`, 528 MB, VRAM 0, the clip exact; `xOllamaUpdate.exe` over it exit 0
+in 4 s, 3090 124.4 to 124.8; 11434 untouched. G11 Mac mini: app and dmg
+notarized; qwen2.5:1.5b 121.7 to 128.6, llama3 31.3 to 31.5, qwen3.5:2b 60.5
+to 62.5; speech 7/7; self-update from `0.40.4-xollama`, 125.4 to 126.3. G10
+amd64: opencoti 85.5 to 85.7 warm, llama.cpp 83.7 to 85.5, speech 4/4, 0 crash
+lines. G10 arm64 (Pi 5): opencoti 9.4 to 10.3, llama.cpp 10.9 to 11.0, speech
+3/3, 0 crash lines, the owner's containers up. Before the cut, on solidPC's
+3090 (side server, `/srv/ml/c41/run*.log`): the drafter record attached
+(free card), KEPT at 15700 MiB free, DROPPED at 16100 MiB free (`fit_shortfall`,
+605 short, 660 freed) and `ps` 15 GB for that load (2.0 GB before the parser
+fix). Promoted 06:53, Discord announced; the image run on the tag after
+promotion (38683899965) moved `:latest` on Docker Hub (`d12544f5…`) and GHCR
+(`7dbccb0b…`).
+
 **`v0.40.4-xollama`** (2026-10-14, the tree of `v0.40.4-rc.1.xollama`, short
 check; PR #31, merge `a8924636a`, release run 38622830287, `tree matches`;
 payload id `042f1124…` unchanged). G12: 8 files match. G9: the small installer

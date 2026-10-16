@@ -17,4 +17,15 @@ type Placement struct {
 	// NumCtx and NumCtxMin are the session's window and the least it accepts.
 	NumCtx    int `json:"num_ctx,omitempty"`
 	NumCtxMin int `json:"num_ctx_min,omitempty"`
+	// NumCtxHold false makes NumCtx/NumCtxMin this request's own window: the
+	// size if it is free, or less down to NumCtxMin, and not held for the
+	// session afterwards (context_window_unbooked_v1). The session id still
+	// keeps the request on its slot and prompt cache. Nil or true is the
+	// held booking. Sent only to an engine that declares
+	// elastic_window_unheld_v1, and only beside a NumCtx.
+	NumCtxHold *bool `json:"num_ctx_hold,omitempty"`
 }
+
+// FeatureContextWindowUnbooked: Placement.NumCtxHold reaches the engine.
+// /api/xollama lists it only while the pinned engine takes it.
+const FeatureContextWindowUnbooked = "context_window_unbooked_v1"

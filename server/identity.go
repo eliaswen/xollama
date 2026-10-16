@@ -28,13 +28,28 @@ func XollamaIdentityHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, api.XollamaIdentity{
 		Xollama:  true,
 		Version:  version.Version,
-		Features: xollamaFeatures(),
+		Features: servedFeatures(),
+		// xollama-hook: notices
+		GenerationNotice: generationNotice(),
 	})
 }
 
 // xollamaFeatures is what this build serves, in the order the features shipped.
 func xollamaFeatures() []string {
 	return []string{api.FeatureCouncil, api.FeatureCouncilCompaction, api.FeatureCouncilTags, api.FeatureClientPlacement, api.FeatureChatRender, api.FeatureCouncilChatState, api.FeatureCouncilTools, api.FeatureAPIKey, api.FeatureContextWindow, api.FeatureCouncilUsage, api.FeatureCouncilDirective, api.FeatureCouncilCheckCall, api.FeatureToolCallProgress}
+}
+
+// servedFeatures is xollamaFeatures plus those that depend on the engine this
+// build runs: generation notices only while the engine plants them.
+func servedFeatures() []string {
+	f := xollamaFeatures()
+	if noticesServed() {
+		f = append(f, api.FeatureGenerationNotice)
+	}
+	if unbookedServed() { // xollama-hook: context-window-unbooked
+		f = append(f, api.FeatureContextWindowUnbooked)
+	}
+	return f
 }
 
 // XollamaDevicesHandler lists the devices a model can be pinned to.

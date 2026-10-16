@@ -29,6 +29,7 @@ func logModelLoad(m *Model, f *gguf.Model, gpus []ml.DeviceInfo, opts api.Option
 	for _, l := range modelLoadLog(m, f, gpus, opts, numParallel, predicted) {
 		slog.Info(l.msg, l.attrs...)
 	}
+	warnSwallowedTemplate(m)
 }
 
 func modelLoadLog(m *Model, f *gguf.Model, gpus []ml.DeviceInfo, opts api.Options, numParallel int, predicted uint64) []loadLogLine {

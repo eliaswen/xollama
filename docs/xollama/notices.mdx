@@ -1,0 +1,135 @@
+---
+title: Generation notices
+---
+
+A model cannot see how much room it has left. It thinks until a budget cuts
+it off, or writes an answer the output cap ends mid-sentence. With
+generation notices, the opencoti engine tells it: when a phase's room runs
+low, it writes a short notice into the model's own output at the next break
+in prose, and the model reads it as it goes on.
+
+```
+<engine_status output_budget="240">240 tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>
+```
+
+Notices are **off unless a client asks for them**, request by request. They
+need an engine that plants them (opencoti `generation_notice_v2`); on any
+other engine, and with `XOLLAMA_ENGINE=llamacpp`, the request is upstream's and
+nothing is planted.
+
+## Does this server have them?
+
+```sh
+curl -s localhost:22434/api/xollama | jq '.features, .generation_notice'
+```
+
+A server that plants notices lists `generation_notice_v2` and carries a
+`generation_notice` block. Without both, send nothing. `/api/show` carries the
+same block for one model: the templates that model starts with, and the spans
+to hide.
+
+```json
+{
+  "version": 2,
+  "hide": [{ "open": "<engine_status", "close": "</engine_status>" }],
+  "templates": { "think": [ … ], "answer": [ … ], "message": "…" }
+}
+```
+
+## Asking for them
+
+Add a top-level `notices` object to `POST /api/chat`. xOllama passes it to
+the engine unchanged.
+
+```json
+{
+  "model": "qwen3.6:27b",
+  "messages": [{ "role": "user", "content": "…" }],
+  "notices": {
+    "key": "session-42:7f3a",
+    "think":  "default",
+    "answer": [{ "at_percent": 80 }, { "left": 200, "template": "[note]{left} of {total} left, conclude.[/note]" }]
+  }
+}
+```
+
+- `"default"` is the model's own ladder (its templates, below). A step is
+  `{"at_percent": 1..99}`, the share of that phase's room used, or
+  `{"left": N}`, tokens left, with an optional `template`; a step without one
+  takes the model's template at that position.
+- A template is the whole planted text. `{left}` is the tokens left in the
+  phase, `{total}` the phase's whole budget. It must start with punctuation,
+  and a template that spans lines must end with its closing tag. A malformed
+  step is a 400, before anything is generated.
+- The answer's room is the smaller of the output cap and the context left;
+  thinking's is the thinking budget when one is set, else the room left when
+  thinking starts.
+- `key` is needed only for the waiting call below. Use a fresh one per
+  request.
+- A notice is planted only at a break in prose: never inside code, a table, a
+  list or a tool call. A reply that is all code past the step gets none.
+
+The response's done chunk counts what was planted: `notices_planted`.
+
+## The notice stays in the text
+
+The notice arrives in the normal stream, in `thinking` while the model thinks
+and in `content` while it answers, at the start of a line.
+
+**Hide it, do not remove it.** For display, hide each span of the `hide`
+list: from a line starting with `open` through `close`, or to the end of that
+line when `close` is `null`. Hide the templates your own request sent the same
+way. Store and send back the message exactly as it came: the engine's cache
+holds the notice, and a history without it is re-read from that point on the
+next turn.
+
+A request that sends only a `key` is not barred from the openings until the
+engine has planted its first notice, so hide on such a request only after the
+waiting notice arrived.
+
+## A model's own wording
+
+The default wording was chosen on the models opencoti measured. A model can
+carry its own, in the engine's `--notice-templates` shape:
+
+```json
+{
+  "think":   [{ "at_percent": 60, "template": "<budget left=\"{left}\">wrap up</budget>" }],
+  "answer":  [{ "at_percent": 50, "template": "[note budget={left}/{total}] Room is running out, wrap up. [/note]" },
+              { "at_percent": 80, "template": "[note budget={left}/{total}] Finish now. [/note]" }],
+  "message": "[note] A new message is waiting, finish briefly. [/note]"
+}
+```
+
+```sh
+xollama tweak model mymodel --notice-templates=./notices.json
+xollama tweak model mymodel --notice-templates=none     # back to the defaults
+```
+
+The file becomes a layer of the model. A part it leaves out is filled from
+xOllama's defaults, so the spans `/api/show` lists cover everything planted.
+The engine checks the file before it is attached, and a file it refuses is
+refused there with the engine's reason:
+
+```
+Error: 400 Bad Request: notices.templates: the engine refused the file: notice-templates: answer[0].template: a template that spans lines must contain its closing tag (e.g. '</budget>')
+```
+
+A model with its own templates starts the engine with that layer's file as
+`--notice-templates`. A model without one passes nothing: the engine's
+built-in ladder is xOllama's default, the same text `/api/show` lists.
+
+## A message is waiting
+
+When the user queues a message while a reply is running, tell the engine, so
+the model can finish briefly:
+
+```sh
+curl -s localhost:22434/api/xollama/notice \
+  -d '{"key": "session-42:7f3a", "kind": "message_waiting"}'
+```
+
+The engine plants the model's `message` notice at the next break; the message
+itself never reaches the model. The answer is `200` when a running request has
+the key, `404` when none does (it has already ended: ignore it), `400` for an
+unknown kind and `409` when two running requests share the key.

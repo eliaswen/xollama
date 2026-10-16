@@ -626,6 +626,8 @@ func startLlamaServer(launch llamaServerLaunchConfig, out io.Writer) (cmd *exec.
 	}
 	// xollama-hook: drafter — see docs/features/gemma4-drafter.md
 	args = appendDraftOffArgs(args, launch.draftType, launch.config.DraftOff && launch.opts.DraftNumPredict <= 0, usedOpencoti)
+	// xollama-hook: notices -- the model's notice templates (llm/engine_notice.go).
+	args = appendNoticeTemplatesArgs(args, launch.config.NoticeTemplatesPath, usedOpencoti)
 
 	// xollama-hook: engine-args — the operator's append-only escape hatch, for
 	// engine flags with no LLAMA_ARG_* twin. LAST on purpose: llama-server
@@ -1892,8 +1894,12 @@ type llamaServerCompletionRequest struct {
 	PoolID    *int   `json:"pool_id,omitempty"`
 	// xollama-hook: council -- the window a council owner books. Never set
 	// outside a council's placement, so every other body is unchanged.
-	NumCtx    int `json:"num_ctx,omitempty"`
-	NumCtxMin int `json:"num_ctx_min,omitempty"`
+	NumCtx     int   `json:"num_ctx,omitempty"`
+	NumCtxMin  int   `json:"num_ctx_min,omitempty"`
+	NumCtxHold *bool `json:"num_ctx_hold,omitempty"`
+	// xollama-hook: notices -- opencoti's generation notices, only on an
+	// engine that declares them (llm/engine_notice.go).
+	Notices json.RawMessage `json:"notices,omitempty"`
 }
 
 // schemaGrammars caches the grammars llama-server derives from JSON schemas,
@@ -2105,6 +2111,8 @@ type llamaServerTimings struct {
 	PromptMS  float64 `json:"prompt_ms"`
 	PredictN  int     `json:"predicted_n"`
 	PredictMS float64 `json:"predicted_ms"`
+	// xollama-hook: notices -- opencoti contract v2.
+	NoticesPlanted int `json:"notices_planted"`
 }
 
 func (t llamaServerTimings) promptEvalCount() int {
@@ -2230,6 +2238,11 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 		poolID = s.poolFor(req.PoolKey)
 	}
 	applySession(&lsReq, s.usedOpencoti, s.launch.config, req.SessionID, poolID)
+	// xollama-hook: notices
+	if n := s.noticesFor(ctx, req.Notices); n != nil {
+		lsReq.Notices = n
+		defer s.trackNotice(n)()
+	}
 	// xollama-hook: council -- a placed call takes the council's pool and
 	// window, and teaches the automatic pools nothing.
 	if pool, n, nmin := placementFields(s.usedOpencoti, s.launch.config, req.Placement); pool != nil || n > 0 {
@@ -2237,6 +2250,7 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 			lsReq.PoolID = pool
 		}
 		lsReq.NumCtx, lsReq.NumCtxMin = n, nmin
+		lsReq.NumCtxHold = s.ctxHoldFor(ctx, req.Placement, n)
 		pooled = poolSource{}
 	}
 	if poolID != nil {
@@ -2424,6 +2438,7 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 					PromptEvalDuration:    time.Duration(lsResp.Timings.PromptMS * float64(time.Millisecond)),
 					EvalCount:             lsResp.Timings.PredictN,
 					EvalDuration:          time.Duration(lsResp.Timings.PredictMS * float64(time.Millisecond)),
+					NoticesPlanted:        lsResp.Timings.NoticesPlanted, // xollama-hook: notices
 				}
 				hasFinalResp = true
 			}
@@ -2635,6 +2650,17 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 	if err != nil {
 		return err
 	}
+	// xollama-hook: notices -- the chat path's copy.
+	if n := s.noticesFor(ctx, req.Notices); n != nil {
+		lsReq["notices"] = n
+		defer s.trackNotice(n)()
+	}
+	// xollama-hook: context-window-unbooked -- beside the placed window.
+	if n, ok := lsReq["num_ctx"].(int); ok {
+		if hold := s.ctxHoldFor(ctx, req.Placement, n); hold != nil {
+			lsReq["num_ctx_hold"] = *hold
+		}
+	}
 
 	buffer := &bytes.Buffer{}
 	enc := json.NewEncoder(buffer)
@@ -2758,6 +2784,7 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 				resp.PromptEvalDuration = time.Duration(lsResp.Timings.PromptMS * float64(time.Millisecond))
 				resp.EvalCount = lsResp.Timings.PredictN
 				resp.EvalDuration = time.Duration(lsResp.Timings.PredictMS * float64(time.Millisecond))
+				resp.NoticesPlanted = lsResp.Timings.NoticesPlanted // xollama-hook: notices
 				toolCalls, err := accumulatedToolCalls(toolCalls)
 				if err != nil {
 					return err

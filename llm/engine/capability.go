@@ -70,3 +70,35 @@ func HasSystemOne() bool {
 	}
 	return pin.HasFeature(featureSystemOne)
 }
+
+// FeatureGenerationNotice is the engine's generation notices, contract v2
+// (opencoti c13 r3, mails #1487-#1495): a request's top-level `notices` with
+// per-step templates, --notice-templates FILE, --print-notice-config, and
+// POST /v1/notice. Contract v1 was never pinned and is superseded.
+const FeatureGenerationNotice = "generation_notice_v2"
+
+// FeatureWindowUnheld is the engine's num_ctx_hold (opencoti c13 r3, patch
+// 0683): false makes a request's num_ctx/num_ctx_min its own window, not held
+// for its session afterwards.
+const FeatureWindowUnheld = "elastic_window_unheld_v1"
+
+// HasWindowUnheld reports whether the engine this build ships takes
+// num_ctx_hold.
+func HasWindowUnheld() bool {
+	pin, err := DefaultPin()
+	if err != nil {
+		return false
+	}
+	return pin.HasFeature(FeatureWindowUnheld)
+}
+
+// HasGenerationNotice reports whether the engine this build ships plants
+// generation notices. An operator's XOLLAMA_ENGINE_PATH is asked instead
+// (NoticesFor), since the pin does not describe it.
+func HasGenerationNotice() bool {
+	pin, err := DefaultPin()
+	if err != nil {
+		return false
+	}
+	return pin.HasFeature(FeatureGenerationNotice)
+}

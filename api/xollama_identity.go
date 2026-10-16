@@ -30,6 +30,8 @@ type XollamaIdentity struct {
 	// A name is added when its feature ships and never changes meaning; a
 	// changed contract is a new name (…_v2).
 	Features []string `json:"features,omitempty"`
+	// GenerationNotice is present only while FeatureGenerationNotice is listed.
+	GenerationNotice *GenerationNotice `json:"generation_notice,omitempty"`
 }
 
 // The names XollamaIdentity.Features carries.

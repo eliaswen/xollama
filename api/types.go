@@ -192,6 +192,11 @@ type ChatRequest struct {
 	// ignored. See docs/xollama/sessions.mdx.
 	SessionID string `json:"session_id,omitempty"`
 
+	// xollama-hook: notices — Notices is opencoti's generation-notices request
+	// object (contract v2), passed to the engine unchanged when it plants
+	// notices and dropped otherwise. See docs/xollama/notices.mdx.
+	Notices json.RawMessage `json:"notices,omitempty"`
+
 	// Truncate is a boolean that, when set to true, truncates the chat history messages
 	// if the rendered prompt exceeds the context length limit.
 	Truncate *bool `json:"truncate,omitempty"`
@@ -652,6 +657,10 @@ type Metrics struct {
 	PromptEvalDuration    time.Duration `json:"prompt_eval_duration,omitempty"`
 	EvalCount             int           `json:"eval_count,omitempty"`
 	EvalDuration          time.Duration `json:"eval_duration,omitempty"`
+
+	// xollama-hook: notices — the generation notices the engine planted in
+	// this response, on the done chunk of a request that asked for them.
+	NoticesPlanted int `json:"notices_planted,omitempty"`
 }
 
 // Options specified in [GenerateRequest].  If you add a new option here, also
@@ -1010,6 +1019,11 @@ type ShowResponse struct {
 	// or a head inside the weights; neither shows up anywhere else in this
 	// response, so a model could carry a 440 MiB drafter with no sign of it.
 	Drafter *DrafterInfo `json:"drafter,omitempty"`
+
+	// xollama-hook: notices — the notices this model's engine plants: the
+	// templates it starts with and the spans a client hides. Nil while the
+	// server does not serve generation notices. See docs/xollama/notices.mdx.
+	GenerationNotice *GenerationNotice `json:"generation_notice,omitempty"`
 }
 
 // xollama-hook: model-config — see docs/features/model-config.md

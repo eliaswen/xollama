@@ -938,8 +938,9 @@ func TestMigrateManifestLinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
-		t.Fatalf("legacy manifest still exists: %v", err)
+	// xollama-hook: shared-store — the legacy copy stays, as an anchor naming the manifest blob
+	if legacy, err := os.ReadFile(legacyPath); err != nil || !bytes.Contains(legacy, fmt.Appendf(nil, "sha256:%x", sum)) {
+		t.Fatalf("legacy manifest is not an anchor of the migrated one: %v %s", err, legacy)
 	}
 
 	migrated, err = MigrateManifestLinks()

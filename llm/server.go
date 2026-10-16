@@ -114,6 +114,11 @@ type LlamaServerConfig struct {
 	// (llm/engine_council_slots.go); -c is not sized by it. Zero for a model
 	// that is not a council.
 	CouncilSlots int
+
+	// xollama-hook: notices -- the --notice-templates file: the model's own
+	// templates layer, else xollama's defaults. Empty starts the engine with
+	// its built-in ladder.
+	NoticeTemplatesPath string
 }
 
 // enginePin returns the engine this model says it needs, or "".
@@ -367,6 +372,10 @@ type CompletionRequest struct {
 	// Applied only where sessions exist (llm/engine_council.go); nil for every
 	// request that is not a council's.
 	Placement *Placement
+
+	// xollama-hook: notices -- the client's `notices` object, sent only to an
+	// engine that declares generation_notice_v1 (llm/engine_notice.go).
+	Notices json.RawMessage
 }
 
 type ChatRequest struct {
@@ -401,6 +410,9 @@ type ChatRequest struct {
 	// Applied only where sessions exist (llm/engine_council.go); nil for every
 	// request that is not a council's.
 	Placement *Placement
+
+	// xollama-hook: notices -- as CompletionRequest.Notices.
+	Notices json.RawMessage
 }
 
 type ChatResponse struct {
@@ -413,6 +425,8 @@ type ChatResponse struct {
 	EvalCount             int           `json:"eval_count"`
 	EvalDuration          time.Duration `json:"eval_duration"`
 	Logprobs              []Logprob     `json:"logprobs,omitempty"`
+	// xollama-hook: notices -- the engine's timings.notices_planted.
+	NoticesPlanted int `json:"notices_planted,omitempty"`
 }
 
 // DoneReason represents the reason why a completion response is done
@@ -464,4 +478,7 @@ type CompletionResponse struct {
 
 	// Logprobs contains log probability information if requested
 	Logprobs []Logprob `json:"logprobs,omitempty"`
+
+	// xollama-hook: notices -- the engine's timings.notices_planted.
+	NoticesPlanted int `json:"notices_planted,omitempty"`
 }

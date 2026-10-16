@@ -404,7 +404,8 @@ func parseTypedToolValue(raw string, paramType api.PropertyType) any {
 	// Try array
 	if typeSet["array"] {
 		var arr []any
-		if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+		// xollama-hook: tool-path-backslash — a path's backslash is not an escape
+		if err := json.Unmarshal([]byte(keepPathBackslashes(raw)), &arr); err == nil {
 			return arr
 		}
 		// If array is the only type and parsing failed, fall back to string
@@ -416,7 +417,8 @@ func parseTypedToolValue(raw string, paramType api.PropertyType) any {
 	// Try object
 	if typeSet["object"] {
 		var obj map[string]any
-		if err := json.Unmarshal([]byte(raw), &obj); err == nil {
+		// xollama-hook: tool-path-backslash — a path's backslash is not an escape
+		if err := json.Unmarshal([]byte(keepPathBackslashes(raw)), &obj); err == nil {
 			return obj
 		}
 		// If object is the only type and parsing failed, fall back to string

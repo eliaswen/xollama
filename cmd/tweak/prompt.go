@@ -79,7 +79,13 @@ func (a *asker) ask(cfg *xollama.Config, f field) error {
 
 		switch strings.ToLower(raw) {
 		case "":
-			// Blank keeps what is there, which is what the bracket says.
+			// Blank keeps what is there, which is what the bracket says --
+			// unless this is the second half of a pair and keeping it leaves
+			// the pair half set (pairFault).
+			if why := pairFault(cfg, f); why != "" {
+				a.printf("  ! %s\n", why)
+				continue
+			}
 			return nil
 		case "q", "quit", "abort":
 			return errQuit
@@ -102,13 +108,44 @@ func (a *asker) ask(cfg *xollama.Config, f field) error {
 			continue
 		}
 		prune(trial)
-		if why := answerFault(trial, f); why != "" {
+		if why := answerFault(trial, f); why != "" && !awaitsPartner(trial, f, why) {
 			a.printf("  ! %s\n", why)
 			continue
 		}
 		*cfg = *trial
 		return nil
 	}
+}
+
+// awaitsPartner reports whether a refusal of f is only about a partner it is
+// asked with (field.with) that is still unset. The halves of a pair are asked
+// one after the other, so judging the first by the pair rule refused every
+// answer before the second could be given (kv.k_swa, 2026-10-15). The partner's
+// question settles the pair: pairFault holds it there.
+func awaitsPartner(trial *xollama.Config, f field, why string) bool {
+	for _, w := range f.with {
+		p, ok := fieldByName(w)
+		if ok && p.get(trial) == "" && contains(fieldsNamedIn(errors.New(why)), w) {
+			return true
+		}
+	}
+	return false
+}
+
+// pairFault is the refusal a blank answer to f would leave in place, for a
+// field asked with a partner: keeping "unset" beside a partner just set is
+// half a pair. Other fields keep what is there, as the bracket says.
+func pairFault(cfg *xollama.Config, f field) string {
+	if len(f.with) == 0 {
+		return ""
+	}
+	judged := clone(cfg)
+	prune(judged)
+	why := answerFault(judged, f)
+	if why == "" || awaitsPartner(judged, f, why) {
+		return ""
+	}
+	return why
 }
 
 // render prints the question and returns the selectable options in menu order,

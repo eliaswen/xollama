@@ -13,7 +13,7 @@ This is xollama, a soft fork of Ollama. It listens on **22434** (set with
 * [KV cache types](./xollama/kv-cache.mdx) · [Concurrent requests (slots)](./xollama/slots.mdx) · [Sessions and prefix pools](./xollama/sessions.mdx) · [Beyond the trained context (DCA)](./xollama/dca.mdx)
 * [Settings that belong to the model](./xollama/model-settings.mdx) · [Changing a model's settings (`xollama tweak`)](./xollama/tweak.mdx)
 * [Council chat](./xollama/council.mdx) · [Bounding thinking](./xollama/think-budget.mdx) · [Gemma-4 drafters](./xollama/gemma4-drafter.mdx)
-* [The default port](./xollama/default-port.mdx) · [The local API key](./xollama/api-key.mdx) · [Tokenizer endpoints](./xollama/tokenize.mdx) · [Seeing what the engine did](./xollama/introspection.mdx)
+* [The default port](./xollama/default-port.mdx) · [The local API key](./xollama/api-key.mdx) · [Tokenizer endpoints](./xollama/tokenize.mdx) · [Seeing what the engine did](./xollama/introspection.mdx) · [Generation notices](./xollama/notices.mdx)
 
 The rest of this page is upstream Ollama's documentation, which applies to
 xollama except where the pages above say otherwise.

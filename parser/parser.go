@@ -585,6 +585,7 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 					role = ""
 				}
 
+				// xollama-hook: template-swallowed
 				if err := checkSwallowedDirective(cmd.Name, s); err != nil {
 					return nil, &ParserError{LineNumber: currLine, Msg: err.Error()}
 				}
@@ -618,6 +619,7 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 			s = role + ": " + s
 		}
 
+		// xollama-hook: template-swallowed
 		if err := checkSwallowedDirective(cmd.Name, s); err != nil {
 			return nil, &ParserError{LineNumber: currLine, Msg: err.Error()}
 		}
@@ -637,6 +639,7 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 	return nil, errMissingFrom
 }
 
+// xollama-hook: template-swallowed (to SwallowedDirective's end)
 // swallowedDirective matches a line inside a TEMPLATE or SYSTEM value that is
 // a Modelfile directive with an argument: the sign of a quote left open on the
 // directive's own line. SYSTEM, LICENSE and MESSAGE are left out on purpose --
@@ -653,17 +656,25 @@ var swallowedDirective = regexp.MustCompile(`(?m)^[ \t]*(FROM|ADAPTER|DRAFT|TEMP
 // no parser and none of those parameters, and `ollama show` printed them back
 // inside the template, so they looked set.
 func checkSwallowedDirective(name, value string) error {
-	if name != "template" && name != "system" {
-		return nil
-	}
-	if !strings.ContainsAny(value, "\r\n") {
-		return nil
-	}
-	line := swallowedDirective.FindString(value)
+	line := SwallowedDirective(name, value)
 	if line == "" {
 		return nil
 	}
-	return fmt.Errorf("the quoted %s value contains the line %q: its opening quote is not closed where intended, so that directive and the ones after it would become part of the %s instead of being applied; close the quote (or use \"\"\" ... \"\"\")", strings.ToUpper(name), strings.TrimSpace(line), strings.ToUpper(name))
+	return fmt.Errorf("the quoted %s value contains the line %q: its opening quote is not closed where intended, so that directive and the ones after it would become part of the %s instead of being applied; close the quote (or use \"\"\" ... \"\"\")", strings.ToUpper(name), line, strings.ToUpper(name))
+}
+
+// SwallowedDirective returns the first Modelfile directive line a TEMPLATE or
+// SYSTEM value carries, or "" when it carries none. A model created before
+// create refused such a value still has it in its template layer, and every
+// later create FROM that model carries it on (server/template_swallowed.go).
+func SwallowedDirective(name, value string) string {
+	if name != "template" && name != "system" {
+		return ""
+	}
+	if !strings.ContainsAny(value, "\r\n") {
+		return ""
+	}
+	return strings.TrimSpace(swallowedDirective.FindString(value))
 }
 
 func parseRuneForState(r rune, cs state) (state, rune, error) {

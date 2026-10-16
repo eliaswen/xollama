@@ -61,7 +61,7 @@ func clientPlacement(c *gin.Context, req api.ChatRequest) {
 	if _, set := c.Get(councilPlacementKey); set {
 		return
 	}
-	c.Set(councilPlacementKey, &llm.Placement{PoolID: req.Placement.PoolID, NumCtx: req.Placement.NumCtx, NumCtxMin: req.Placement.NumCtxMin})
+	c.Set(councilPlacementKey, &llm.Placement{PoolID: req.Placement.PoolID, NumCtx: req.Placement.NumCtx, NumCtxMin: req.Placement.NumCtxMin, NumCtxHold: req.Placement.NumCtxHold})
 	// A client stating its own window, or attaching to a pool of its own,
 	// is driving the engine itself: a refusal comes back at once -- with the
 	// largest window the engine would admit when it says -- for the client to
