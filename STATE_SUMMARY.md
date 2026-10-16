@@ -5,6 +5,15 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-16 — `dev` pins opencoti's c13 r4 (index `326b49eb`, engine `2610161700001`), the engine re-release for bug-4108; every gate passes on solidPC, eleven2go and the Mac mini.**
+> - Owner 18:30: "we have a re-release of the engine for a bug, make a new release". r4 (mail #1565): engine-only, every library r3's file (cuda and vulkan pins gain r4 in `gated-with`, BUILD_INFO regenerated); 0689: with notices on, Gemma 4 sampled its `<unusedNN>` placeholder tokens (NORMAL in its GGUFs) when the bar blocked a notice of its own, and the reply carried text the hide span misses; now placeholders are never sampled under the bar and the line after a planted notice is barred too. Contract, `/props` and flags unchanged.
+> - **bug-4108 through xOllama** (`/srv/ml/c13r4/gemma-ab.py`, side server on 22498, `mannix/gemma4-98e-v7-coder:Q4_K_M` = an A4B with 98 experts, 3090, temperature 1.0, 48 answers per engine with the same seeds, half answer-only and half think+answer, default ladder): r3 126 planted, 4 answers with text past the hide span (`<engine_<unused27> output_budget="180">…`, `<engine_statement …>`, `<engine_part>…`); r4 130 planted, 0 leaked, 0 `<unused>`. A first run with num_predict 1400 and short prose planted nothing on either engine (answers ended before the 60 % step) and gave identical token counts request by request.
+> - **solidPC** (`/srv/ml/c13r4`, 19:15–19:48): G3 compat 8/8, llama3 77.6 tok/s (r3 77.4), four slots 311.0 (311.2), overflow 3.57 (3.99; r2 3.13); G4 decision 7/7 on opencoti (probabilities equal r3's to the digit), chat paths all pass, 0 KV refusals; G6 speech 8/8, video 33 frames; G5 council 6/6, 0 crashes, PolyKV 5 pools 0 refusals, the idle tag 10 room refusals answered (r3 17); 0 foreign files.
+> - **eleven2go** (side server, r4 Windows engine, r3's DLLs, abi match): 3090 CUDA 123.8–124.7 (r3 124.5–125.1); 9070 XT Vulkan 100.7–103.3, 103.8 after 120 s idle, 0 dumps; kill: engine gone in 1096 ms; iGPU 5.0. The first run measured nothing: the kit exe built with cgo and no `-s -w` (63 MB) is refused by Windows (bug-287).
+> - **Mac mini** (Metal): qwen2.5:1.5b 126.2–126.7, llama3 30.5–30.8, qwen3.5:2b 60.2–62.2 (r3 122–124, 30.3–30.6, 60.5–62.1); speech 7/7.
+> - opencoti's c14 42.1 note: Gemma 4 12B / 26B-A4B / 31B do not follow answer-budget notices in any form (0–3 of 24 inside the cap, as with none); kept in `.claude/rules/notices.md` and the `.3` notes' Known issues.
+> - Next: `v0.40.4-xollama.3` on this pin (owner's word given 18:30).
+
 > **2026-10-16 — `v0.40.4-xollama.2` is Latest (promoted 11:16; owner 10:01 "cut v0.40.4-xollama.2", 10:11 "promote").**
 > - PR #33, merge `ba1455854`, release run 38873411166; engine c13 r3 `2610160746001` (index `7c1fa53f`), payload id `8c467dcc…` (new: Windows takes the full installer). Notes: the r3 engine (CPU at stock speed, the Windows mixed-cache fix), generation notices, unbooked windows, six fixes.
 > - Full check passed (VALIDATION.md): G12 8 files; G9 eleven2go 3090 124.7–125.0, 9070 XT 103.0–103.4, iGPU 5.1; G11 Mac app 126.8–127.8 and self-update from `.1`; G10 amd64 86 tok/s on both engines, arm64 8.9–10.6 against llama.cpp 10.2–10.8. Discord announced; the image run on the tag after promotion (38879247571) moved `:latest` on Docker Hub (`a8a33f95…`) and GHCR (`03c5e1d9…`).
@@ -2554,14 +2563,15 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 ## Where we are
 
 `v0.40.4-xollama.2` is the latest release (2026-10-16): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r3. `dev` pins opencoti
-c13 r3 (`2610160746001`, 2026-10-16, every gate passed) and carries generation
+fork's carried patches, opencoti c13 r3. `dev` pins opencoti c13 r4
+(`2610161700001`, 2026-10-16, every gate passed), the engine re-release for
+Gemma 4's placeholder tokens beside generation notices (bug-4108), and is
+being released as `v0.40.4-xollama.3` (owner 18:30). It carries generation
 notices v2 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
 channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
 memory, the shared-store anchor, the template-swallowed refusal and the
-Qwen3.5 tool-path fix, released as `v0.40.4-xollama.2` (Latest, 2026-10-16).
-Next: opencoti c14, the c12 readers, the realtime proxy. The Agentic Council
-Chat is in Phase 11.
+Qwen3.5 tool-path fix. Next: opencoti c14, the c12 readers, the realtime
+proxy. The Agentic Council Chat is in Phase 11.
 
 ## What exists today
 
@@ -2627,9 +2637,9 @@ Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. opencoti c14: the pin moves on a measurement once it is published (owner,
-   2026-10-16: "c14 is next"); the next release on this base is
-   `v0.40.4-xollama.3`, on the owner's word.
+1. `v0.40.4-xollama.3` on c13 r4 (owner 18:30): release, full check,
+   promotion on the owner's word. Then opencoti c14: the pin moves on a
+   measurement once it is published (owner, 2026-10-16: "c14 is next").
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.

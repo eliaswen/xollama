@@ -89,8 +89,11 @@ waiting notice arrived.
 
 ## A model's own wording
 
-The default wording was chosen on the models opencoti measured. A model can
-carry its own, in the engine's `--notice-templates` shape:
+The default wording was chosen on the models opencoti measured. Not every
+model acts on it: Gemma 4 (12B, 26B-A4B and 31B) gets its notices planted and
+hidden like any other model, but does not end its answer sooner for them, in
+any wording opencoti tried. A model can carry its own, in the engine's
+`--notice-templates` shape:
 
 ```json
 {
