@@ -50,6 +50,10 @@ type Gemma4Parser struct {
 	// and the "thought\n" header it was about to write, so that header arrives
 	// with the block already over and would otherwise be emitted as the answer.
 	strayChannelName bool
+	// True after a channel re-opened inside the open one (see
+	// Gemma4CollectingThinking): the thinking on either side of it is one
+	// block, so the next thinking written starts on a new line.
+	reopenedChannel bool
 }
 
 func (p *Gemma4Parser) HasToolSupport() bool {
@@ -208,6 +212,40 @@ func (p *Gemma4Parser) parseEvents(done bool) []gemma4Event {
 
 // longestOverlap returns the longest overlap between the suffix of bufStr and
 // a prefix of any of the given tags.
+// thinkingEvent emits thinking, starting it on a new line when it continues a
+// block the model re-opened.
+func (p *Gemma4Parser) thinkingEvent(content string) gemma4EventThinkingContent {
+	if p.reopenedChannel {
+		p.reopenedChannel = false
+		content = "\n" + strings.TrimLeftFunc(content, unicode.IsSpace)
+	}
+	return gemma4EventThinkingContent{content: content}
+}
+
+// gemma4ChannelNameLen measures the channel name after an opening tag: the
+// bytes to strip, 0 for none, or -1 while the buffer could still become one.
+// Gemma 4 writes "thought\n"; a re-opened channel has also been seen as
+// "<thought>" and, at the very end of a stream, as a bare "thought".
+func gemma4ChannelNameLen(buf string, done bool) int {
+	for _, name := range []string{"thought\n", "<thought>\n", "<thought>"} {
+		if strings.HasPrefix(buf, name) {
+			return len(name)
+		}
+	}
+	if done {
+		if buf == gemma4ThinkingChannelName {
+			return len(buf)
+		}
+		return 0
+	}
+	for _, name := range []string{"thought\n", "<thought>\n"} {
+		if strings.HasPrefix(name, buf) {
+			return -1
+		}
+	}
+	return 0
+}
+
 func longestOverlap(bufStr string, tags ...string) int {
 	maxOverlap := 0
 	for _, tag := range tags {
@@ -331,12 +369,12 @@ func (p *Gemma4Parser) eat(done bool) ([]gemma4Event, bool) {
 		// Gemma 4 format: <|channel>thought\n...content...<channel|>
 		// In streaming mode, "thought" and "\n" may arrive in separate chunks.
 		if p.needsChannelNameStrip {
-			if strings.HasPrefix(bufStr, "thought\n") {
-				bufStr = bufStr[len("thought\n"):]
+			if name := gemma4ChannelNameLen(bufStr, done); name > 0 {
+				bufStr = bufStr[name:]
 				p.buffer.Reset()
 				p.buffer.WriteString(bufStr)
 				p.needsChannelNameStrip = false
-			} else if !done && (bufStr == "thought" || strings.HasPrefix("thought\n", bufStr)) {
+			} else if name < 0 {
 				// Partial match — wait for more data.
 				return events, false
 			} else {
@@ -360,7 +398,8 @@ func (p *Gemma4Parser) eat(done bool) ([]gemma4Event, bool) {
 		// followed by a call still takes the ordinary path below.
 		closeIdx := strings.Index(bufStr, gemma4ThinkingCloseTag)
 		toolIdx := strings.Index(bufStr, gemma4ToolCallOpenTag)
-		if toolIdx != -1 && (closeIdx == -1 || toolIdx < closeIdx) {
+		reopenIdx := strings.Index(bufStr, gemma4ThinkingOpenTag)
+		if toolIdx != -1 && (closeIdx == -1 || toolIdx < closeIdx) && (reopenIdx == -1 || toolIdx < reopenIdx) {
 			thinking := strings.TrimRightFunc(bufStr[:toolIdx], unicode.IsSpace)
 			remaining := bufStr[toolIdx+len(gemma4ToolCallOpenTag):]
 
@@ -369,8 +408,27 @@ func (p *Gemma4Parser) eat(done bool) ([]gemma4Event, bool) {
 			p.state = Gemma4CollectingToolCall
 
 			if len(thinking) > 0 {
-				events = append(events, gemma4EventThinkingContent{content: thinking})
+				events = append(events, p.thinkingEvent(thinking))
 			}
+			return events, true
+		}
+
+		// The opening tag again, inside the channel it opened. The model writes
+		// it when it means to close the block or to begin another thought, and
+		// this state used to pass it through with its channel name, so the
+		// reasoning carried a literal "<|channel>thought" -- captured 2026-10-16
+		// at the end of two blocks of one agentic run ("Let's do it.\n<|channel>
+		// thought"), and once as "<|channel><thought>". There is one thinking
+		// channel: drop the tag and its name, and keep collecting the same one.
+		if reopenIdx != -1 && (closeIdx == -1 || reopenIdx < closeIdx) {
+			thinking := strings.TrimRightFunc(bufStr[:reopenIdx], unicode.IsSpace)
+			p.buffer.Reset()
+			p.buffer.WriteString(bufStr[reopenIdx+len(gemma4ThinkingOpenTag):])
+			p.needsChannelNameStrip = true
+			if len(thinking) > 0 {
+				events = append(events, p.thinkingEvent(thinking))
+			}
+			p.reopenedChannel = true
 			return events, true
 		}
 
@@ -385,7 +443,7 @@ func (p *Gemma4Parser) eat(done bool) ([]gemma4Event, bool) {
 			p.strayChannelName = true
 
 			if len(thinking) > 0 {
-				events = append(events, gemma4EventThinkingContent{content: thinking})
+				events = append(events, p.thinkingEvent(thinking))
 			}
 			return events, true
 		}
@@ -394,7 +452,7 @@ func (p *Gemma4Parser) eat(done bool) ([]gemma4Event, bool) {
 		// which streams in across chunks exactly the same way and would
 		// otherwise have its prefix emitted as reasoning before it completed.
 		if !done {
-			if overlapLen := longestOverlap(bufStr, gemma4ThinkingCloseTag, gemma4ToolCallOpenTag); overlapLen > 0 {
+			if overlapLen := longestOverlap(bufStr, gemma4ThinkingCloseTag, gemma4ToolCallOpenTag, gemma4ThinkingOpenTag); overlapLen > 0 {
 				beforePartialTag := bufStr[:len(bufStr)-overlapLen]
 				trailingLen := trailingWhitespaceLen(beforePartialTag)
 				ambiguousStart := len(beforePartialTag) - trailingLen
@@ -404,7 +462,7 @@ func (p *Gemma4Parser) eat(done bool) ([]gemma4Event, bool) {
 				p.buffer.Reset()
 				p.buffer.WriteString(ambiguous)
 				if len(unambiguous) > 0 {
-					events = append(events, gemma4EventThinkingContent{content: unambiguous})
+					events = append(events, p.thinkingEvent(unambiguous))
 				}
 				return events, false
 			}
@@ -420,12 +478,12 @@ func (p *Gemma4Parser) eat(done bool) ([]gemma4Event, bool) {
 			p.buffer.Reset()
 			p.buffer.WriteString(ambiguous)
 			if len(unambiguous) > 0 {
-				events = append(events, gemma4EventThinkingContent{content: unambiguous})
+				events = append(events, p.thinkingEvent(unambiguous))
 			}
 		} else {
 			p.buffer.Reset()
 			if len(bufStr) > 0 {
-				events = append(events, gemma4EventThinkingContent{content: bufStr})
+				events = append(events, p.thinkingEvent(bufStr))
 			}
 		}
 		return events, false
