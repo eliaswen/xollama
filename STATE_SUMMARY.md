@@ -5,6 +5,12 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-16 — `v0.40.4-xollama.2` is Latest (promoted 11:16; owner 10:01 "cut v0.40.4-xollama.2", 10:11 "promote").**
+> - PR #33, merge `ba1455854`, release run 38873411166; engine c13 r3 `2610160746001` (index `7c1fa53f`), payload id `8c467dcc…` (new: Windows takes the full installer). Notes: the r3 engine (CPU at stock speed, the Windows mixed-cache fix), generation notices, unbooked windows, six fixes.
+> - Full check passed (VALIDATION.md): G12 8 files; G9 eleven2go 3090 124.7–125.0, 9070 XT 103.0–103.4, iGPU 5.1; G11 Mac app 126.8–127.8 and self-update from `.1`; G10 amd64 86 tok/s on both engines, arm64 8.9–10.6 against llama.cpp 10.2–10.8. Discord announced; the image run on the tag after promotion (38879247571) moved `:latest` on Docker Hub (`a8a33f95…`) and GHCR (`03c5e1d9…`).
+> - opencoti republished r3 notes-only (index `533566a5`, same binaries): not taken, since the BUILD_INFO files ride in the payload; it can come with c14.
+> - Installed: eleven2go and the Mac mini on `.2` (by their gates); solidPC's service and pandorum unchanged. The owner's word is spent: the next release on this base is `v0.40.4-xollama.3` and needs his word. Next engine: opencoti c14.
+
 > **2026-10-16 — `dev` pins opencoti's c13 r3 (index `7c1fa53f`, engine `2610160746001`); every gate passes on solidPC, eleven2go and the Mac mini. Also: the gemma4 re-opened channel, the batch picked on unread memory, `num_ctx_hold`.**
 > - Owner 08:51: "yes move the pin to r3 and run the gates, c14 is next. fix the gemma4 parser". r3 (mail #1545): engine `2610160746001`, new cuda component `2610160820001` (Windows DLL `68cd73b1`, `GGML_CUDA_FA_ALL_QUANTS`, bug-4090), the other components the c13 files at payload commit `801c14d4`; CPU kernels at stock parity (opencoti: Mac mini 97.9–99.7 %, 5600G 102 %, Pi 5 104 %); `generation_notice_v2` (200-token step floor kept, owner 07:42) and `elastic_window_unheld_v1`. All seven pin files byte-identical to the published index (sha256 `4f51cb9e…`). No defect row to retire (`engine_defects.go` is empty).
 > - **solidPC** (`/srv/ml/c13r3`, 08:57–09:36): G3 compat 8/8, llama3 77.4 tok/s (r2 77.4), four slots 311.2 (r2 302.7), overflow 3.99 (r2 3.13); G4 decision 7/7 on opencoti, chat paths all pass, 0 KV refusals; G6 speech 8/8, video 33 frames; G5 council 6/6 tags, 0 crashes, PolyKV 5 pools 0 refusals, the idle tag 17 room refusals answered (r2 27); 0 foreign files.
@@ -2547,13 +2553,13 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.1` is the latest release (2026-10-15): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r2 (`2610141633001`). `dev` pins opencoti
+`v0.40.4-xollama.2` is the latest release (2026-10-16): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r3. `dev` pins opencoti
 c13 r3 (`2610160746001`, 2026-10-16, every gate passed) and carries generation
 notices v2 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
 channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
 memory, the shared-store anchor, the template-swallowed refusal and the
-Qwen3.5 tool-path fix: `v0.40.4-xollama.2`, waiting for the owner's word.
+Qwen3.5 tool-path fix, released as `v0.40.4-xollama.2` (Latest, 2026-10-16).
 Next: opencoti c14, the c12 readers, the realtime proxy. The Agentic Council
 Chat is in Phase 11.
 
@@ -2621,14 +2627,13 @@ Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. `v0.40.4-xollama.2` on the owner's word: release PR, full check (G9
-   eleven2go, G10 both images, G11 the Mac app, G12), promotion on his word.
-2. opencoti c14: the pin moves on a measurement once it is published (owner,
-   2026-10-16: "c14 is next").
-3. Why the free-memory refresh fails through a model swap on Windows
+1. opencoti c14: the pin moves on a measurement once it is published (owner,
+   2026-10-16: "c14 is next"); the next release on this base is
+   `v0.40.4-xollama.3`, on the owner's word.
+2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.
-4. Move the engine pin only on a measurement.
+3. Move the engine pin only on a measurement.
 
 ## Open decisions
 

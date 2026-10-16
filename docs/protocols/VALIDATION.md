@@ -199,6 +199,28 @@ self-update from `.3`, 126.5 to 127.0. G10 on the tag: amd64 85.8 to 85.9
 against 85.9 to 86.2, speech 4/4; arm64 10.0 to 10.1 against 10.8 to 11.0,
 speech 3/3. Promoted.
 
+**`v0.40.4-xollama.2`** (2026-10-16, re-release, full check; PR #33, merge
+`ba1455854`, release run 38873411166; engine c13 r3 `2610160746001`, index
+`7c1fa53f`; payload id `8c467dcc…`, new, so Windows takes the full installer).
+Carries notices v2, `num_ctx_hold`, the gemma4 re-opened channel, the batch on
+unread memory, the shared-store anchor, the template-swallowed refusal and the
+Qwen3.5 tool-path fix; the solidPC gate set ran on the pin (`fbbbcb7bf`,
+STATE_SUMMARY). G12: 8 files match; both Linux binaries name the version
+(amd64 here, arm64 on the Pi). G9 eleven2go: `xOllamaSetup.exe` over
+`0.40.4-xollama.1` exit 0 in 31 s; 3090 124.7 to 125.0 tok/s, 9070 XT 103.0 to
+103.4, iGPU 5.1, displays OK; the tray app names the fork's releases endpoint;
+11434 untouched. G11 Mac mini: the workflow's app and dmg notarized;
+qwen2.5:1.5b 126.8 to 127.8, llama3 30.7 to 31.0, qwen3.5:2b 60.1 to 62.1;
+speech 7/7; self-update from `.1`, 126.0 to 126.3. G10 amd64: opencoti 85.7 to
+86.1, llama.cpp 85.6 to 85.9, speech 4/4, 0 crash lines. G10 arm64 (Pi 5):
+opencoti 8.9 to 10.6, llama.cpp 10.2 to 10.8, speech 3/3, 0 crash lines, the
+owner's containers up. The first G10 attempt ran `image-pi.sh` on solidPC by
+mistake (it runs on the Pi): it took 22498 from the concurrent amd64 gate and
+measured nothing; both were rerun where they belong. Promoted 11:16 (owner
+10:11, "promote"), Discord announced; the image run on the tag after promotion
+(38879247571) moved `:latest` on Docker Hub (`a8a33f95…`) and GHCR
+(`03c5e1d9…`).
+
 **`v0.40.4-xollama.1`** (2026-10-15, re-release, full check; PR #32, merge
 `ff9ebd5bb`, release run 38674551088; engine c13 r2 `2610141633001`, payload id
 `042f1124…` unchanged, so Windows takes the small updater). Fixes: Whistle on
