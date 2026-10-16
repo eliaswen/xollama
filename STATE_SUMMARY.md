@@ -5,6 +5,11 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-16 — `v0.40.4-xollama.3` is Latest (promoted 20:57; owner 18:30 "make a new release", 20:54 "promote when the images pass").**
+> - PR #34, merge `3421440ad`, release run 38945617558; engine c13 r4 `2610161700001` (index `326b49eb`), payload id `7a1f2949…` (new: Windows takes the full installer). Notes: the bug-4108 fix and, as a known issue, Gemma 4 not acting on answer notices.
+> - Full check passed (VALIDATION.md): G12 8 files; G9 eleven2go 3090 124.5–124.9, 9070 XT 102.8–103.3, iGPU 5.0 (the owner chose "install now", which ended their live session on its 22434); G11 Mac app 126.0–128.0 and self-update from `.2`; G10 amd64 85.9–86.2 against llama.cpp 85.4–85.9, arm64 11.0–11.2 against 11.0–11.1. Discord announced; the image run on the tag after promotion (38951244762) moved `:latest` on Docker Hub (`a52f5564…`) and GHCR (`b4bcc863…`).
+> - Installed: eleven2go and the Mac mini on `.3` (by their gates); solidPC's service and pandorum unchanged. Next release on this base needs the owner's word. Next engine: opencoti c14.
+
 > **2026-10-16 — `dev` pins opencoti's c13 r4 (index `326b49eb`, engine `2610161700001`), the engine re-release for bug-4108; every gate passes on solidPC, eleven2go and the Mac mini.**
 > - Owner 18:30: "we have a re-release of the engine for a bug, make a new release". r4 (mail #1565): engine-only, every library r3's file (cuda and vulkan pins gain r4 in `gated-with`, BUILD_INFO regenerated); 0689: with notices on, Gemma 4 sampled its `<unusedNN>` placeholder tokens (NORMAL in its GGUFs) when the bar blocked a notice of its own, and the reply carried text the hide span misses; now placeholders are never sampled under the bar and the line after a planted notice is barred too. Contract, `/props` and flags unchanged.
 > - **bug-4108 through xOllama** (`/srv/ml/c13r4/gemma-ab.py`, side server on 22498, `mannix/gemma4-98e-v7-coder:Q4_K_M` = an A4B with 98 experts, 3090, temperature 1.0, 48 answers per engine with the same seeds, half answer-only and half think+answer, default ladder): r3 126 planted, 4 answers with text past the hide span (`<engine_<unused27> output_budget="180">…`, `<engine_statement …>`, `<engine_part>…`); r4 130 planted, 0 leaked, 0 `<unused>`. A first run with num_predict 1400 and short prose planted nothing on either engine (answers ended before the 60 % step) and gave identical token counts request by request.
@@ -2562,11 +2567,10 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.2` is the latest release (2026-10-16): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r3. `dev` pins opencoti c13 r4
-(`2610161700001`, 2026-10-16, every gate passed), the engine re-release for
-Gemma 4's placeholder tokens beside generation notices (bug-4108), and is
-being released as `v0.40.4-xollama.3` (owner 18:30). It carries generation
+`v0.40.4-xollama.3` is the latest release (2026-10-16): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r4 (`2610161700001`), the engine
+re-release for Gemma 4's placeholder tokens beside generation notices
+(bug-4108). `dev` pins the same engine and carries generation
 notices v2 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
 channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
 memory, the shared-store anchor, the template-swallowed refusal and the
@@ -2637,9 +2641,9 @@ proxy. The Agentic Council Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. `v0.40.4-xollama.3` on c13 r4 (owner 18:30): release, full check,
-   promotion on the owner's word. Then opencoti c14: the pin moves on a
-   measurement once it is published (owner, 2026-10-16: "c14 is next").
+1. opencoti c14: the pin moves on a measurement once it is published (owner,
+   2026-10-16: "c14 is next"); the next release on this base needs the
+   owner's word.
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.

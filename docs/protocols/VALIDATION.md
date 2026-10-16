@@ -199,6 +199,26 @@ self-update from `.3`, 126.5 to 127.0. G10 on the tag: amd64 85.8 to 85.9
 against 85.9 to 86.2, speech 4/4; arm64 10.0 to 10.1 against 10.8 to 11.0,
 speech 3/3. Promoted.
 
+**`v0.40.4-xollama.3`** (2026-10-16, re-release, full check; PR #34, merge
+`3421440ad`, release run 38945617558; engine c13 r4 `2610161700001`, index
+`326b49eb`, engine-only, every library r3's; payload id `7a1f2949…`, new, so
+Windows takes the full installer). The engine re-release for bug-4108 (Gemma 4
+placeholder tokens beside notices); the gate set ran on the pin (`059e216ff`,
+STATE_SUMMARY), plus a Gemma 4 A4B notices A/B through xOllama: r3 4 of 48
+answers leaked past the hide span, r4 none. G12: 8 files match; both Linux
+binaries name the version (amd64 here, arm64 on the Pi). G9 eleven2go:
+`xOllamaSetup.exe` over `0.40.4-xollama.2` exit 0 in 30 s (the owner chose to install during their
+own session on 22434); 3090 124.5 to 124.9 tok/s, 9070 XT 102.8 to
+103.3, iGPU 5.0, displays OK; 11434 untouched. G11 Mac mini: the workflow's app
+and dmg notarized; qwen2.5:1.5b 126.0 to 128.0, llama3 30.7 to 30.9,
+qwen3.5:2b 60.0 to 62.2; speech 7/7; self-update from `.2`, 124.8 to 125.4. G10
+amd64: opencoti 85.9 to 86.2, llama.cpp 85.4 to 85.9, speech 4/4, 0 crash
+lines. G10 arm64 (Pi 5): opencoti 11.0 to 11.2, llama.cpp 11.0 to 11.1, speech
+3/3, 0 crash lines, the owner's containers up. Promoted 20:57 (owner 20:54,
+"promote when the images pass"), Discord announced; the image run on the tag
+after promotion (38951244762) moved `:latest` on Docker Hub (`a52f5564…`) and
+GHCR (`b4bcc863…`).
+
 **`v0.40.4-xollama.2`** (2026-10-16, re-release, full check; PR #33, merge
 `ba1455854`, release run 38873411166; engine c13 r3 `2610160746001`, index
 `7c1fa53f`; payload id `8c467dcc…`, new, so Windows takes the full installer).
