@@ -5,6 +5,18 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-16 — `dev` pins opencoti's c13 r3 (index `7c1fa53f`, engine `2610160746001`); every gate passes on solidPC, eleven2go and the Mac mini. Also: the gemma4 re-opened channel, the batch picked on unread memory, `num_ctx_hold`.**
+> - Owner 08:51: "yes move the pin to r3 and run the gates, c14 is next. fix the gemma4 parser". r3 (mail #1545): engine `2610160746001`, new cuda component `2610160820001` (Windows DLL `68cd73b1`, `GGML_CUDA_FA_ALL_QUANTS`, bug-4090), the other components the c13 files at payload commit `801c14d4`; CPU kernels at stock parity (opencoti: Mac mini 97.9–99.7 %, 5600G 102 %, Pi 5 104 %); `generation_notice_v2` (200-token step floor kept, owner 07:42) and `elastic_window_unheld_v1`. All seven pin files byte-identical to the published index (sha256 `4f51cb9e…`). No defect row to retire (`engine_defects.go` is empty).
+> - **solidPC** (`/srv/ml/c13r3`, 08:57–09:36): G3 compat 8/8, llama3 77.4 tok/s (r2 77.4), four slots 311.2 (r2 302.7), overflow 3.99 (r2 3.13); G4 decision 7/7 on opencoti, chat paths all pass, 0 KV refusals; G6 speech 8/8, video 33 frames; G5 council 6/6 tags, 0 crashes, PolyKV 5 pools 0 refusals, the idle tag 17 room refusals answered (r2 27); 0 foreign files.
+> - **eleven2go** (side server, r3 Windows engine and DLLs, abi match): 3090 CUDA 124.5–125.1 (r2 124.2–125.1); 9070 XT Vulkan 100.5–103.3, 103.9 after 120 s idle, 0 dumps; kill: engine gone in 852 ms; iGPU 5.0. bug-4090 through xollama (`--kv-k=f16 --kv-v=q8_0`, the engine got `--cache-type-k f16 --cache-type-v q8_0 --flash-attn on`): 127.6–127.9 tok/s (opencoti's r2 control 30.9).
+> - **Mac mini** (Metal): qwen2.5:1.5b 122.2–124.0, llama3 30.3–30.6, qwen3.5:2b 60.5–62.1 (r2 123.1–128.8, 31.6–31.9, 61.7–63.6; within this host's spread); speech 7/7.
+> - **Notices: a model without its own layer passes no `--notice-templates`.** r3's built-in ladder (`--server --print-notice-config`, no file) equals `notices_default.json` byte for byte in think, answer and message, so nothing is written for the default; a model's own layer is passed as its blob, as it is (owner: "load directly the layer file"). The first version put a written default blob into `LlamaServerConfig`, which `needsReload` builds per request: a store write per request, and two upstream scheduler tests failed once the pin declared v2 (bug-285).
+> - **gemma4 re-opened `<|channel>` inside thinking** (pandorum, v9-agentic, three Cerebriline turns, ollama #1543/#1546): the tag and its name stayed in the reasoning. Reproduced on `dev`, fixed by the fork as `up-gemma4-channel-in-thinking@e21002e4` (stacked, fork-only, think-budget `80985011`), merged at its sha as `e83c5f628`; the three cases clean after. The lost 43k editor call of that session is not explained: it needs the raw engine output (pandorum, task 29775).
+> - **The automatic batch on unread memory** (pandorum 07:36, ollama #1549): through a model swap the refresh could not read the RTX 5080 ("0 B"), and upstream's `generationBatchFits` takes 0 as room, so a 256k load took `num_batch` 2048 (compute 1410 MiB) and opencoti dropped the drafter (299 MiB short; decode 98–116 tok/s against 145–198). On opencoti an unread memory now keeps 512 (`batch-unknown-memory` hook, `server/xollama_batch_unknown.go`); stock llama.cpp keeps upstream's answer (bug-286). Why the refresh failed through the swap on Windows is open.
+> - **`num_ctx_hold`** (xo-27): `placement.num_ctx_hold` reaches the engine beside a window, only when its `/props` declares `elastic_window_unheld_v1`; `/api/xollama` lists `context_window_unbooked_v1` (`context-window-unbooked` hook). Live on r3 (solidPC, side server, 3090): a placed request with `num_ctx_hold: false` and a session id gets its 8192 window as `per_request: true` in `/kv`, gone after the next request; unset or `true` is held (`per_request: false`).
+> - Notices v2 e2e on the pinned bytes (`/srv/ml/c13r3`, omnimerge-v6-mtp_tb 27B): 10/10 on the built-in ladder (no flag passed) and 10/10 on a custom `[note … [/note]` layer (its blob passed as it is); the store's metadata set unchanged, 0 foreign files from the run.
+> - Next: `v0.40.4-xollama.2` (r3 pin, notices v2, `num_ctx_hold`, the gemma4 and batch fixes, the shared-store and parser fixes already on `dev`) on the owner's word; then opencoti c14.
+
 > **2026-10-16 — Generation notices move to opencoti contract v2: a model's templates are a layer, passed as `--notice-templates`; end-to-end run on opencoti dev 2610152338001.**
 > - Owner's design (2026-10-15): xOllama decides the templates. A model's own are a layer (`application/vnd.xollama.notices`, the engine's `--notice-templates` JSON), set by `xollama tweak model --notice-templates=FILE|none` and checked by the engine at the save (`--print-notice-config`, refused with the engine's own line); a part the file leaves out is filled from xOllama's defaults (opencoti's form F) so the hide spans cover everything planted. Every load passes the model's file or the defaults. `/api/xollama` and `/api/show` carry version 2 with `hide` spans and the templates; the done chunk carries `notices_planted`. Contract v1 was never pinned and is gone.
 > - An operator's `XOLLAMA_ENGINE_PATH` is asked once with `--print-notice-config` (`engine.NoticesServed`); the pin is not its description.
@@ -2535,13 +2547,15 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.1` is the latest release (2026-10-15; `v0.40.4-xollama` 2026-10-14): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r2 (`2610141633001`). `dev` adds the
-three fixes of `v0.40.4-xollama.1` (Whistle on the CPU, the engine's drafter
-record in `show`/`ps`, a drafter counted beside its target), released and
-promoted 2026-10-15. Next: opencoti c14 (CPU parity) when it is
-published and measured, c13 generation notices, the c12 readers, the
-realtime proxy. The Agentic Council Chat is in Phase 11.
+`v0.40.4-xollama.1` is the latest release (2026-10-15): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r2 (`2610141633001`). `dev` pins opencoti
+c13 r3 (`2610160746001`, 2026-10-16, every gate passed) and carries generation
+notices v2 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
+channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
+memory, the shared-store anchor, the template-swallowed refusal and the
+Qwen3.5 tool-path fix: `v0.40.4-xollama.2`, waiting for the owner's word.
+Next: opencoti c14, the c12 readers, the realtime proxy. The Agentic Council
+Chat is in Phase 11.
 
 ## What exists today
 
@@ -2607,14 +2621,13 @@ realtime proxy. The Agentic Council Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. The v0.40.1 sync when the fork's pins arrive (inputs digest gains
-   `llama/clef`, README-excluded for the fork's runtimes; MLX moves, the
-   reldir Windows zip later and re-checked without cuDNN); xo-20 ships with it.
-2. opencoti c11 (Ternary Bonsai 2 27B, two new weight types): the catalog and
-   the pin move on a measurement once opencoti publishes it.
-3. Run the Phase 8 compaction live over four and more turns
-   (`council-idle.py`), then assess the council's use of the shared prefix on
-   PolyKV (the owner's request).
+1. `v0.40.4-xollama.2` on the owner's word: release PR, full check (G9
+   eleven2go, G10 both images, G11 the Mac app, G12), promotion on his word.
+2. opencoti c14: the pin moves on a measurement once it is published (owner,
+   2026-10-16: "c14 is next").
+3. Why the free-memory refresh fails through a model swap on Windows
+   (pandorum 2026-10-16), when it is seen again with the engine's listing
+   output.
 4. Move the engine pin only on a measurement.
 
 ## Open decisions

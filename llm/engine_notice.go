@@ -46,10 +46,11 @@ func (s *llamaServerRunner) noticesFor(ctx context.Context, raw json.RawMessage)
 
 const featureGenerationNotice = engine.FeatureGenerationNotice
 
-// appendNoticeTemplatesArgs starts the engine with the model's notice
-// templates: its own layer, else xollama's defaults (server/xollama_notices.go
-// fills the path). Only on opencoti, and only on an engine that takes the
-// flag: an older one refuses the whole command line for it.
+// appendNoticeTemplatesArgs starts the engine with the model's own notice
+// templates layer, loaded from the store as it is. A model without one
+// passes nothing: the engine's built-in ladder is xollama's default. Only on
+// opencoti, and only on an engine that takes the flag: an older one refuses
+// the whole command line for it.
 func appendNoticeTemplatesArgs(args []string, path string, usedOpencoti bool) []string {
 	if path == "" || !usedOpencoti || !engineTakesNoticeTemplates() {
 		return args

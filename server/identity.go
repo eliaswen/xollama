@@ -46,6 +46,9 @@ func servedFeatures() []string {
 	if noticesServed() {
 		f = append(f, api.FeatureGenerationNotice)
 	}
+	if unbookedServed() { // xollama-hook: context-window-unbooked
+		f = append(f, api.FeatureContextWindowUnbooked)
+	}
 	return f
 }
 

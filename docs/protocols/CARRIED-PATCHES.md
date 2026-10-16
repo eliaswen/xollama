@@ -76,6 +76,19 @@ Windows CPU runtime is rebuilt by `xollama-runtime.yaml` on the push to `dev`.
 | fork-only | `up-modelfile-roundtrip` | `6531fdc0` | `1af84b398` |
 | fork-only | `up-qwen35-empty-think-history` | `bfd63324` | `3fb517260` |
 | fork-only | `up-mlxrunner-manifest-list` | `20dcfd9f` | `1d380ed81` |
+| fork-only | `up-gemma4-channel-in-thinking` (stacked) | `e21002e4` | `e83c5f628` |
+
+**2026-10-16: a twenty-seventh patch, `up-gemma4-channel-in-thinking`**
+(fork-only, stacked on the eight patches that touch `gemma4.go`, last in
+`patches[]`; think-budget `80985011`, integration `36c0592d`; fork mails
+#1543, #1546, #1551). A gemma4 model that re-opens `<|channel>` inside an open
+thinking block left the tag and its name (`thought`, `<thought>`) in the
+reasoning text: pandorum, v9-agentic, 2026-10-16, three Cerebriline turns. The
+re-opened channel is now dropped with its name and the same thinking goes on.
+Reproduced on `dev` before the merge (all three captured shapes leaked),
+merged at its sha as `e83c5f628` (base files byte-identical to ours, no
+conflicts), the same three cases clean after. A fix on bare upstream
+(`2d27c61b0`) was offered first and not taken: R4.
 
 **2026-10-14: a twenty-sixth patch, `up-mlxrunner-manifest-list`** (fork-only,
 from v0.40.4; manifest `555ed808`; fork mail #1367, on the owner's word).

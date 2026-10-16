@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -55,9 +54,10 @@ func TestAModelsNoticeTemplatesAreALayerTheEngineStartsWith(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	def := noticeTemplatesPath(m)
-	if data, err := os.ReadFile(def); err != nil || !bytes.Equal(data, xollama.DefaultNoticeTemplates) {
-		t.Fatalf("a model without templates does not start with the defaults: %q %v", def, err)
+	// A model without templates passes no file: the engine's built-in ladder
+	// is the default, and nothing is written for it.
+	if def := noticeTemplatesPath(m); def != "" {
+		t.Fatalf("a model without templates names a file in its config: %q", def)
 	}
 
 	tmpl := noticeBlob(t, customNotices)

@@ -115,8 +115,9 @@ refused there with the engine's reason:
 Error: 400 Bad Request: notices.templates: the engine refused the file: notice-templates: answer[0].template: a template that spans lines must contain its closing tag (e.g. '</budget>')
 ```
 
-Every model starts the engine with `--notice-templates`: its own layer, or
-xOllama's defaults when it has none.
+A model with its own templates starts the engine with that layer's file as
+`--notice-templates`. A model without one passes nothing: the engine's
+built-in ladder is xOllama's default, the same text `/api/show` lists.
 
 ## A message is waiting
 

@@ -82,28 +82,16 @@ func applyNoticeTemplates(ctx context.Context, r *api.CreateRequest, layers []*m
 	return append(kept, &modelLayer{Layer: layer}), nil
 }
 
-// noticeTemplatesPath is the --notice-templates file for this model: its own
-// layer, else xollama's defaults, written to the store the first time a load
-// needs them (and again after a prune removed them). Empty when the server
-// does not serve notices, so the launch carries no flag.
+// noticeTemplatesPath is the model's own templates layer, passed to the
+// engine as it is, or "" when it has none or the server does not serve
+// notices. A model without a layer gets no --notice-templates: the engine
+// plants its built-in ladder, which is xollama.DefaultNoticeTemplates (held
+// equal at every pin move), so nothing is ever written for it.
 func noticeTemplatesPath(m *Model) string {
 	if m == nil || !noticesServed() {
 		return ""
 	}
-	if m.NoticeTemplatesPath != "" {
-		return m.NoticeTemplatesPath
-	}
-	layer, err := manifest.NewLayer(bytes.NewReader(xollama.DefaultNoticeTemplates), xollama.MediaTypeNotices)
-	if err != nil {
-		slog.Warn("notices: could not write the default templates; the engine starts with its built-in ladder", "error", err)
-		return ""
-	}
-	path, err := manifest.BlobsPath(layer.Digest)
-	if err != nil {
-		slog.Warn("notices: could not name the default templates; the engine starts with its built-in ladder", "error", err)
-		return ""
-	}
-	return path
+	return m.NoticeTemplatesPath
 }
 
 // modelGenerationNotice is /api/show's block: the templates the model starts

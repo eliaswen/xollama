@@ -98,3 +98,19 @@ func TestTheWaitingCallRefusesWhatContractV1DoesNotHave(t *testing.T) {
 		}
 	}
 }
+
+// context_window_unbooked_v1 is advertised exactly while num_ctx_hold reaches
+// the engine.
+func TestUnbookedWindowsAreAdvertisedOnlyWhenTheEngineTakesThem(t *testing.T) {
+	old := unbookedServed
+	t.Cleanup(func() { unbookedServed = old })
+
+	unbookedServed = func() bool { return true }
+	if f := identity(t).Features; !slices.Contains(f, api.FeatureContextWindowUnbooked) {
+		t.Fatalf("features %v lack %s", f, api.FeatureContextWindowUnbooked)
+	}
+	unbookedServed = func() bool { return false }
+	if f := identity(t).Features; slices.Contains(f, api.FeatureContextWindowUnbooked) {
+		t.Fatalf("an engine without num_ctx_hold advertised %s", api.FeatureContextWindowUnbooked)
+	}
+}

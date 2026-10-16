@@ -1894,8 +1894,9 @@ type llamaServerCompletionRequest struct {
 	PoolID    *int   `json:"pool_id,omitempty"`
 	// xollama-hook: council -- the window a council owner books. Never set
 	// outside a council's placement, so every other body is unchanged.
-	NumCtx    int `json:"num_ctx,omitempty"`
-	NumCtxMin int `json:"num_ctx_min,omitempty"`
+	NumCtx     int   `json:"num_ctx,omitempty"`
+	NumCtxMin  int   `json:"num_ctx_min,omitempty"`
+	NumCtxHold *bool `json:"num_ctx_hold,omitempty"`
 	// xollama-hook: notices -- opencoti's generation notices, only on an
 	// engine that declares them (llm/engine_notice.go).
 	Notices json.RawMessage `json:"notices,omitempty"`
@@ -2249,6 +2250,7 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 			lsReq.PoolID = pool
 		}
 		lsReq.NumCtx, lsReq.NumCtxMin = n, nmin
+		lsReq.NumCtxHold = s.ctxHoldFor(ctx, req.Placement, n)
 		pooled = poolSource{}
 	}
 	if poolID != nil {
@@ -2652,6 +2654,12 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 	if n := s.noticesFor(ctx, req.Notices); n != nil {
 		lsReq["notices"] = n
 		defer s.trackNotice(n)()
+	}
+	// xollama-hook: context-window-unbooked -- beside the placed window.
+	if n, ok := lsReq["num_ctx"].(int); ok {
+		if hold := s.ctxHoldFor(ctx, req.Placement, n); hold != nil {
+			lsReq["num_ctx_hold"] = *hold
+		}
 	}
 
 	buffer := &bytes.Buffer{}

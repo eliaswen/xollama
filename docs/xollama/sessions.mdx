@@ -134,6 +134,18 @@ and keeps the window it holds. To change it, resize it
 (`POST /api/engine?model=<model>&endpoint=sessions/<id>/resize`), or close the
 session (`endpoint=sessions/<id>/close`) or let it expire and ask again.
 
+A window that should last only for this request, not be booked for the
+session, adds `"num_ctx_hold": false` (`context_window_unbooked_v1`, listed by
+`/api/xollama` when the engine takes it):
+
+```json
+"placement": { "num_ctx": 32768, "num_ctx_min": 8192, "num_ctx_hold": false }
+```
+
+The engine grants it the same way, and frees it when the request ends. The
+`session_id` still keeps the request on its slot and prompt cache. A window the
+session already holds stays held.
+
 When not even `num_ctx_min` fits, a client that stated `num_ctx` is not queued.
 The same goes for a turn attached to a pool of the client's own
 (`placement.pool_id`), such as a worker of its own pool tree. Both are the client

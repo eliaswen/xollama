@@ -956,6 +956,7 @@ func (req *LlmRequest) applyAutomaticGenerationBatch(completion bool, effectiveC
 	}
 
 	req.opts.NumBatch = automaticGenerationBatch(effectiveCtx, predictedVRAM, availableMemory, flashAttention, gpus)
+	req.opts.NumBatch = batchForUnknownMemory(req, req.opts.NumBatch, availableMemory, gpus) // xollama-hook: batch-unknown-memory
 }
 
 func automaticGenerationBatch(effectiveCtx int, predictedVRAM, availableMemory uint64, flashAttention ml.FlashAttentionType, gpus []ml.DeviceInfo) int {
