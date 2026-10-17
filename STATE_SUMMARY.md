@@ -5,6 +5,16 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-17 — `v0.40.4-xollama.4` is Latest (promoted 15:16; owner 09:17 "yes, release .4 and promote when the images pass").**
+> - PR #35, merge `277a5893f`, release run 39032399058; engine c13 r5 `2610170942001` (index `62db143f`), payload id `74e96761…` (new: Windows takes the full installer). The notes cover v3 plain-line notices, the copy bar, the S2 default wording and the fixed notice fragments; the Gemma 4 known issue still stands.
+> - Full check passed (VALIDATION.md):
+>   - G12: 8 files.
+>   - G9: 3090 124.6–125.1, 9070 XT 103.1–103.3, iGPU 5.1; the update installer over it works.
+>   - G11: the Mac app at 127.4–127.7, and its self-update from `.3`.
+>   - G10: amd64 85.8–86.2 against llama.cpp 85.5–85.8; arm64 10.0–11.1 against 10.9–11.1.
+> - `:latest` is Docker Hub `1f455360…` and GHCR `2ca2cff8…`; Discord announced.
+> - Installed: eleven2go and the Mac mini are on `.4` (by their gates). On eleven2go the owner stopped their session and asked me to unload their model; solidPC's service and pandorum are unchanged. No gate images are left on solidPC or the Pi. The next release on this base needs the owner's word. Next engine: opencoti c14. Fork v0.40.6 is synced (mails #1586/#1588); moving dev to it is the owner's call.
+
 > **2026-10-17 — `dev` pins opencoti's c13 r5 (index `62db143f`, engine `2610170942001`), the engine re-release with notices contract v3 and the copy bar; every gate passes on solidPC, eleven2go and the Mac mini.**
 > - opencoti mail #1593 announced the release on the owner's 11:47 word; the owner's 10:28 hold on bug-4115 was lifted by the copy bar. It is engine-only: every library is r4's file, and the cuda and vulkan pins gain r5 in `gated-with`. `xollama.DefaultNoticeTemplates` is now the engine's S2 wording (0690), byte-for-byte what r5's `--print-notice-config` prints.
 > - bug-4108 A/B through xOllama (Gemma 4 A4B Q4_K_M, 48 sampled answers per engine, v2 notices): r4 planted 129 and leaked in 0; r5 planted 122 and leaked in 0; 0 `<unused>` in either.
@@ -2589,11 +2599,11 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.3` is the latest release (2026-10-16): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r4 (`2610161700001`), the engine
-re-release for Gemma 4's placeholder tokens beside generation notices
-(bug-4108). `dev` pins the same engine and carries generation
-notices v2 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
+`v0.40.4-xollama.4` is the latest release (2026-10-17): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r5 (`2610170942001`), the engine
+re-release with notices contract v3 (plain lines, records per line) and the
+copy bar. `dev` pins the same engine and carries generation
+notices v2 and v3 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
 channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
 memory, the shared-store anchor, the template-swallowed refusal and the
 Qwen3.5 tool-path fix. Next: opencoti c14, the c12 readers, the realtime
@@ -2665,7 +2675,8 @@ proxy. The Agentic Council Chat is in Phase 11.
 
 1. opencoti c14: the pin moves on a measurement once it is published (owner,
    2026-10-16: "c14 is next"); the next release on this base needs the
-   owner's word.
+   owner's word. Moving dev to upstream v0.40.6 (the fork is synced, mails
+   #1586/#1588) is also the owner's call.
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.
