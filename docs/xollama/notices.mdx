@@ -150,6 +150,16 @@ with the message and hide from it when the history is shown again; the text
 itself stays as it came, as with version 2. A line the output cap ended has
 `"cut": true`, and its `break` is what was written of it.
 
+A model can write a planted line again on its own, and such a copy has no
+record to hide it by. The engine stops it: a token that would continue a copy
+of a line already planted in the response is refused, and the model writes
+its own words instead. This is on by default in both phases. Where
+`/api/xollama` lists `generation_notice_copy_bar`, a client can offer the
+switch with `"copy_bar": false`, or per phase with
+`"copy_bar": {"think": true, "answer": false}`; a phase left out stays on.
+The phase is where the model is writing. `copy_bar` on a version 2 request
+is a 400.
+
 A request template under version 3 is one plain line with `{left}`,
 `{total}` and `{words}`, with no marker rules. Without `"version": 3`, or on
 an engine without `generation_notice_v3`, a request is version 2, as above.

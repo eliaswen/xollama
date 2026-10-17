@@ -33,6 +33,11 @@ var noticesV3Served = func() bool {
 	return noticesServed() && engine.NoticesV3Served(ml.LibOllamaPath)
 }
 
+// noticesCopyBarServed reports whether that engine also takes v3's copy_bar.
+var noticesCopyBarServed = func() bool {
+	return noticesV3Served() && engine.NoticesCopyBarServed(ml.LibOllamaPath)
+}
+
 // generationNotice is the block /api/xollama carries beside the feature: the
 // server's default templates and the spans a client hides. A model's own are
 // on /api/show (modelGenerationNotice).

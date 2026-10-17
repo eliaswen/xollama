@@ -40,6 +40,13 @@ type Notice struct {
 	Cut     bool   `json:"cut,omitempty"`
 }
 
+// FeatureGenerationNoticeCopyBar: the engine also takes `copy_bar` in a v3
+// request's `notices` (opencoti c13 r5, patch 0693, mail #1589): true, false
+// or {"think": bool, "answer": bool}, on by default in both phases; it stops
+// the model writing a planted line again, which no record would cover. A
+// client offers its switch only while this is listed.
+const FeatureGenerationNoticeCopyBar = "generation_notice_copy_bar"
+
 // NoticeKindMessageWaiting is the one kind of waiting call the contract has.
 const NoticeKindMessageWaiting = "message_waiting"
 

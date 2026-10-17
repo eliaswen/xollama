@@ -179,3 +179,18 @@ func TestNoticesV3IsAdvertisedOnlyBesideV2(t *testing.T) {
 		}
 	}
 }
+
+// generation_notice_copy_bar goes out only with v3: the switch is a v3
+// request field, a 400 on v2.
+func TestTheCopyBarIsAdvertisedOnlyWithV3(t *testing.T) {
+	oldV3, oldBar := noticesV3Served, noticesCopyBarServed
+	t.Cleanup(func() { noticesV3Served, noticesCopyBarServed = oldV3, oldBar })
+	withNoticesServed(t, true)
+	for _, c := range []struct{ v3, bar, want bool }{{true, true, true}, {true, false, false}, {false, true, false}} {
+		noticesV3Served = func() bool { return c.v3 }
+		noticesCopyBarServed = func() bool { return c.bar }
+		if got := slices.Contains(identity(t).Features, api.FeatureGenerationNoticeCopyBar); got != c.want {
+			t.Errorf("v3 %v copy_bar %v: advertised %v, want %v", c.v3, c.bar, got, c.want)
+		}
+	}
+}

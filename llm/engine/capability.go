@@ -93,6 +93,21 @@ func HasGenerationNoticeV3() bool {
 	return pin.HasFeature(FeatureGenerationNoticeV3)
 }
 
+// FeatureGenerationNoticeCopyBar is v3's `copy_bar` request field (opencoti
+// c13 r5, patch 0693, mail #1589): the engine refuses a token that continues
+// a copy of a line it planted, per phase.
+const FeatureGenerationNoticeCopyBar = "generation_notice_copy_bar"
+
+// HasGenerationNoticeCopyBar reports whether the engine this build ships takes
+// `copy_bar`.
+func HasGenerationNoticeCopyBar() bool {
+	pin, err := DefaultPin()
+	if err != nil {
+		return false
+	}
+	return pin.HasFeature(FeatureGenerationNoticeCopyBar)
+}
+
 // FeatureWindowUnheld is the engine's num_ctx_hold (opencoti c13 r3, patch
 // 0683): false makes a request's num_ctx/num_ctx_min its own window, not held
 // for its session afterwards.
