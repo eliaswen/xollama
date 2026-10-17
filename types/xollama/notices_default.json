@@ -2,38 +2,38 @@
   "think": [
     {
       "at_percent": 60,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>I've used most of my thinking budget, so I'll settle on an approach.</engine_status>"
     },
     {
       "at_percent": 70,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>I should stop checking alternatives and finish this line of reasoning.</engine_status>"
     },
     {
       "at_percent": 80,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>I'm nearly out of thinking room; time to write the answer.</engine_status>"
     },
     {
       "at_percent": 90,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for thinking — wrap up and answer. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>That's enough thinking. Answering now.</engine_status>"
     }
   ],
   "answer": [
     {
       "at_percent": 60,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>I have limited room left, so I'll keep the rest brief.</engine_status>"
     },
     {
       "at_percent": 70,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>I'll skip the remaining details and get to the main point.</engine_status>"
     },
     {
       "at_percent": 80,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>Time to conclude.</engine_status>"
     },
     {
       "at_percent": 90,
-      "template": "<engine_status output_budget=\"{left}\">{left} tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+      "template": "<engine_status>One last sentence to close.</engine_status>"
     }
   ],
-  "message": "<engine_status output_budget=\"{left}\">A new message is waiting — finish this reply briefly. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>"
+  "message": "<engine_status>A new message is waiting, so I'll finish this reply briefly.</engine_status>"
 }

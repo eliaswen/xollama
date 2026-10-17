@@ -9,7 +9,7 @@ low, it writes a short notice into the model's own output at the next break
 in prose, and the model reads it as it goes on.
 
 ```
-<engine_status output_budget="240">240 tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>
+<engine_status>Time to conclude.</engine_status>
 ```
 
 Notices are **off unless a client asks for them**, request by request. They
@@ -89,7 +89,8 @@ waiting notice arrived.
 
 ## A model's own wording
 
-The default wording was chosen on the models opencoti measured. Not every
+The default wording is in the model's own voice, one line per step and no
+number, chosen on the models opencoti measured. Not every
 model acts on it: Gemma 4 (12B, 26B-A4B and 31B) gets its notices planted and
 hidden like any other model, but does not end its answer sooner for them, in
 any wording opencoti tried. A model can carry its own, in the engine's
