@@ -841,6 +841,90 @@ func TestGemma4Parser_StreamingSplitThinkingTag(t *testing.T) {
 	}
 }
 
+// A tool call opened while the thinking channel is still open.
+//
+// The model is supposed to close the channel first, and usually does. When it
+// does not, this state used to scan for `<channel|>` alone and the entire call
+// was collected as reasoning -- the caller saw a turn with no tool calls, ended
+// the run, and the edit was never made. Captured live on a local Gemma 4:
+//
+//	Let's go.<|tool_call>call:editor{...}<tool_call|><|tool_response>
+//
+// Content state has always checked for both tags; thinking state now matches.
+func TestGemma4Parser_ToolCallInsideThinking(t *testing.T) {
+	tests := []struct {
+		name             string
+		chunks           []string
+		expectedThinking string
+		expectedName     string
+		expectedArgs     map[string]any
+	}{
+		{
+			name: "no_close_tag_before_the_call",
+			chunks: []string{
+				"<|channel>thought\nLet's go.<|tool_call>call:get_weather{location:<|\"|>Paris<|\"|>}<tool_call|>",
+			},
+			expectedThinking: "Let's go.",
+			expectedName:     "get_weather",
+			expectedArgs:     map[string]any{"location": "Paris"},
+		},
+		{
+			name: "open_tag_split_across_chunks",
+			chunks: []string{
+				"<|channel>thought\nLet's go.<|tool",
+				`_call>call:get_weather{location:<|"|>Paris<|"|>}<tool_call|>`,
+			},
+			expectedThinking: "Let's go.",
+			expectedName:     "get_weather",
+			expectedArgs:     map[string]any{"location": "Paris"},
+		},
+		{
+			// The ordinary path must be untouched: a close tag before the call
+			// still ends thinking and the call is read from content.
+			name: "close_tag_first_still_wins",
+			chunks: []string{
+				"<|channel>thought\nthinking<channel|><|tool_call>call:get_weather{location:<|\"|>Paris<|\"|>}<tool_call|>",
+			},
+			expectedThinking: "thinking",
+			expectedName:     "get_weather",
+			expectedArgs:     map[string]any{"location": "Paris"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := &Gemma4Parser{hasThinkingSupport: true}
+			parser.Init(nil, nil, &api.ThinkValue{Value: true})
+
+			var finalContent, finalThinking strings.Builder
+			var finalToolCalls []api.ToolCall
+			for i, chunk := range tt.chunks {
+				done := i == len(tt.chunks)-1
+				content, thinking, toolCalls, err := parser.Add(chunk, done)
+				if err != nil {
+					t.Fatalf("Add() error on chunk %d: %v", i, err)
+				}
+				finalContent.WriteString(content)
+				finalThinking.WriteString(thinking)
+				finalToolCalls = append(finalToolCalls, toolCalls...)
+			}
+
+			if finalThinking.String() != tt.expectedThinking {
+				t.Errorf("expected thinking %q, got %q", tt.expectedThinking, finalThinking.String())
+			}
+			if finalContent.String() != "" {
+				t.Errorf("expected no content, got %q", finalContent.String())
+			}
+			expected := []api.ToolCall{
+				{Function: api.ToolCallFunction{Name: tt.expectedName, Arguments: testArgs(tt.expectedArgs)}},
+			}
+			if diff := cmp.Diff(expected, finalToolCalls, argsComparer); diff != "" {
+				t.Errorf("tool calls mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestGemma4ArgsToJSON(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1616,5 +1700,101 @@ func TestGemma4UnclosedToolCallIsStillLeftAlone(t *testing.T) {
 	got := gemma4RepairCandidates(`{n:1`, "count", []api.Tool{gemma4TestStringTool("count", "name")})
 	if len(got) != 1 || got[0] != `{n:1` {
 		t.Fatalf("candidates = %q, want the input unchanged", got)
+	}
+}
+
+func TestGemma4ParserDropsUnmatchedThinkingCloseTag(t *testing.T) {
+	// A thinking close tag can reach the content state with no open tag before
+	// it: the model emits one spuriously, or it closes a block the rendered
+	// prompt primed. <channel|> is a PreservedTokens control token, so it is
+	// never assistant text -- it must not be shown to the user.
+	t.Run("whole", func(t *testing.T) {
+		p := &Gemma4Parser{hasThinkingSupport: true}
+		p.Init(nil, nil, &api.ThinkValue{Value: true})
+
+		content, thinking, calls, err := p.Add("I have analyzed the syntax error.\n\n<channel|>", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(content, gemma4ThinkingCloseTag) {
+			t.Errorf("content leaked the close tag: %q", content)
+		}
+		if content != "I have analyzed the syntax error." {
+			t.Errorf("content = %q, want the visible text with the tag removed", content)
+		}
+		if thinking != "" {
+			t.Errorf("thinking = %q, want empty", thinking)
+		}
+		if len(calls) != 0 {
+			t.Errorf("calls = %v, want none", calls)
+		}
+	})
+
+	// The tokenizer can split the tag across streamed chunks. The content state
+	// has to hold back a partial close tag the same way it holds back a partial
+	// open tag, or the halves are emitted before they can be matched.
+	t.Run("split across chunks", func(t *testing.T) {
+		p := &Gemma4Parser{hasThinkingSupport: true}
+		p.Init(nil, nil, &api.ThinkValue{Value: true})
+
+		var got strings.Builder
+		for _, chunk := range []string{"done.", "<chan", "nel", "|>"} {
+			content, _, _, err := p.Add(chunk, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got.WriteString(content)
+		}
+		content, _, _, err := p.Add("", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got.WriteString(content)
+
+		if strings.Contains(got.String(), gemma4ThinkingCloseTag) {
+			t.Errorf("content leaked the close tag: %q", got.String())
+		}
+		if got.String() != "done." {
+			t.Errorf("content = %q, want %q", got.String(), "done.")
+		}
+	})
+
+	// A properly opened block must still be collected as thinking.
+	t.Run("matched block still parses", func(t *testing.T) {
+		p := &Gemma4Parser{hasThinkingSupport: true}
+		p.Init(nil, nil, &api.ThinkValue{Value: true})
+
+		content, thinking, _, err := p.Add("<|channel>thought\nweighing it\n<channel|>the answer", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if thinking != "weighing it" {
+			t.Errorf("thinking = %q, want %q", thinking, "weighing it")
+		}
+		if content != "the answer" {
+			t.Errorf("content = %q, want %q", content, "the answer")
+		}
+	})
+}
+
+func TestGemma4ToolCallTags(t *testing.T) {
+	p := &Gemma4Parser{}
+	start, end := p.ToolCallTags()
+	if start != "<|tool_call>" || end != "<tool_call|>" {
+		t.Fatalf("tool call tags = %q, %q", start, end)
+	}
+
+	// A response-wide thinking budget reads the opening tag through the generic
+	// helper, which must find it without knowing the parser's type.
+	if got := ToolCallStartTagForParser(p); got != "<|tool_call>" {
+		t.Fatalf("ToolCallStartTagForParser = %q, want %q", got, "<|tool_call>")
+	}
+}
+
+func TestToolCallStartTagForParserWithoutTags(t *testing.T) {
+	// A parser that names no tool call tags leaves the budget with nothing to
+	// forgive it, rather than reporting a tag that will never be generated.
+	if got := ToolCallStartTagForParser(nil); got != "" {
+		t.Fatalf("nil parser reported %q", got)
 	}
 }
