@@ -5,6 +5,9 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-17 — `docs/xollama/polykv.mdx`: xOllama's PolyKV page (owner 21:09 "xollama should have a polykv documentation").**
+> One page for everything xOllama does with opencoti's shared cache: session windows (`placement`, `X-Context-Window`), shared prefix pools (`session.pool`), council pool trees (`council.polykv`, `num_ctx 0`), a client's own pools (`session.client_pools`, `/api/engine`, `placement.pool_id`), the engine features each one needs (`polykv_subpools_v1`, `kv_status_v1`, `pool_unowned_v1`, `elastic_window_unheld_v1`), how to see it, and one settings table. Release by `DELETE polykv/pools/{id}` or `POST …/release`: both are in the engine source (`server.cpp:606`), though opencoti's `polykv_api.md` still says no DELETE route exists. `opencoti-tuning.mdx` no longer says xOllama sets no pools and proxies no `/polykv/*` (both wrong since `/api/engine` and the pool code); its PolyKV section now points to the page. Linked from Sessions and Council, in the Engine tuning nav. Two `11434` examples in `sessions.mdx` now use 22434. c14's `kv_reservation_yield_v1` is noted as coming (opencoti dev build `2610172051001`, mail #1605, not on HF).
+
 > **2026-10-17 — `v0.40.4-xollama.4` is Latest (promoted 15:16; owner 09:17 "yes, release .4 and promote when the images pass").**
 > - PR #35, merge `277a5893f`, release run 39032399058; engine c13 r5 `2610170942001` (index `62db143f`), payload id `74e96761…` (new: Windows takes the full installer). The notes cover v3 plain-line notices, the copy bar, the S2 default wording and the fixed notice fragments; the Gemma 4 known issue still stands.
 > - Full check passed (VALIDATION.md):

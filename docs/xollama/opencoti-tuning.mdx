@@ -177,31 +177,13 @@ engine directly rather than through xollama.
 
 ## PolyKV — shared prefix pools for multi-agent serving
 
-PolyKV is opencoti's umbrella name for the whole KV-capacity stack, and at its
-centre is **SharedKVPool**: N agents attending *one physical copy* of a common
-prefix — a shared system prompt and tool definitions — instead of N copies.
-
-The boot half is reachable:
-
-```shell
-LLAMA_ARG_KV_UNIFIED=1          # one shared cell pool across slots
-LLAMA_ARG_POLYKV_MAX_POOLS=4    # enables the /polykv/* control plane
-```
-
-<Warning>
-  **The request half is half-built.** `session_id` is now sent, so session
-  affinity works — see [Sessions](/xollama/sessions). `pool_id` is plumbed to
-  the wire and gated the same way, but xollama does not yet create pools or
-  launch the engine with pooling enabled, so nothing hands out an id to attach
-  to.
-
-  `--kv-unified` is now set by xollama itself when dynamic slots are on — see
-  [Concurrent requests](/xollama/slots) — so the boot half of pooling no longer
-  needs an environment variable. What is still missing is `--polykv-max-pools`
-  and something to create a pool.
-</Warning>
-
-If shared-prefix pooling is what you came for, drive the engine directly for now.
+PolyKV is opencoti's shared KV cache: one pool of cells per model, a window
+of it booked to each session, and prefix pools that several conversations
+attend at once. xOllama starts the engine with it (`--kv-unified` and
+`--polykv-max-pools` are set for you) and uses it for session windows, shared
+prefix pools and council pool trees; a client can also build its own pools
+through `/api/engine`. None of it needs an `LLAMA_ARG_*` variable. See
+[PolyKV](/xollama/polykv).
 
 ## Other knobs worth knowing
 
@@ -220,7 +202,7 @@ Do not assume a variable applied. The engine echoes its boot configuration and
 its **effective** KV state:
 
 ```shell
-curl http://127.0.0.1:<engine-port>/props | jq .opencoti
+curl -s 'localhost:22434/api/engine?model=<model>&endpoint=props' | jq .opencoti
 ```
 
 That is the authority on which cache tiers, residency mode and DCA settings the
@@ -229,9 +211,9 @@ engine's own `--help` is the authority on flag names and defaults; where it and
 any document disagree, `--help` wins.
 
 <Note>
-  xollama gives the engine a private port and does not proxy `/props`,
-  `/slots`, `/metrics` or `/polykv/*`. Read the port from the server log, or
-  query the engine directly when you launch it yourself.
+  The engine listens on a private port, but you do not need it: `/api/engine`
+  proxies its management routes (`props`, `slots`, `kv`, `polykv/*` and the
+  rest) by name. See [Seeing what the engine did](/xollama/introspection).
 </Note>
 
 ## Summary — reachable or not
@@ -247,10 +229,10 @@ any document disagree, `--help` wins.
 | DCA past the model's native context | **Yes** — xollama writes the `--override-kv` itself and the clamp stands aside for it |
 | Any engine flag with no environment twin | **Yes** — `XOLLAMA_ENGINE_ARGS`, appended last; see [Passing your own engine flags](/xollama/engine-args) |
 | Session affinity (`session_id`) | **Yes** — on by default, see [Sessions](/xollama/sessions) |
-| PolyKV pool creation | Boot flags only, and xollama does not set them yet |
-| PolyKV per-request attach | Plumbed and tested; nothing hands out a pool id yet |
+| PolyKV pool creation | **Yes** — shared prefix pools, council trees, and a client's own pools; see [PolyKV](/xollama/polykv) |
+| PolyKV per-request attach | **Yes** — automatic, or `placement.pool_id` for a client's own pool |
 | Elastic slots and the shared cell pool | **Yes** — on by default, per server or per model |
 | Sparse attention, admission, RYS | **Yes** (boot env) |
 | Cache types per model | **Yes** — and two models that disagree get their own engine |
 | The rest of it per model instead of per server | **No** — server-global only, for now |
-| Engine introspection (`/props`, `/slots`, `/polykv/*`) | **Not proxied** — query the engine directly |
+| Engine introspection (`/props`, `/slots`, `/polykv/*`) | **Yes** — through `/api/engine`, see [Seeing what the engine did](/xollama/introspection) |

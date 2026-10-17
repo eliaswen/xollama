@@ -65,7 +65,7 @@ Send `session_id` on `/api/chat` or `/api/generate` and yours is used instead of
 the derived one:
 
 ```shell
-curl http://localhost:11434/api/chat -d '{
+curl http://localhost:22434/api/chat -d '{
   "model": "gemma4:e4b",
   "session_id": "review-pr-4172",
   "messages": [{ "role": "user", "content": "…" }]
@@ -169,6 +169,8 @@ such a request could never fit its window, it gets a `400` naming the numbers
 instead of waiting.
 
 ## Shared prefix pools
+
+Everything xOllama does with opencoti's shared cache, in one place: [PolyKV](/xollama/polykv).
 
 Several conversations usually start the same way: one system prompt, one set of
 tool definitions, tens of thousands of tokens repeated once per conversation. A
@@ -320,7 +322,7 @@ difference between sharing and reprocessing.
 ### Seeing it
 
 ```sh
-curl -s 'localhost:11434/api/engine?model=gemma4:e4b&endpoint=polykv/pools' | jq
+curl -s 'localhost:22434/api/engine?model=gemma4:e4b&endpoint=polykv/pools' | jq
 ```
 
 Each pool reports its prefix length, how many conversations attached, and when

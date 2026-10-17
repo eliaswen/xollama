@@ -1,0 +1,212 @@
+---
+title: PolyKV
+description: How xOllama uses opencoti's shared KV cache — session windows, shared prefix pools, council pool trees, and pools a client builds itself.
+---
+
+PolyKV is the opencoti engine's shared KV cache. Instead of every slot holding
+a private copy of everything it has read, the engine keeps one pool of cells
+for the whole model and hands parts of it out:
+
+- a **window** to each session, booked from the pool and given back when the
+  session ends;
+- a **pool** of cells that several sessions read at once: one physical copy of
+  a system prompt and tool definitions, attended by every conversation that
+  opens with it;
+- **sub-pools** forked from a pool, so a tree of agents shares the trunk and
+  each member stores only its own branch.
+
+The engine checks every share token for token. A request that does not match a
+pool simply reads its prompt in full, so a pool can save memory and prefill but
+never change an answer.
+
+xOllama uses PolyKV in four ways. The first three need no client changes; the
+fourth is for a client that wants to drive the engine itself.
+
+| | What it does | On by default | Where it is described |
+|---|---|---|---|
+| Session windows | each conversation gets its own context window, reported in `X-Context-Window` | yes | [Sessions](/xollama/sessions#the-sessions-window) |
+| Shared prefix pools | conversations with the same system prompt and tools share one copy of it | no: `session.pool` | [Sessions](/xollama/sessions#shared-prefix-pools) |
+| Council pool trees | a council's members share the conversation and prefill only their own part | yes, for a council model | [Council](/xollama/council) |
+| Your own pools | a client creates pools through `/api/engine` and names one per request | no: `session.client_pools` | [below](#driving-polykv-yourself) |
+
+## What it needs
+
+- **The opencoti engine.** Stock `llama.cpp` has no PolyKV. On it every
+  setting on this page is ignored, a council's members each read the
+  conversation themselves, and nothing is refused.
+- **A text model.** The engine refuses to create a pool on a multimodal load
+  (HTTP 501), so a vision model gets session windows but no pools, and xOllama
+  reserves no pool seats for it. The reason is logged once at load.
+- **Nothing to switch on in the engine.** xOllama starts opencoti with the
+  unified cache (`--kv-unified`) whenever dynamic slots are on, which is the
+  default, and with `--polykv-max-pools` sized from the settings below. You do
+  not set `LLAMA_ARG_*` variables for any of this.
+
+xOllama reads the engine's `/props` features before it uses a part of PolyKV,
+and leaves out what the engine does not offer:
+
+| Engine feature | What xOllama uses it for |
+|---|---|
+| `polykv_subpools_v1`, `kv_status_v1` | a council's pool tree; without them a council runs without sharing |
+| `pool_unowned_v1` | a council's first turn shared before it owns a window, and `num_ctx 0` (the whole pool, no window) |
+| `elastic_window_unheld_v1` | `placement.num_ctx_hold: false`, a window for one request only |
+
+## Session windows
+
+On opencoti every session (the conversation's `session_id`, sent for you) is
+booked a window out of the model's pool. The response says what it got:
+
+```text
+X-Context-Window: 16384
+```
+
+To ask for a size, state it in `placement` on `/api/chat`, not in
+`options.num_ctx`, which sizes the model's load and would reload it:
+
+```shell
+curl http://localhost:22434/api/chat -d '{
+  "model": "qwen3.6",
+  "session_id": "lead-1",
+  "placement": { "num_ctx": 32768, "num_ctx_min": 8192 },
+  "messages": [{ "role": "user", "content": "…" }]
+}'
+```
+
+When even `num_ctx_min` does not fit, a request that stated a window is
+refused at once with `429` and `X-Context-Largest-Admissible`, rather than
+queued. A request that states nothing keeps ollama's behaviour and waits for
+room. Resizing, closing and one-request windows are on
+[Sessions](/xollama/sessions#the-sessions-window).
+
+## Shared prefix pools
+
+Turn them on per model:
+
+```dockerfile
+FROM gemma4:e4b
+XOLLAMA {"version": 1, "session": {"affinity": true, "pool": true}}
+```
+
+or for the whole server with `XOLLAMA_SESSION_POOL=1`.
+
+xOllama builds a pool from the prefix two conversations were **observed** to
+share, cut back to where the chat template ends, never from one finished
+conversation. The first conversation with a system prompt is served normally;
+the second one creates the pool; every later one attaches to it. A prefix
+under 256 tokens is not pooled. When more distinct prefixes arrive than there
+are pool seats (`session.max_pools`, default 2), the least recently used pool
+is released first.
+
+Models that keep recurrent state (Mamba, RWKV and the hybrids such as
+Qwen3.5, LFM2 or Nemotron-H) share only when the prompt covers the whole pool,
+so xOllama measures the template's exact end before it creates one. Why the
+pool is the prefix and not the conversation, and the measurements behind it,
+are on [Sessions](/xollama/sessions#shared-prefix-pools).
+
+## Council pool trees
+
+A [council](/xollama/council) model on PolyKV builds one tree per turn: the
+conversation at the root, kept between turns, each researcher's and critic's
+work forked from it, and the synthesizer forked from the shared findings.
+Each member prefills only what is new to it. The model reserves its pool
+seats when it loads (six for one round), so a council's runner is its own
+even among tags that share its weights.
+
+`council.polykv` decides it: `auto` (default) shares when the engine can,
+`on` refuses to serve without it, `off` never shares. A council model with
+`num_ctx 0` takes the model's whole trained context as one pool, with no
+window of its own (needs `pool_unowned_v1`).
+
+## Driving PolyKV yourself
+
+A client that builds its own pool trees, as it would against a bare opencoti,
+does it through xOllama's engine proxy and names a pool on each turn
+(`client_placement_v1`).
+
+1. Reserve seats for the client's pools when the model loads:
+   `session.client_pools` in the model's settings, or
+   `XOLLAMA_POLYKV_CLIENT_POOLS` for the server. The default is 0. These seats
+   are the client's: xOllama never counts, reuses or evicts them.
+2. Render the prefix with `/api/chat` itself, so it is byte for byte what a
+   turn will send: `"_debug_render_only": true` returns
+   `_debug_info.rendered_template` and generates nothing (`chat_render_v1`).
+   The engine's own `apply-template` misses a Modelfile `TEMPLATE` and
+   xOllama's own processing.
+3. Create the pool through the proxy:
+
+   ```shell
+   curl -s 'localhost:22434/api/engine?model=qwen3.6&endpoint=polykv/pools' \
+     -d '{"prompt": "…the rendered prefix…"}'
+   ```
+
+4. Name it on each turn:
+
+   ```json
+   "placement": { "pool_id": 0, "num_ctx": 16384, "num_ctx_min": 8192 }
+   ```
+
+   The engine numbers its first pool `0`, so send the id it returned. On a
+   plain turn all three fields go to the engine. On a council turn only
+   `pool_id` is read: the council forks its root from your pool when the
+   prompt starts with it, and never releases it.
+5. Release it when you are done:
+   `DELETE /api/engine?model=qwen3.6&endpoint=polykv/pools/0`, or
+   `POST …&endpoint=polykv/pools/0/release`. The other actions on the same
+   route are `fork`, `pin` and `unpin`.
+
+A turn attached to your own pool is never queued: when there is no room it
+gets the engine's `429` at once, as on a bare opencoti.
+
+## Seeing it
+
+Everything below goes through `/api/engine`, which proxies the engine's own
+management routes by name; see
+[Seeing what the engine did](/xollama/introspection).
+
+```shell
+# every pool: prefix length, attached sessions, last use
+curl -s 'localhost:22434/api/engine?model=qwen3.6&endpoint=polykv/pools' | jq
+# what one pool could still admit
+curl -s 'localhost:22434/api/engine?model=qwen3.6&endpoint=polykv/pools/0/capacity' | jq
+# the windows, their sizes and the pressure on the pool
+curl -s 'localhost:22434/api/engine?model=qwen3.6&endpoint=kv' | jq
+# live generation speed per session; &once=1 for one reading
+curl -s 'localhost:22434/api/engine?model=qwen3.6&endpoint=polykv/tps&once=1'
+```
+
+The server log names each pool as it is made and attached:
+
+```text
+polykv: created pool 0 (seq 1, prefix_len 684, source 'tokens/slot')
+polykv-pools: attached pool 0 — shared 684-token prefix (n_past -> 684)
+```
+
+Pools xOllama creates are held until the model unloads, rather than left to
+the engine's idle sweep. A swept pool would not be an error, but it would stop
+saving anything without saying so.
+
+## Settings
+
+| | Environment | Model setting | Request | Default |
+|---|---|---|---|---|
+| Session affinity (needed by every pool) | `XOLLAMA_SESSION_AFFINITY` | `session.affinity` | `session_id` | on |
+| Shared prefix pools | `XOLLAMA_SESSION_POOL` | `session.pool` | — | off |
+| Pool seats for shared prefixes | `XOLLAMA_POLYKV_MAX_POOLS` | `session.max_pools` | — | 2 |
+| Pool seats for a client's own pools | `XOLLAMA_POLYKV_CLIENT_POOLS` | `session.client_pools` | — | 0 |
+| A council's sharing | — | `council.polykv` | — | `auto` |
+| Window and the least accepted | — | — | `placement.num_ctx`, `placement.num_ctx_min` | the engine's |
+| Pool to attach to | — | — | `placement.pool_id` | chosen for you |
+
+Every pool seat is a sequence the engine keeps for the life of the runner, and
+on a sliding-window model it costs a window just as a slot does. xOllama counts
+the seats when it plans the model's memory, so a pooled model is placed and
+evicted against what it will really hold. See
+[Concurrent requests](/xollama/slots).
+
+<Note>
+  **Coming with opencoti c14:** an idle session that opts in with
+  `yield_when_idle` gives its window back to a new request that could not
+  otherwise be placed (`kv_reservation_yield_v1`). It is in an opencoti dev
+  build only. xOllama passes it through once a published c14 is pinned and
+  measured.
+</Note>
