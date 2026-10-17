@@ -623,6 +623,10 @@ type ChatResponse struct {
 	// apart from one caused by the response cap.
 	ThinkBudgetTokens int `json:"think_budget_tokens,omitempty"`
 
+	// xollama-hook: notices — Notice is one line the engine planted under
+	// contract v3, on a chunk of its own sent before the text that holds it.
+	Notice *Notice `json:"notice,omitempty"`
+
 	// xollama-hook: council — see plans/agentic-council-chat.md
 	// CouncilChatState is an opaque, sealed resume point of a council turn:
 	// on a chunk of its own at each checkpoint, and on the done chunk.
@@ -661,6 +665,9 @@ type Metrics struct {
 	// xollama-hook: notices — the generation notices the engine planted in
 	// this response, on the done chunk of a request that asked for them.
 	NoticesPlanted int `json:"notices_planted,omitempty"`
+	// Notices lists them in order under contract v3; a stored message keeps
+	// it to hide the lines when history is shown again.
+	Notices []Notice `json:"notices,omitempty"`
 }
 
 // Options specified in [GenerateRequest].  If you add a new option here, also

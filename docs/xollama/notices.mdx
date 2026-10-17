@@ -122,6 +122,38 @@ A model with its own templates starts the engine with that layer's file as
 `--notice-templates`. A model without one passes nothing: the engine's
 built-in ladder is xOllama's default, the same text `/api/show` lists.
 
+## Plain lines (version 3)
+
+An engine that lists `generation_notice_v3` beside `generation_notice_v2` in
+`/api/xollama` also takes `"version": 3` in `notices`. A version 3 notice has
+no frame: it is a plain sentence on a line of its own, in the model's voice,
+and models imitate it far less than a tag.
+
+```json
+"notices": { "version": 3, "key": "session-42:7f3a", "think": "default", "answer": "default" }
+```
+
+You never match a form. Each planted line arrives on a chunk of its own,
+just before the text that holds it:
+
+```json
+{"model": "…", "message": {"role": "assistant", "content": ""}, "done": false,
+ "notice": {"index": 0, "phase": "answer", "channel": "content",
+            "text": "I'm writing the conclusion now.", "break": "\n"}}
+```
+
+The next occurrence of `text` + `break` in the message, in `thinking` when
+`channel` is `"reasoning"` and in `content` otherwise, is the notice: hide
+exactly that. The done chunk lists every line in order as `notices`, next to
+`notices_planted`; a non-streamed answer has only the list. Store the list
+with the message and hide from it when the history is shown again; the text
+itself stays as it came, as with version 2. A line the output cap ended has
+`"cut": true`, and its `break` is what was written of it.
+
+A request template under version 3 is one plain line with `{left}`,
+`{total}` and `{words}`, with no marker rules. Without `"version": 3`, or on
+an engine without `generation_notice_v3`, a request is version 2, as above.
+
 ## A message is waiting
 
 When the user queues a message while a reply is running, tell the engine, so

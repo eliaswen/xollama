@@ -18,6 +18,28 @@ const XollamaNoticePath = "/api/xollama/notice"
 // GenerationNotice only while the engine this server runs declares it.
 const FeatureGenerationNotice = "generation_notice_v2"
 
+// FeatureGenerationNoticeV3: the engine also takes contract v3 (opencoti c13
+// r5, mails #1576-#1582): a request's `notices` with "version": 3 gets plain
+// sentences with no frame, and every planted line comes back as a Notice, on
+// its own chunk before the text that holds it and in the done chunk's list.
+// Listed beside FeatureGenerationNotice, never alone.
+const FeatureGenerationNoticeV3 = "generation_notice_v3"
+
+// Notice is one line the engine planted under contract v3, exactly as it
+// reported it: Text is the line as streamed and Break the line break written
+// after it, so a client hides the next occurrence of Text+Break in the
+// message. Phase is "thinking", "answer" or "message"; Channel is where the
+// engine saw it ("reasoning" inside the thinking part, else "content"). Cut
+// marks a line the output cap ended, whose Break is what was written of it.
+type Notice struct {
+	Index   int    `json:"index"`
+	Phase   string `json:"phase"`
+	Channel string `json:"channel,omitempty"`
+	Text    string `json:"text"`
+	Break   string `json:"break"`
+	Cut     bool   `json:"cut,omitempty"`
+}
+
 // NoticeKindMessageWaiting is the one kind of waiting call the contract has.
 const NoticeKindMessageWaiting = "message_waiting"
 

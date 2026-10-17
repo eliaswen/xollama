@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -73,6 +74,7 @@ var noticesExplicit = struct {
 	sync.Mutex
 	path string
 	ok   bool
+	v3   bool
 	done bool
 }{}
 
@@ -82,16 +84,44 @@ var noticesExplicit = struct {
 // describe, is asked once with --print-notice-config. An engine that does
 // not know the flag would refuse a whole command line carrying it.
 func NoticesServed(libOllamaPath string) bool {
+	ok, _ := noticesServed(libOllamaPath)
+	return ok
+}
+
+// NoticesV3Served reports whether that engine also takes contract v3: the
+// pin's generation_notice_v3, or a printed block with a "v3" member.
+func NoticesV3Served(libOllamaPath string) bool {
+	ok, v3 := noticesServed(libOllamaPath)
+	return ok && v3
+}
+
+func noticesServed(libOllamaPath string) (bool, bool) {
 	explicit := envconfig.Var(EnvPath)
 	if explicit == "" {
-		return HasGenerationNotice()
+		return HasGenerationNotice(), HasGenerationNoticeV3()
 	}
 	noticesExplicit.Lock()
 	defer noticesExplicit.Unlock()
 	if noticesExplicit.done && noticesExplicit.path == explicit {
-		return noticesExplicit.ok
+		return noticesExplicit.ok, noticesExplicit.v3
 	}
-	_, err := PrintNoticeConfig(context.Background(), libOllamaPath, "")
+	out, err := PrintNoticeConfig(context.Background(), libOllamaPath, "")
 	noticesExplicit.path, noticesExplicit.ok, noticesExplicit.done = explicit, err == nil, true
-	return noticesExplicit.ok
+	noticesExplicit.v3 = err == nil && printedV3(out)
+	return noticesExplicit.ok, noticesExplicit.v3
+}
+
+// printedV3 reports whether a --print-notice-config block carries contract
+// v3's forms, at its top level or under generation_notice.
+func printedV3(out []byte) bool {
+	var b struct {
+		V3               json.RawMessage `json:"v3"`
+		GenerationNotice struct {
+			V3 json.RawMessage `json:"v3"`
+		} `json:"generation_notice"`
+	}
+	if json.Unmarshal(out, &b) != nil {
+		return false
+	}
+	return len(b.V3) > 0 || len(b.GenerationNotice.V3) > 0
 }
