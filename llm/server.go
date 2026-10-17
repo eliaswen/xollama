@@ -425,8 +425,11 @@ type ChatResponse struct {
 	EvalCount             int           `json:"eval_count"`
 	EvalDuration          time.Duration `json:"eval_duration"`
 	Logprobs              []Logprob     `json:"logprobs,omitempty"`
-	// xollama-hook: notices -- the engine's timings.notices_planted.
-	NoticesPlanted int `json:"notices_planted,omitempty"`
+	// xollama-hook: notices -- the engine's timings.notices_planted; under
+	// contract v3 the line planted on this chunk and, when done, the list.
+	NoticesPlanted int          `json:"notices_planted,omitempty"`
+	Notice         *api.Notice  `json:"notice,omitempty"`
+	Notices        []api.Notice `json:"notices,omitempty"`
 }
 
 // DoneReason represents the reason why a completion response is done
@@ -479,6 +482,9 @@ type CompletionResponse struct {
 	// Logprobs contains log probability information if requested
 	Logprobs []Logprob `json:"logprobs,omitempty"`
 
-	// xollama-hook: notices -- the engine's timings.notices_planted.
-	NoticesPlanted int `json:"notices_planted,omitempty"`
+	// xollama-hook: notices -- the engine's timings.notices_planted; under
+	// contract v3 the line planted on this chunk and, when done, the list.
+	NoticesPlanted int          `json:"notices_planted,omitempty"`
+	Notice         *api.Notice  `json:"notice,omitempty"`
+	Notices        []api.Notice `json:"notices,omitempty"`
 }

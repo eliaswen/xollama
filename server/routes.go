@@ -3744,6 +3744,12 @@ func (s *Server) ChatHandler(c *gin.Context) {
 			Placement: councilPlacement(c),
 			Notices:   req.Notices, // xollama-hook: notices
 		}, func(r llm.CompletionResponse) {
+			if n, ok := noticeChunk(req.Model, r.Notice); ok { // xollama-hook: notices
+				ch <- n
+				if r.Content == "" && len(r.Logprobs) == 0 && !r.Done {
+					return
+				}
+			}
 			callProgress.step(ch, r.Content) // xollama-hook: tool-call-progress
 			res := api.ChatResponse{
 				Model:     req.Model,
@@ -3757,6 +3763,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 					EvalCount:             r.EvalCount,
 					EvalDuration:          r.EvalDuration,
 					NoticesPlanted:        r.NoticesPlanted, // xollama-hook: notices
+					Notices:               r.Notices,        // xollama-hook: notices
 				},
 				Logprobs: toAPILogprobs(r.Logprobs),
 			}
@@ -3989,6 +3996,12 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 		defer close(ch)
 
 		err := r.Chat(c.Request.Context(), nativeReq, func(r llm.ChatResponse) {
+			if n, ok := noticeChunk(req.Model, r.Notice); ok { // xollama-hook: notices
+				ch <- n
+				if r.Message.Content == "" && r.Message.Thinking == "" && len(r.Message.ToolCalls) == 0 && len(r.Logprobs) == 0 && !r.Done {
+					return
+				}
+			}
 			res := api.ChatResponse{
 				Model:     req.Model,
 				CreatedAt: time.Now().UTC(),
@@ -4001,6 +4014,7 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
 					EvalCount:             r.EvalCount,
 					EvalDuration:          r.EvalDuration,
 					NoticesPlanted:        r.NoticesPlanted, // xollama-hook: notices
+					Notices:               r.Notices,        // xollama-hook: notices
 				},
 				Logprobs: toAPILogprobs(r.Logprobs),
 			}

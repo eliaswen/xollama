@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -73,6 +74,8 @@ var noticesExplicit = struct {
 	sync.Mutex
 	path string
 	ok   bool
+	v3   bool
+	bar  bool
 	done bool
 }{}
 
@@ -82,16 +85,63 @@ var noticesExplicit = struct {
 // describe, is asked once with --print-notice-config. An engine that does
 // not know the flag would refuse a whole command line carrying it.
 func NoticesServed(libOllamaPath string) bool {
+	return noticesServed(libOllamaPath).ok
+}
+
+// NoticesV3Served reports whether that engine also takes contract v3: the
+// pin's generation_notice_v3, or a printed block with a "v3" member.
+func NoticesV3Served(libOllamaPath string) bool {
+	s := noticesServed(libOllamaPath)
+	return s.ok && s.v3
+}
+
+// NoticesCopyBarServed reports whether that engine takes v3's `copy_bar`: the
+// pin's generation_notice_copy_bar, or a printed v3 block with `copy_bar`.
+func NoticesCopyBarServed(libOllamaPath string) bool {
+	s := noticesServed(libOllamaPath)
+	return s.ok && s.v3 && s.bar
+}
+
+type noticeSupport struct{ ok, v3, bar bool }
+
+func noticesServed(libOllamaPath string) noticeSupport {
 	explicit := envconfig.Var(EnvPath)
 	if explicit == "" {
-		return HasGenerationNotice()
+		return noticeSupport{HasGenerationNotice(), HasGenerationNoticeV3(), HasGenerationNoticeCopyBar()}
 	}
 	noticesExplicit.Lock()
 	defer noticesExplicit.Unlock()
-	if noticesExplicit.done && noticesExplicit.path == explicit {
-		return noticesExplicit.ok
+	if !noticesExplicit.done || noticesExplicit.path != explicit {
+		out, err := PrintNoticeConfig(context.Background(), libOllamaPath, "")
+		noticesExplicit.path, noticesExplicit.ok, noticesExplicit.done = explicit, err == nil, true
+		noticesExplicit.v3, noticesExplicit.bar = false, false
+		if err == nil {
+			noticesExplicit.v3, noticesExplicit.bar = printedV3(out)
+		}
 	}
-	_, err := PrintNoticeConfig(context.Background(), libOllamaPath, "")
-	noticesExplicit.path, noticesExplicit.ok, noticesExplicit.done = explicit, err == nil, true
-	return noticesExplicit.ok
+	return noticeSupport{noticesExplicit.ok, noticesExplicit.v3, noticesExplicit.bar}
+}
+
+// printedV3 reports whether a --print-notice-config block carries contract
+// v3's forms, at its top level or under generation_notice, and whether they
+// include the copy bar's defaults.
+func printedV3(out []byte) (v3, copyBar bool) {
+	type block struct {
+		V3 *struct {
+			CopyBar json.RawMessage `json:"copy_bar"`
+		} `json:"v3"`
+	}
+	var b struct {
+		block
+		GenerationNotice block `json:"generation_notice"`
+	}
+	if json.Unmarshal(out, &b) != nil {
+		return false, false
+	}
+	for _, v := range []block{b.block, b.GenerationNotice} {
+		if v.V3 != nil {
+			return true, len(v.V3.CopyBar) > 0
+		}
+	}
+	return false, false
 }

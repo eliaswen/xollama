@@ -5,6 +5,33 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-17 — `dev` pins opencoti's c13 r5 (index `62db143f`, engine `2610170942001`), the engine re-release with notices contract v3 and the copy bar; every gate passes on solidPC, eleven2go and the Mac mini.**
+> - opencoti mail #1593 announced the release on the owner's 11:47 word; the owner's 10:28 hold on bug-4115 was lifted by the copy bar. It is engine-only: every library is r4's file, and the cuda and vulkan pins gain r5 in `gated-with`. `xollama.DefaultNoticeTemplates` is now the engine's S2 wording (0690), byte-for-byte what r5's `--print-notice-config` prints.
+> - bug-4108 A/B through xOllama (Gemma 4 A4B Q4_K_M, 48 sampled answers per engine, v2 notices): r4 planted 129 and leaked in 0; r5 planted 122 and leaked in 0; 0 `<unused>` in either.
+> - The v3 end-to-end check (`/srv/ml/c13r5/e2e-v3.py`) went through both engine routes:
+>   - `/completion`: qwen3.5:9b 10/10 and Gemma 4 A4B 10/10, with thinking-phase lines in the reasoning channel.
+>   - The chat route (Go templates off): qwen3:4b passed the thinking check; llama3.1 passed the other 9.
+>   - Each line was found exactly where its record put it, the done list equalled the stream records, 0 copies were left after hiding, `copy_bar` gave 200/200/400/400, v2 on r5 planted the framed S2 lines, and the waiting message gave one record.
+>   - Seen in passing: on the chat route, qwen3:4b thinks even with `think: false` (its own template; upstream's route, reached only with Go templates off).
+> - Gates on r5:
+>   - G3: compat 8/8, llama3 77.7 (r4 77.6), 4 slots 310.3 (r4 311.0), overflow 3.61 (r4 3.57).
+>   - G4: decision 7/7 on opencoti; chat paths all pass, 0 KV refusals.
+>   - G6: speech 8/8, video 33 frames on both models.
+>   - G5: council 6/6, 0 crashes. Turn tokens 1.6k-13.9k, inside r4's 1.7k-16.8k; the idle tag's 25 refusals (r4 10) follow from its longer turns in a 16k window, all answered.
+>   - 0 foreign files.
+>   - G8 eleven2go: 3090 123.5-124.7 (one run at 112.5 overlapped unloading the owner's model), 9070 XT 100.5-103.2, kill 1117 ms, iGPU 5.2, card OK, 0 dumps.
+>   - Mac mini: qwen2.5:1.5b 124.8-125.0 (r4 126.2-126.7), llama3 30.6-30.9, qwen3.5:2b 60.5-62.1, speech 7/7, 0 crash lines.
+
+> **2026-10-17 — notices contract v3 passes through xOllama; the release `v0.40.4-xollama.4` on opencoti c13 r5 is approved (owner 09:16 "yes publish it when it arrives" for r5, 09:17 "yes, release .4 and promote when the images pass").**
+> - The contract was agreed with opencoti in mails #1576-#1582. Each planted line comes back as a top-level `notice` `{index, phase, channel, text, break[, cut]}` on both `/completion` and chat, and `timings.notices` comes on the final chunk. xOllama sends each line as a chunk of its own before its text (`noticeChunk`, `server/notice.go`) and lists them on the done chunk (`Metrics.Notices`). It advertises `generation_notice_v3` only beside v2 (`noticesV3Served`). Docs: `docs/xollama/notices.mdx` "Plain lines (version 3)". Tests: api, llm and server pass; lint is clean.
+> - r5 adds v3's `copy_bar` (patch 0693, mail #1589; owner 11:23 "make the bar configurable for both thinking and answer separately"). It is a `notices` field xOllama passes through; `generation_notice_copy_bar` is advertised only with v3 (`noticesCopyBarServed`). **r5 is HELD by the owner (10:28, "we don't publish r5 until we are sure this bug it's fixed", bug-4115: a planted v3 line copied by the model), so `.4` waits for the re-cut r5.**
+> - The change is inert until the pin declares `generation_notice_v3`. Left: r5 published, then the bug-4108 A/B against r4 plus a v3 end-to-end check, then the pin. `xollama.DefaultNoticeTemplates` follows the engine's built-in wording S2 (0690, #1573) at the pin, then gates, release and promotion. Task xo-29.
+
+> **2026-10-16 — `v0.40.4-xollama.3` is Latest (promoted 20:57; owner 18:30 "make a new release", 20:54 "promote when the images pass").**
+> - PR #34, merge `3421440ad`, release run 38945617558; engine c13 r4 `2610161700001` (index `326b49eb`), payload id `7a1f2949…` (new: Windows takes the full installer). Notes: the bug-4108 fix and, as a known issue, Gemma 4 not acting on answer notices.
+> - Full check passed (VALIDATION.md): G12 8 files; G9 eleven2go 3090 124.5–124.9, 9070 XT 102.8–103.3, iGPU 5.0 (the owner chose "install now", which ended their live session on its 22434); G11 Mac app 126.0–128.0 and self-update from `.2`; G10 amd64 85.9–86.2 against llama.cpp 85.4–85.9, arm64 11.0–11.2 against 11.0–11.1. Discord announced; the image run on the tag after promotion (38951244762) moved `:latest` on Docker Hub (`a52f5564…`) and GHCR (`b4bcc863…`).
+> - Installed: eleven2go and the Mac mini on `.3` (by their gates); solidPC's service and pandorum unchanged. Next release on this base needs the owner's word. Next engine: opencoti c14.
+
 > **2026-10-16 — `dev` pins opencoti's c13 r4 (index `326b49eb`, engine `2610161700001`), the engine re-release for bug-4108; every gate passes on solidPC, eleven2go and the Mac mini.**
 > - Owner 18:30: "we have a re-release of the engine for a bug, make a new release". r4 (mail #1565): engine-only, every library r3's file (cuda and vulkan pins gain r4 in `gated-with`, BUILD_INFO regenerated); 0689: with notices on, Gemma 4 sampled its `<unusedNN>` placeholder tokens (NORMAL in its GGUFs) when the bar blocked a notice of its own, and the reply carried text the hide span misses; now placeholders are never sampled under the bar and the line after a planted notice is barred too. Contract, `/props` and flags unchanged.
 > - **bug-4108 through xOllama** (`/srv/ml/c13r4/gemma-ab.py`, side server on 22498, `mannix/gemma4-98e-v7-coder:Q4_K_M` = an A4B with 98 experts, 3090, temperature 1.0, 48 answers per engine with the same seeds, half answer-only and half think+answer, default ladder): r3 126 planted, 4 answers with text past the hide span (`<engine_<unused27> output_budget="180">…`, `<engine_statement …>`, `<engine_part>…`); r4 130 planted, 0 leaked, 0 `<unused>`. A first run with num_predict 1400 and short prose planted nothing on either engine (answers ended before the 60 % step) and gave identical token counts request by request.
@@ -2562,11 +2589,10 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.2` is the latest release (2026-10-16): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r3. `dev` pins opencoti c13 r4
-(`2610161700001`, 2026-10-16, every gate passed), the engine re-release for
-Gemma 4's placeholder tokens beside generation notices (bug-4108), and is
-being released as `v0.40.4-xollama.3` (owner 18:30). It carries generation
+`v0.40.4-xollama.3` is the latest release (2026-10-16): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r4 (`2610161700001`), the engine
+re-release for Gemma 4's placeholder tokens beside generation notices
+(bug-4108). `dev` pins the same engine and carries generation
 notices v2 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
 channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
 memory, the shared-store anchor, the template-swallowed refusal and the
@@ -2637,9 +2663,9 @@ proxy. The Agentic Council Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. `v0.40.4-xollama.3` on c13 r4 (owner 18:30): release, full check,
-   promotion on the owner's word. Then opencoti c14: the pin moves on a
-   measurement once it is published (owner, 2026-10-16: "c14 is next").
+1. opencoti c14: the pin moves on a measurement once it is published (owner,
+   2026-10-16: "c14 is next"); the next release on this base needs the
+   owner's word.
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.

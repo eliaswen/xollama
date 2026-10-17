@@ -2077,6 +2077,8 @@ type llamaServerCompletionResponse struct {
 	StopType                string                 `json:"stop_type"`
 	Timings                 llamaServerTimings     `json:"timings"`
 	CompletionProbabilities []llamaServerTokenProb `json:"completion_probabilities"`
+	// xollama-hook: notices -- opencoti contract v3, on the first token's chunk.
+	Notice *api.Notice `json:"notice"`
 }
 
 type llamaServerChatChoice struct {
@@ -2103,6 +2105,8 @@ type llamaServerChatResponse struct {
 	Choices []llamaServerChatChoice `json:"choices"`
 	Timings llamaServerTimings      `json:"timings"`
 	Error   any                     `json:"error"`
+	// xollama-hook: notices -- opencoti contract v3, on the first token's chunk.
+	Notice *api.Notice `json:"notice"`
 }
 
 type llamaServerTimings struct {
@@ -2111,8 +2115,9 @@ type llamaServerTimings struct {
 	PromptMS  float64 `json:"prompt_ms"`
 	PredictN  int     `json:"predicted_n"`
 	PredictMS float64 `json:"predicted_ms"`
-	// xollama-hook: notices -- opencoti contract v2.
-	NoticesPlanted int `json:"notices_planted"`
+	// xollama-hook: notices -- opencoti contract v2; Notices is v3's list.
+	NoticesPlanted int          `json:"notices_planted"`
+	Notices        []api.Notice `json:"notices"`
 }
 
 func (t llamaServerTimings) promptEvalCount() int {
@@ -2416,10 +2421,11 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 				return nil
 			}
 
-			if lsResp.Content != "" && !lsResp.Stop {
+			if (lsResp.Content != "" || lsResp.Notice != nil) && !lsResp.Stop { // xollama-hook: notices
 				fn(CompletionResponse{
 					Content:  lsResp.Content,
 					Logprobs: convertLogprobs(lsResp.CompletionProbabilities, req.TopLogprobs > 0),
+					Notice:   lsResp.Notice, // xollama-hook: notices
 				})
 			}
 
@@ -2439,6 +2445,8 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 					EvalCount:             lsResp.Timings.PredictN,
 					EvalDuration:          time.Duration(lsResp.Timings.PredictMS * float64(time.Millisecond)),
 					NoticesPlanted:        lsResp.Timings.NoticesPlanted, // xollama-hook: notices
+					Notice:                lsResp.Notice,                 // xollama-hook: notices
+					Notices:               lsResp.Timings.Notices,        // xollama-hook: notices
 				}
 				hasFinalResp = true
 			}
@@ -2745,6 +2753,9 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 				return fmt.Errorf("llama-server chat error: %v", lsResp.Error)
 			}
 			if len(lsResp.Choices) == 0 {
+				if lsResp.Notice != nil { // xollama-hook: notices
+					fn(ChatResponse{Message: api.Message{Role: "assistant"}, Notice: lsResp.Notice})
+				}
 				continue
 			}
 
@@ -2756,6 +2767,7 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 					Thinking: choice.Delta.ReasoningContent,
 				},
 				Logprobs: convertLogprobs(choice.Logprobs.Content, req.TopLogprobs > 0),
+				Notice:   lsResp.Notice, // xollama-hook: notices
 			}
 
 			for _, tc := range choice.Delta.ToolCalls {
@@ -2785,6 +2797,7 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 				resp.EvalCount = lsResp.Timings.PredictN
 				resp.EvalDuration = time.Duration(lsResp.Timings.PredictMS * float64(time.Millisecond))
 				resp.NoticesPlanted = lsResp.Timings.NoticesPlanted // xollama-hook: notices
+				resp.Notices = lsResp.Timings.Notices               // xollama-hook: notices
 				toolCalls, err := accumulatedToolCalls(toolCalls)
 				if err != nil {
 					return err
@@ -2795,7 +2808,7 @@ func (s *llamaServerRunner) Chat(ctx context.Context, req ChatRequest, fn func(C
 				break
 			}
 
-			if resp.Message.Content != "" || resp.Message.Thinking != "" || len(resp.Logprobs) > 0 {
+			if resp.Message.Content != "" || resp.Message.Thinking != "" || len(resp.Logprobs) > 0 || resp.Notice != nil { // xollama-hook: notices
 				fn(resp)
 			}
 		}

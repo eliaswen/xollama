@@ -114,3 +114,83 @@ func TestUnbookedWindowsAreAdvertisedOnlyWhenTheEngineTakesThem(t *testing.T) {
 		t.Fatalf("an engine without num_ctx_hold advertised %s", api.FeatureContextWindowUnbooked)
 	}
 }
+
+// Contract v3: the line the engine planted reaches the client on a chunk of
+// its own, before the text that holds it, and the done chunk lists every
+// line; a non-streamed answer has only the list, as the engine's has.
+func TestAV3NoticeReachesTheClientBeforeItsLine(t *testing.T) {
+	line := api.Notice{Index: 0, Phase: "answer", Channel: "content", Text: "I'm writing the conclusion now.", Break: "\n"}
+	mock := &mockRunner{}
+	mock.CompletionFn = func(ctx context.Context, r llm.CompletionRequest, fn func(llm.CompletionResponse)) error {
+		fn(llm.CompletionResponse{Content: "Body.\n"})
+		fn(llm.CompletionResponse{Notice: &line})
+		fn(llm.CompletionResponse{Content: line.Text + line.Break})
+		fn(llm.CompletionResponse{Done: true, DoneReason: llm.DoneReasonStop, NoticesPlanted: 1, Notices: []api.Notice{line}})
+		return nil
+	}
+	gin.SetMode(gin.TestMode)
+	s := newServerWithMockRunner(t, mock)
+	createMinimalGGUFModel(t, s, "nt3", nil, "{{ .Prompt }}", nil)
+	notices := json.RawMessage(`{"version":3,"answer":"default"}`)
+
+	w := createRequest(t, s.ChatHandler, api.ChatRequest{Model: "nt3", Messages: []api.Message{{Role: "user", Content: "x"}}, Notices: notices})
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d %s", w.Code, w.Body)
+	}
+	var chunks []api.ChatResponse
+	for _, l := range strings.Split(strings.TrimSpace(w.Body.String()), "\n") {
+		var c api.ChatResponse
+		if err := json.Unmarshal([]byte(l), &c); err != nil {
+			t.Fatalf("%q: %v", l, err)
+		}
+		chunks = append(chunks, c)
+	}
+	at := slices.IndexFunc(chunks, func(c api.ChatResponse) bool { return c.Notice != nil })
+	text := slices.IndexFunc(chunks, func(c api.ChatResponse) bool { return strings.Contains(c.Message.Content, line.Text) })
+	if at < 0 || text < 0 || at >= text || *chunks[at].Notice != line || chunks[at].Message.Content != "" {
+		t.Fatalf("notice chunk %d, its line on chunk %d, want the notice alone and first: %+v", at, text, chunks)
+	}
+	done := chunks[len(chunks)-1]
+	if !done.Done || done.NoticesPlanted != 1 || len(done.Notices) != 1 || done.Notices[0] != line {
+		t.Fatalf("done chunk = %+v, want the list", done)
+	}
+
+	stream := false
+	w = createRequest(t, s.ChatHandler, api.ChatRequest{Model: "nt3", Messages: []api.Message{{Role: "user", Content: "x"}}, Notices: notices, Stream: &stream})
+	var resp api.ChatResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Notice != nil || len(resp.Notices) != 1 || resp.Message.Content != "Body.\n"+line.Text+line.Break {
+		t.Fatalf("non-streamed = %+v, want the whole text and only the list", resp)
+	}
+}
+
+// generation_notice_v3 goes out only beside v2, and only for an engine that
+// takes it.
+func TestNoticesV3IsAdvertisedOnlyBesideV2(t *testing.T) {
+	old := noticesV3Served
+	t.Cleanup(func() { noticesV3Served = old })
+	for _, c := range []struct{ v2, v3, want bool }{{true, true, true}, {true, false, false}, {false, true, false}} {
+		withNoticesServed(t, c.v2)
+		noticesV3Served = func() bool { return c.v3 }
+		if got := slices.Contains(identity(t).Features, api.FeatureGenerationNoticeV3); got != c.want {
+			t.Errorf("v2 %v v3 %v: advertised %v, want %v", c.v2, c.v3, got, c.want)
+		}
+	}
+}
+
+// generation_notice_copy_bar goes out only with v3: the switch is a v3
+// request field, a 400 on v2.
+func TestTheCopyBarIsAdvertisedOnlyWithV3(t *testing.T) {
+	oldV3, oldBar := noticesV3Served, noticesCopyBarServed
+	t.Cleanup(func() { noticesV3Served, noticesCopyBarServed = oldV3, oldBar })
+	withNoticesServed(t, true)
+	for _, c := range []struct{ v3, bar, want bool }{{true, true, true}, {true, false, false}, {false, true, false}} {
+		noticesV3Served = func() bool { return c.v3 }
+		noticesCopyBarServed = func() bool { return c.bar }
+		if got := slices.Contains(identity(t).Features, api.FeatureGenerationNoticeCopyBar); got != c.want {
+			t.Errorf("v3 %v copy_bar %v: advertised %v, want %v", c.v3, c.bar, got, c.want)
+		}
+	}
+}

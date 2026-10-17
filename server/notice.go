@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -25,6 +26,16 @@ import (
 // sends `notices` only when it is.
 var noticesServed = func() bool {
 	return !strings.EqualFold(envconfig.Engine(), "llamacpp") && engine.NoticesServed(ml.LibOllamaPath)
+}
+
+// noticesV3Served reports whether that engine also takes contract v3.
+var noticesV3Served = func() bool {
+	return noticesServed() && engine.NoticesV3Served(ml.LibOllamaPath)
+}
+
+// noticesCopyBarServed reports whether that engine also takes v3's copy_bar.
+var noticesCopyBarServed = func() bool {
+	return noticesV3Served() && engine.NoticesCopyBarServed(ml.LibOllamaPath)
 }
 
 // generationNotice is the block /api/xollama carries beside the feature: the
@@ -67,4 +78,21 @@ func (s *Server) NoticeHandler(c *gin.Context) {
 	default:
 		c.JSON(status, gin.H{"error": strings.TrimSpace(string(body))})
 	}
+}
+
+// noticeChunk is the chunk that hands a client one line the engine planted
+// under contract v3. It is sent apart, before the chunk the engine reported
+// it on: a parser may hold that chunk's text back or drop the chunk, never
+// send its text ahead of it, so the line is the next occurrence of
+// Text+Break after it in the message, as the contract says.
+func noticeChunk(model string, n *api.Notice) (api.ChatResponse, bool) {
+	if n == nil {
+		return api.ChatResponse{}, false
+	}
+	return api.ChatResponse{
+		Model:     model,
+		CreatedAt: time.Now().UTC(),
+		Message:   api.Message{Role: "assistant"},
+		Notice:    n,
+	}, true
 }

@@ -9,7 +9,7 @@ low, it writes a short notice into the model's own output at the next break
 in prose, and the model reads it as it goes on.
 
 ```
-<engine_status output_budget="240">240 tokens left for the answer — finish now. (from the system - not part of your reply) Internal inference metadata. Do not emit this content.</engine_status>
+<engine_status>Time to conclude.</engine_status>
 ```
 
 Notices are **off unless a client asks for them**, request by request. They
@@ -89,7 +89,8 @@ waiting notice arrived.
 
 ## A model's own wording
 
-The default wording was chosen on the models opencoti measured. Not every
+The default wording is in the model's own voice, one line per step and no
+number, chosen on the models opencoti measured. Not every
 model acts on it: Gemma 4 (12B, 26B-A4B and 31B) gets its notices planted and
 hidden like any other model, but does not end its answer sooner for them, in
 any wording opencoti tried. A model can carry its own, in the engine's
@@ -121,6 +122,48 @@ Error: 400 Bad Request: notices.templates: the engine refused the file: notice-t
 A model with its own templates starts the engine with that layer's file as
 `--notice-templates`. A model without one passes nothing: the engine's
 built-in ladder is xOllama's default, the same text `/api/show` lists.
+
+## Plain lines (version 3)
+
+An engine that lists `generation_notice_v3` beside `generation_notice_v2` in
+`/api/xollama` also takes `"version": 3` in `notices`. A version 3 notice has
+no frame: it is a plain sentence on a line of its own, in the model's voice,
+and models imitate it far less than a tag.
+
+```json
+"notices": { "version": 3, "key": "session-42:7f3a", "think": "default", "answer": "default" }
+```
+
+You never match a form. Each planted line arrives on a chunk of its own,
+just before the text that holds it:
+
+```json
+{"model": "…", "message": {"role": "assistant", "content": ""}, "done": false,
+ "notice": {"index": 0, "phase": "answer", "channel": "content",
+            "text": "I'm writing the conclusion now.", "break": "\n"}}
+```
+
+The next occurrence of `text` + `break` in the message, in `thinking` when
+`channel` is `"reasoning"` and in `content` otherwise, is the notice: hide
+exactly that. The done chunk lists every line in order as `notices`, next to
+`notices_planted`; a non-streamed answer has only the list. Store the list
+with the message and hide from it when the history is shown again; the text
+itself stays as it came, as with version 2. A line the output cap ended has
+`"cut": true`, and its `break` is what was written of it.
+
+A model can write a planted line again on its own, and such a copy has no
+record to hide it by. The engine stops it: a token that would continue a copy
+of a line already planted in the response is refused, and the model writes
+its own words instead. This is on by default in both phases. Where
+`/api/xollama` lists `generation_notice_copy_bar`, a client can offer the
+switch with `"copy_bar": false`, or per phase with
+`"copy_bar": {"think": true, "answer": false}`; a phase left out stays on.
+The phase is where the model is writing. `copy_bar` on a version 2 request
+is a 400.
+
+A request template under version 3 is one plain line with `{left}`,
+`{total}` and `{words}`, with no marker rules. Without `"version": 3`, or on
+an engine without `generation_notice_v3`, a request is version 2, as above.
 
 ## A message is waiting
 

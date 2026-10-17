@@ -77,6 +77,37 @@ func HasSystemOne() bool {
 // POST /v1/notice. Contract v1 was never pinned and is superseded.
 const FeatureGenerationNotice = "generation_notice_v2"
 
+// FeatureGenerationNoticeV3 is contract v3 beside v2 (opencoti c13 r5, mails
+// #1576-#1582): a request's `notices` with "version": 3 gets plain lines, no
+// bars, and each planted line comes back as a top-level `notice` on its first
+// token's chunk and in timings.notices.
+const FeatureGenerationNoticeV3 = "generation_notice_v3"
+
+// HasGenerationNoticeV3 reports whether the engine this build ships takes
+// contract v3.
+func HasGenerationNoticeV3() bool {
+	pin, err := DefaultPin()
+	if err != nil {
+		return false
+	}
+	return pin.HasFeature(FeatureGenerationNoticeV3)
+}
+
+// FeatureGenerationNoticeCopyBar is v3's `copy_bar` request field (opencoti
+// c13 r5, patch 0693, mail #1589): the engine refuses a token that continues
+// a copy of a line it planted, per phase.
+const FeatureGenerationNoticeCopyBar = "generation_notice_copy_bar"
+
+// HasGenerationNoticeCopyBar reports whether the engine this build ships takes
+// `copy_bar`.
+func HasGenerationNoticeCopyBar() bool {
+	pin, err := DefaultPin()
+	if err != nil {
+		return false
+	}
+	return pin.HasFeature(FeatureGenerationNoticeCopyBar)
+}
+
 // FeatureWindowUnheld is the engine's num_ctx_hold (opencoti c13 r3, patch
 // 0683): false makes a request's num_ctx/num_ctx_min its own window, not held
 // for its session afterwards.
