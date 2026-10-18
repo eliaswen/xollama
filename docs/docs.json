@@ -190,6 +190,7 @@
               "/xollama/sessions",
               "/xollama/polykv",
               "/xollama/introspection",
+              "/xollama/system",
               "/xollama/notices",
               "/xollama/opencoti-tuning",
               "/xollama/default-port",

@@ -110,6 +110,7 @@ func (s *Server) LinkProbeHandler(c *gin.Context) {
 		}
 		resp.Results = append(resp.Results, r)
 	}
+	rememberLinkProbe(resp, time.Now())
 	c.JSON(http.StatusOK, resp)
 }
 

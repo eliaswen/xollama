@@ -1,0 +1,132 @@
+---
+title: Watching the machine
+description: GET /api/xollama/system — host, server processes, every GPU and the loaded models in one cached snapshot, cheap enough to poll every second.
+---
+
+A monitor watching a remote xOllama, such as `osync psmonitor`, needs more than
+`/api/ps`. It needs how busy each GPU is, how hot, how much power it draws,
+what the host's CPU and memory are doing, and what the server's own engines
+cost. `/api/xollama/system` returns all of it in one request.
+
+```sh
+curl -s localhost:22434/api/xollama/system | jq
+```
+
+Servers that have it list `system_telemetry_v1` in `/api/xollama`'s features.
+
+## What a poll costs
+
+Nothing the server would notice, however often you poll.
+
+- The server keeps **one snapshot** and refreshes it every 2 seconds, on its
+  own timer, while someone polls it. Every request gets the cached copy, so
+  ten monitors cost the same as one.
+- A minute after the last poll the refreshing stops. A server nobody watches
+  reads nothing.
+- A request **never** starts a GPU discovery, an engine, a runner or a link
+  probe, and never waits for a model that is loading.
+- Everything is read inside the server process: the GPU vendor's management
+  library (NVML), `/proc` and `/sys` on Linux, the Windows kernel graphics
+  interface and performance counters, and `sysctl`, `libproc` and IOKit on
+  macOS. No tool such as `nvidia-smi` is ever run.
+
+The first reading after an idle minute takes as long as one reading: about
+40 ms on Linux with an NVIDIA GPU, 150 ms on Windows, where the GPU counters
+are opened. A cached poll takes microseconds.
+
+## The response
+
+```json
+{
+  "as_of": "2026-10-18T19:02:11.4+02:00",
+  "interval_ms": 2000,
+  "host": {
+    "os": "linux", "arch": "amd64", "hostname": "solidpc", "uptime_s": 10305363,
+    "cpu_pct": 18.3, "cpu_count": 12, "load": [2.76, 2.81, 3.22],
+    "mem_total": 134404689920, "mem_used": 44163833856,
+    "swap_total": 201326587904, "swap_used": 25368027136
+  },
+  "server": {
+    "pid": 1194811, "cpu_pct": 103.8, "rss": 4231260672, "procs": 2,
+    "children": [
+      { "pid": 1194900, "name": "opencoti-llamafile", "model": "qwen3:4b", "cpu_pct": 99.9, "rss": 4200000000 }
+    ]
+  },
+  "devices": [
+    {
+      "pci_id": "0000:01:00.0", "vendor": "nvidia", "name": "NVIDIA GeForce RTX 3090", "source": "nvml",
+      "backend": "CUDA", "id": "0", "engine": "opencoti",
+      "total_memory": 25769803776, "free_memory": 21242435584, "used_memory": 4527368192,
+      "util_pct": 97, "mem_util_pct": 61, "temp_c": 64, "power_w": 214.7, "power_limit_w": 220,
+      "clock_mhz": 1890, "clock_max_mhz": 2115, "fan_pct": 52,
+      "link": { "gen": 3, "width": 16, "max_gen": 3, "max_width": 16, "h2d_gbps": null, "d2h_gbps": null }
+    }
+  ],
+  "models": [
+    {
+      "name": "qwen3:4b", "pid": 1194900, "size": 4300000000, "size_vram": 4300000000, "context_length": 8192,
+      "devices": [ { "backend": "CUDA", "id": "0", "pci_id": "0000:01:00.0", "vram": 4300000000 } ]
+    }
+  ]
+}
+```
+
+- **`host`** is the whole machine. `cpu_pct` is of all cores together (0 to
+  100). On Windows `load` is null (there is no load average), and `swap` is
+  the paging files.
+- **`server`** is this server's process and everything under it: the runners
+  and engines it started. `cpu_pct` there is of one core, so a tree keeping
+  four cores busy reads 400. Each child that serves a model names it.
+- **`devices`** lists every GPU the vendor's driver reports, including one
+  the server does not use. `backend`, `id` and `engine` are the server's own
+  view of that GPU, as in [`/api/xollama/devices`](/xollama/tweak#choosing-the-gpu-a-model-runs-on);
+  they are absent for a GPU the server does not use. Join the two by `pci_id`.
+- **`models`** are the loaded models as the server placed them, with each
+  one's share of every GPU. A model still loading is not listed until it is
+  ready.
+
+## What each platform can read
+
+A field that is `null` is one this platform does not expose cheaply. Nothing
+is estimated, and `null` never stands in for 0.
+
+| | Memory | Utilization | Temperature | Power and limit | Clocks | Fan | PCIe link |
+|---|---|---|---|---|---|---|---|
+| NVIDIA, Linux and Windows (NVML) | ✓ | ✓ GPU and memory | ✓ | ✓ | ✓ | ✓ | ✓ |
+| AMD, Linux (`/sys`) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Intel, Linux (`/sys`) | — | — | — | discrete Arc | ✓ | — | ✓ |
+| AMD and Intel, Windows (D3DKMT) | ✓ dedicated | ✓ | — | — | — | — | — |
+| Apple silicon (IOKit) | in use, of the server's working set | ✓ | — | — | — | — | — |
+
+- **Rates need two readings.** `cpu_pct` on the host and on every process,
+  Windows GPU utilization and Intel power are rates. The first response after
+  an idle minute has them `null`; the next one, 2 seconds later, has them.
+  When a process started since the last reading, the tree's `cpu_pct` is
+  `null` for one reading rather than a sum that leaves it out.
+- **A GPU that has powered itself down** (a laptop's or a second card's
+  runtime power management, on Linux) is not woken to be read: only its
+  link is reported until something wakes it.
+- **The PCIe link** is what the bus reports now, which on an idle NVIDIA card
+  is often a lower generation than its maximum. `h2d_gbps` and `d2h_gbps` are
+  the last [link probe](/xollama/tweak#the-servers-gpus)'s measurement, with
+  `measured_at`, and stay `null` until one runs on this server. A poll never
+  measures.
+- **In Docker**, the host figures are what the container sees, the server
+  tree is the container's processes, and a GPU appears only when the
+  container has it (`--gpus` for NVIDIA, `/dev/dri` for AMD and Intel).
+
+## Token counters
+
+Generation speed is not in this snapshot; it comes from the engine. On
+opencoti read `/api/engine?model=<model>&endpoint=polykv/tps&once=1`. A stock
+`llama.cpp` engine serves its `/metrics` counters only when started with
+`--metrics`: set `XOLLAMA_ENGINE_ARGS=--metrics` on the server, then read
+`/api/engine?model=<model>&endpoint=metrics`. See
+[Seeing what the engine did](/xollama/introspection).
+
+## Access
+
+The route follows the server's [API key](/xollama/api-key): with a key set,
+send `Authorization: Bearer <key>`. Unlike the settings and the link probe it
+is not limited to the server's own machine, since watching a server from
+another one is what it is for.

@@ -5,6 +5,21 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-18 — `GET /api/xollama/system` (`system_telemetry_v1`): host, server process tree, every GPU and the loaded models in one cached snapshot, for osync's remote psmonitor (owner 18:28 "yes we build /api/xollama/system for the next release"; task xo-30).**
+> **How it works:** one snapshot, refreshed every 2 s while polled within a minute; a request never starts a discovery, an engine or a probe, and never waits on a load.
+> **Sources, all read in process (`internal/systel/`):**
+> - host and process tree: `/proc`, Win32, mach/sysctl/libproc;
+> - NVIDIA: NVML loaded at run time, every field, Linux and Windows;
+> - AMD and Intel on Linux: `/sys/class/drm`; a runtime-suspended GPU is not woken;
+> - Windows non-NVIDIA: D3DKMT plus the GPU performance counters (memory and utilization);
+> - Apple: IOKit (utilization and in-use memory).
+> **Server side:** `server/xollama_system.go` joins the readings to the server's own device view by bus address and keeps the last link probe's measurement. `server/xollama_system_models.go` reads the loaded models with `TryLock`. `discover/known_devices.go` gives the last discovery's list.
+> **Measured live:**
+> - solidPC: first poll 44 ms, cached 0.4 ms (140–160 µs in the server log), no discovery triggered. qwen3:4b generating: 3090 at 97 %, 200 W, 69 °C, PCIe gen 1→3; model 7.04 GB on `0000:01:00.0`; engine child named after its llamafile and its model.
+> - eleven2go (3090 NVML; 9070 XT and iGPU via D3DKMT), pandorum (5080), Mac mini (M4, IOKit; host CPU 1.7 % against `top`'s 3.4 %).
+> **Tests and records:** new tests in `server/xollama_system_test.go` (no-wait guard verified by mutation; the API key is enforced) and `internal/systel/*_test.go`. Registry row `system-telemetry`; docs `docs/xollama/system.mdx`. 3090 and Mac use coordinated with opencoti (#1660/#1663/#1665, #1661/#1664).
+> **Corrections to the design mails to osync (#1656–#1658):** token counters need no new variable (`XOLLAMA_ENGINE_ARGS=--metrics` reaches both engines), and models carry VRAM per device instead of offloaded layers.
+
 > **2026-10-17 — `docs/xollama/polykv.mdx`: xOllama's PolyKV page (owner 21:09 "xollama should have a polykv documentation").**
 > One page for everything xOllama does with opencoti's shared cache: session windows (`placement`, `X-Context-Window`), shared prefix pools (`session.pool`), council pool trees (`council.polykv`, `num_ctx 0`), a client's own pools (`session.client_pools`, `/api/engine`, `placement.pool_id`), the engine features each one needs (`polykv_subpools_v1`, `kv_status_v1`, `pool_unowned_v1`, `elastic_window_unheld_v1`), how to see it, and one settings table. Release by `DELETE polykv/pools/{id}` or `POST …/release`: both are in the engine source (`server.cpp:606`), though opencoti's `polykv_api.md` still says no DELETE route exists. `opencoti-tuning.mdx` no longer says xOllama sets no pools and proxies no `/polykv/*` (both wrong since `/api/engine` and the pool code); its PolyKV section now points to the page. Linked from Sessions and Council, in the Engine tuning nav. Two `11434` examples in `sessions.mdx` now use 22434. c14's `kv_reservation_yield_v1` is noted as coming (opencoti dev build `2610172051001`, mail #1605, not on HF).
 
