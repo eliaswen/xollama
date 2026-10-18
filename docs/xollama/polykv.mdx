@@ -204,9 +204,9 @@ evicted against what it will really hold. See
 [Concurrent requests](/xollama/slots).
 
 <Note>
-  **Coming with opencoti c14:** an idle session that opts in with
+  **Not passed through yet:** an idle session that opts in with
   `yield_when_idle` gives its window back to a new request that could not
-  otherwise be placed (`kv_reservation_yield_v1`). It is in an opencoti dev
-  build only. xOllama passes it through once a published c14 is pinned and
-  measured.
+  otherwise be placed (`kv_reservation_yield_v1`). The pinned engine (opencoti
+  c13 r6) has it, but xOllama does not send `yield_when_idle` yet, so every
+  window is held as described above.
 </Note>

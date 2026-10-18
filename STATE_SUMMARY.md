@@ -5,6 +5,28 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-19 — `dev` pins opencoti's c13 r6 (index `b6334984`, engine `2610182159001`); every gate passes on solidPC, eleven2go and the Mac mini.**
+> - opencoti mail #1683 announced r6 on the owner's 23:10 word. Owner 23:40: "start the measurement if gates are passing rc and if all check again release". New against r5:
+>   - engine 2610182159001;
+>   - vulkan 2610182214001 and macos 2610182214002 (signed Metal dylib `10111332`; r5's loader);
+>   - cuda, cuda12, sbsa and media are r5's files at the new payload commit `6710a92b`;
+>   - same ABIs;
+>   - new feature rows `kv_reservation_yield_v1`, `tool_call_abandon_v1` and `tool_call_in_thinking_v1`. xOllama sends none of their request fields yet, so `polykv.mdx` now says `yield_when_idle` is not passed through rather than "coming with c14".
+> - Gates on the r6 bytes, with r5 as the control:
+>   - G3: compat 8/8; llama3 75.9-77.0 (r5 77.1-77.8); overflow 4.04 (r5 3.61, opencoti's CPU-spin fix). The first single 4-slot run read 296.7 (r5 310.3); re-run interleaved four rounds each it is r6 304.1-311.3 against r5 307.8-309.9, so noise.
+>   - G4: decision 7/7 on opencoti; chat paths all pass; 0 KV refusals.
+>   - G6: speech 8/8; video 33 frames on both models.
+>   - G5: council 6/6, 0 crashes. Turn tokens 346-15.1k. The idle tag had 19 refusals (r5 25), all answered.
+>   - 0 foreign files.
+>   - G8 eleven2go:
+>     - 3090: 124.6-125.3 (r5 123.5-124.7);
+>     - 9070 XT: 99.0-102.4, and 103.2 after 120 s idle (r5 100.5-103.2);
+>     - kill test: 292 ms (r5 1117);
+>     - iGPU: 4.8-4.9 (r5 5.2; asked opencoti in #1688);
+>     - card OK, 0 dumps.
+>   - Mac mini: qwen2.5:1.5b 128.2-128.4 (r5 124.8-125.0), llama3 31.4-31.7 (r5 30.6-30.9), qwen3.5:2b 63.5-63.9 (r5 60.5-62.1); speech 7/7; 0 crash lines.
+> - opencoti's agentic note (repeat penalties break verbatim copies) needs nothing here. `api.DefaultOptions` has `repeat_penalty` 1.0, presence 0 and frequency 0, and xOllama exposes no DRY. Hosts were coordinated with opencoti in #1685-#1690. Next: the release `v0.40.4-xollama.5`.
+
 > **2026-10-18 — `GET /api/xollama/system` (`system_telemetry_v1`): host, server process tree, every GPU and the loaded models in one cached snapshot, for osync's remote psmonitor (owner 18:28 "yes we build /api/xollama/system for the next release"; task xo-30).**
 > **How it works:** one snapshot, refreshed every 2 s while polled within a minute; a request never starts a discovery, an engine or a probe, and never waits on a load.
 > **Sources, all read in process (`internal/systel/`):**
