@@ -16,7 +16,7 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 > **Server side:** `server/xollama_system.go` joins the readings to the server's own device view by bus address and keeps the last link probe's measurement. `server/xollama_system_models.go` reads the loaded models with `TryLock`. `discover/known_devices.go` gives the last discovery's list.
 > **Measured live:**
 > - solidPC: first poll 44 ms, cached 0.4 ms (140–160 µs in the server log), no discovery triggered. qwen3:4b generating: 3090 at 97 %, 200 W, 69 °C, PCIe gen 1→3; model 7.04 GB on `0000:01:00.0`; engine child named after its llamafile and its model.
-> - eleven2go (3090 NVML; 9070 XT and iGPU via D3DKMT), pandorum (5080), Mac mini (M4, IOKit; host CPU 1.7 % against `top`'s 3.4 %).
+> - eleven2go (3090 NVML; 9070 XT and iGPU via D3DKMT), pandorum (5080), Mac mini (Apple M6, IOKit; host CPU 1.7 % against `top`'s 3.4 %; full route on a side server with qwen2.5:1.5b on Metal: GPU joined to the Metal device with the 17.76 GiB working set as its size, 83–98 % util, model 1.08 GiB, 126.2 tok/s, engine child named after its llamafile through `kern.procargs2`).
 > **Tests and records:** new tests in `server/xollama_system_test.go` (no-wait guard verified by mutation; the API key is enforced) and `internal/systel/*_test.go`. Registry row `system-telemetry`; docs `docs/xollama/system.mdx`. 3090 and Mac use coordinated with opencoti (#1660/#1663/#1665, #1661/#1664).
 > **Corrections to the design mails to osync (#1656–#1658):** token counters need no new variable (`XOLLAMA_ENGINE_ARGS=--metrics` reaches both engines), and models carry VRAM per device instead of offloaded layers.
 

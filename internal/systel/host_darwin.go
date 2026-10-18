@@ -68,6 +68,10 @@ static int systel_task(int pid, unsigned long long *ns, unsigned long long *rss)
 import "C"
 
 import (
+	"bytes"
+	"encoding/binary"
+	"path/filepath"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -134,4 +138,46 @@ func (darwinPlatform) procs() []procInfo {
 		}
 	}
 	return cand
+}
+
+// name names a program run through cosmopolitan's loader
+// ("ape-macos-aarch64", as the opencoti engine is, and cut to 15 characters
+// by the process table) after the program itself, its argv[1].
+func (darwinPlatform) name(p procInfo) string {
+	if !strings.HasPrefix(p.name, "ape-") {
+		return p.name
+	}
+	if a := procArgs(p.pid); len(a) > 1 && a[1] != "" {
+		return filepath.Base(a[1])
+	}
+	return p.name
+}
+
+// procArgs reads a process's arguments (kern.procargs2): argc, the
+// executable's path, padding, then argv.
+func procArgs(pid int) []string {
+	b, err := unix.SysctlRaw("kern.procargs2", pid)
+	if err != nil || len(b) < 4 {
+		return nil
+	}
+	argc := int(binary.LittleEndian.Uint32(b))
+	rest := b[4:]
+	i := bytes.IndexByte(rest, 0) // the executable's path
+	if i < 0 {
+		return nil
+	}
+	rest = bytes.TrimLeft(rest[i:], "\x00")
+	var args []string
+	for len(args) < argc && len(rest) > 0 {
+		j := bytes.IndexByte(rest, 0)
+		if j < 0 {
+			j = len(rest)
+		}
+		args = append(args, string(rest[:j]))
+		if j == len(rest) {
+			break
+		}
+		rest = rest[j+1:]
+	}
+	return args
 }
