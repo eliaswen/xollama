@@ -1,8 +1,8 @@
 format     2
 component  engine
-version    2610170942001
+version    2610182159001
 repo       ManniX-ITA/opencoti-llamafile
-rev        0e6ec9aa810d869c888a59634266ab3096f2b7b6
+rev        6710a92b64ded134e8b2b6bc85cbcf805575acca
 abi        ggml bac5050ddc8c58c51f0b059a7f9753b33af0ed79d355090e7c9a17ffaaaf340a
 abi        media b099409b3029a6e380268e31d1caefa6706569961d32e72b3543fbc73903d95c
 abi        loader d6ff34022f1d3fb5af56ca0c80e3f4e552bf09f1bebdf0cb5f314a454bf38dbc
@@ -39,6 +39,7 @@ feature    kv_observable_v1
 feature    kv_pressure_v1
 feature    kv_recyclable_v1
 feature    kv_reservation_idle_v1
+feature    kv_reservation_yield_v1
 feature    kv_resident_admission_v1
 feature    kv_resize_deferred_v1
 feature    kv_resize_live_v1
@@ -73,10 +74,12 @@ feature    stream_keepalive_v1
 feature    swa_trim_v1
 feature    systemone_v1
 feature    tcp_keepalive_v1
+feature    tool_call_abandon_v1
+feature    tool_call_in_thinking_v1
 feature    tps_real_pool_id_v1
 feature    tps_snapshot_v1
 feature    videos_generate_v1 x86_64 win-x86_64 macos-aarch64
 feature    videos_i2v_v1 x86_64 win-x86_64 macos-aarch64
-file  any            bin        components/engine/2610170942001/opencoti-llamafile-0.10.5-c13-bare.llamafile  99bb9c467050a37042b00e5ff9ae20f409a20061d16b95379390325222652313  145676325
-file  win-x86_64     bin        components/engine/2610170942001/opencoti-llamafile-0.10.5-c13-win-x86_64.llamafile.exe  99bb9c467050a37042b00e5ff9ae20f409a20061d16b95379390325222652313  145676325
-file  any            build-info components/engine/2610170942001/BUILD_INFO.engine.md  1fbc3f0366beb50cf7dbd8790deeefb9a85fb01f090a8901cce338d9aa673656  20704
+file  any            bin        components/engine/2610182159001/opencoti-llamafile-0.10.5-c13-bare.llamafile  90c343ffc6839cd3ef0b28081ab702471daa5ad2eefd1d1d197244ec8c4f3a13  146062827
+file  win-x86_64     bin        components/engine/2610182159001/opencoti-llamafile-0.10.5-c13-win-x86_64.llamafile.exe  90c343ffc6839cd3ef0b28081ab702471daa5ad2eefd1d1d197244ec8c4f3a13  146062827
+file  any            build-info components/engine/2610182159001/BUILD_INFO.engine.md  f79bb58058cc5c1ed273ec385d8d81630ffea8fe75884f4cb4cea2c495778663  3719

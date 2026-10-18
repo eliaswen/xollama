@@ -3,15 +3,17 @@ component  cuda
 version    2610160820001
 built-from 2610141255001
 repo       ManniX-ITA/opencoti-llamafile
-rev        0e6ec9aa810d869c888a59634266ab3096f2b7b6
+rev        6710a92b64ded134e8b2b6bc85cbcf805575acca
 abi        ggml bac5050ddc8c58c51f0b059a7f9753b33af0ed79d355090e7c9a17ffaaaf340a
 abi-source exported
 engine-min 2610141212001
 gated-with 2610160746001
 gated-with 2610161700001
 gated-with 2610170942001
+gated-with 2610181815001
+gated-with 2610182159001
 sass       75 80 86 89 90 120
 requires   x86_64         glibc          2.27
 file  x86_64         cuda       components/cuda/2610160820001/ggml-cuda-x86_64.so  1beda05b1dbf406796975bedfdd55cdd51ad4bc07696ba28c3aa0ca0e3c8acbb  757231168
 file  win-x86_64     cuda       components/cuda/2610160820001/ggml-cuda-win-x86_64.dll  68cd73b1afe125bb54d2e9d62320b07cf4f38617e725d54bf603ef5a9ccd151d  732354560
-file  any            build-info components/cuda/2610160820001/BUILD_INFO.cuda.md  b39381520b87bfb8210d18dc586332496d2bcc5ec50f7c6884cbf91c843ebc6d  4609
+file  any            build-info components/cuda/2610160820001/BUILD_INFO.cuda.md  b3ac924828adab8e0e381df5ed42fb477927269713710038801afed90c2cacf0  4823

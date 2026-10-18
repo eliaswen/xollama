@@ -5,6 +5,56 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-19 — `dev` pins opencoti's c13 r6 (index `b6334984`, engine `2610182159001`); every gate passes on solidPC, eleven2go and the Mac mini.**
+> - opencoti mail #1683 announced r6 on the owner's 23:10 word. Owner 23:40: "start the measurement if gates are passing rc and if all check again release". New against r5:
+>   - engine 2610182159001;
+>   - vulkan 2610182214001 and macos 2610182214002 (signed Metal dylib `10111332`; r5's loader);
+>   - cuda, cuda12, sbsa and media are r5's files at the new payload commit `6710a92b`;
+>   - same ABIs;
+>   - new feature rows `kv_reservation_yield_v1`, `tool_call_abandon_v1` and `tool_call_in_thinking_v1`. xOllama sends none of their request fields yet, so `polykv.mdx` now says `yield_when_idle` is not passed through rather than "coming with c14".
+> - Gates on the r6 bytes, with r5 as the control:
+>   - G3: compat 8/8; llama3 75.9-77.0 (r5 77.1-77.8); overflow 4.04 (r5 3.61, opencoti's CPU-spin fix). The first single 4-slot run read 296.7 (r5 310.3); re-run interleaved four rounds each it is r6 304.1-311.3 against r5 307.8-309.9, so noise.
+>   - G4: decision 7/7 on opencoti; chat paths all pass; 0 KV refusals.
+>   - G6: speech 8/8; video 33 frames on both models.
+>   - G5: council 6/6, 0 crashes. Turn tokens 346-15.1k. The idle tag had 19 refusals (r5 25), all answered.
+>   - 0 foreign files.
+>   - G8 eleven2go:
+>     - 3090: 124.6-125.3 (r5 123.5-124.7);
+>     - 9070 XT: 99.0-102.4, and 103.2 after 120 s idle (r5 100.5-103.2);
+>     - kill test: 292 ms (r5 1117);
+>     - iGPU: 4.8-4.9 (r5 5.2; asked opencoti in #1688);
+>     - card OK, 0 dumps.
+>   - Mac mini: qwen2.5:1.5b 128.2-128.4 (r5 124.8-125.0), llama3 31.4-31.7 (r5 30.6-30.9), qwen3.5:2b 63.5-63.9 (r5 60.5-62.1); speech 7/7; 0 crash lines.
+> - opencoti's agentic note (repeat penalties break verbatim copies) needs nothing here. `api.DefaultOptions` has `repeat_penalty` 1.0, presence 0 and frequency 0, and xOllama exposes no DRY. Hosts were coordinated with opencoti in #1685-#1690. Next: the release `v0.40.4-xollama.5`.
+
+> **2026-10-18 — `GET /api/xollama/system` (`system_telemetry_v1`): host, server process tree, every GPU and the loaded models in one cached snapshot, for osync's remote psmonitor (owner 18:28 "yes we build /api/xollama/system for the next release"; task xo-30).**
+> **How it works:** one snapshot, refreshed every 2 s while polled within a minute; a request never starts a discovery, an engine or a probe, and never waits on a load.
+> **Sources, all read in process (`internal/systel/`):**
+> - host and process tree: `/proc`, Win32, mach/sysctl/libproc;
+> - NVIDIA: NVML loaded at run time, every field, Linux and Windows;
+> - AMD and Intel on Linux: `/sys/class/drm`; a runtime-suspended GPU is not woken;
+> - Windows non-NVIDIA: D3DKMT plus the GPU performance counters (memory and utilization);
+> - Apple: IOKit (utilization and in-use memory).
+> **Server side:** `server/xollama_system.go` joins the readings to the server's own device view by bus address and keeps the last link probe's measurement. `server/xollama_system_models.go` reads the loaded models with `TryLock`. `discover/known_devices.go` gives the last discovery's list.
+> **Measured live:**
+> - solidPC: first poll 44 ms, cached 0.4 ms (140–160 µs in the server log), no discovery triggered. qwen3:4b generating: 3090 at 97 %, 200 W, 69 °C, PCIe gen 1→3; model 7.04 GB on `0000:01:00.0`; engine child named after its llamafile and its model.
+> - eleven2go (3090 NVML; 9070 XT and iGPU via D3DKMT), pandorum (5080), Mac mini (Apple M6, IOKit; host CPU 1.7 % against `top`'s 3.4 %; full route on a side server with qwen2.5:1.5b on Metal: GPU joined to the Metal device with the 17.76 GiB working set as its size, 83–98 % util, model 1.08 GiB, 126.2 tok/s, engine child named after its llamafile through `kern.procargs2`).
+> **Tests and records:** new tests in `server/xollama_system_test.go` (no-wait guard verified by mutation; the API key is enforced) and `internal/systel/*_test.go`. Registry row `system-telemetry`; docs `docs/xollama/system.mdx`. 3090 and Mac use coordinated with opencoti (#1660/#1663/#1665, #1661/#1664).
+> **Corrections to the design mails to osync (#1656–#1658):** token counters need no new variable (`XOLLAMA_ENGINE_ARGS=--metrics` reaches both engines), and models carry VRAM per device instead of offloaded layers.
+
+> **2026-10-17 — `docs/xollama/polykv.mdx`: xOllama's PolyKV page (owner 21:09 "xollama should have a polykv documentation").**
+> One page for everything xOllama does with opencoti's shared cache: session windows (`placement`, `X-Context-Window`), shared prefix pools (`session.pool`), council pool trees (`council.polykv`, `num_ctx 0`), a client's own pools (`session.client_pools`, `/api/engine`, `placement.pool_id`), the engine features each one needs (`polykv_subpools_v1`, `kv_status_v1`, `pool_unowned_v1`, `elastic_window_unheld_v1`), how to see it, and one settings table. Release by `DELETE polykv/pools/{id}` or `POST …/release`: both are in the engine source (`server.cpp:606`), though opencoti's `polykv_api.md` still says no DELETE route exists. `opencoti-tuning.mdx` no longer says xOllama sets no pools and proxies no `/polykv/*` (both wrong since `/api/engine` and the pool code); its PolyKV section now points to the page. Linked from Sessions and Council, in the Engine tuning nav. Two `11434` examples in `sessions.mdx` now use 22434. c14's `kv_reservation_yield_v1` is noted as coming (opencoti dev build `2610172051001`, mail #1605, not on HF).
+
+> **2026-10-17 — `v0.40.4-xollama.4` is Latest (promoted 15:16; owner 09:17 "yes, release .4 and promote when the images pass").**
+> - PR #35, merge `277a5893f`, release run 39032399058; engine c13 r5 `2610170942001` (index `62db143f`), payload id `74e96761…` (new: Windows takes the full installer). The notes cover v3 plain-line notices, the copy bar, the S2 default wording and the fixed notice fragments; the Gemma 4 known issue still stands.
+> - Full check passed (VALIDATION.md):
+>   - G12: 8 files.
+>   - G9: 3090 124.6–125.1, 9070 XT 103.1–103.3, iGPU 5.1; the update installer over it works.
+>   - G11: the Mac app at 127.4–127.7, and its self-update from `.3`.
+>   - G10: amd64 85.8–86.2 against llama.cpp 85.5–85.8; arm64 10.0–11.1 against 10.9–11.1.
+> - `:latest` is Docker Hub `1f455360…` and GHCR `2ca2cff8…`; Discord announced.
+> - Installed: eleven2go and the Mac mini are on `.4` (by their gates). On eleven2go the owner stopped their session and asked me to unload their model; solidPC's service and pandorum are unchanged. No gate images are left on solidPC or the Pi. The next release on this base needs the owner's word. Next engine: opencoti c14. Fork v0.40.6 is synced (mails #1586/#1588); moving dev to it is the owner's call.
+
 > **2026-10-17 — `dev` pins opencoti's c13 r5 (index `62db143f`, engine `2610170942001`), the engine re-release with notices contract v3 and the copy bar; every gate passes on solidPC, eleven2go and the Mac mini.**
 > - opencoti mail #1593 announced the release on the owner's 11:47 word; the owner's 10:28 hold on bug-4115 was lifted by the copy bar. It is engine-only: every library is r4's file, and the cuda and vulkan pins gain r5 in `gated-with`. `xollama.DefaultNoticeTemplates` is now the engine's S2 wording (0690), byte-for-byte what r5's `--print-notice-config` prints.
 > - bug-4108 A/B through xOllama (Gemma 4 A4B Q4_K_M, 48 sampled answers per engine, v2 notices): r4 planted 129 and leaked in 0; r5 planted 122 and leaked in 0; 0 `<unused>` in either.
@@ -2589,11 +2639,11 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.3` is the latest release (2026-10-16): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r4 (`2610161700001`), the engine
-re-release for Gemma 4's placeholder tokens beside generation notices
-(bug-4108). `dev` pins the same engine and carries generation
-notices v2 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
+`v0.40.4-xollama.4` is the latest release (2026-10-17): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r5 (`2610170942001`), the engine
+re-release with notices contract v3 (plain lines, records per line) and the
+copy bar. `dev` pins the same engine and carries generation
+notices v2 and v3 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
 channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
 memory, the shared-store anchor, the template-swallowed refusal and the
 Qwen3.5 tool-path fix. Next: opencoti c14, the c12 readers, the realtime
@@ -2665,7 +2715,8 @@ proxy. The Agentic Council Chat is in Phase 11.
 
 1. opencoti c14: the pin moves on a measurement once it is published (owner,
    2026-10-16: "c14 is next"); the next release on this base needs the
-   owner's word.
+   owner's word. Moving dev to upstream v0.40.6 (the fork is synced, mails
+   #1586/#1588) is also the owner's call.
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.

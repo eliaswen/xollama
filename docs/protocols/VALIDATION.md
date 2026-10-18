@@ -199,6 +199,30 @@ self-update from `.3`, 126.5 to 127.0. G10 on the tag: amd64 85.8 to 85.9
 against 85.9 to 86.2, speech 4/4; arm64 10.0 to 10.1 against 10.8 to 11.0,
 speech 3/3. Promoted.
 
+**`v0.40.4-xollama.4`** (2026-10-17, re-release, full check; PR #35, merge
+`277a5893f`, release run 39032399058; engine c13 r5 `2610170942001`, index
+`62db143f`, engine-only, every library r4's; payload id `74e96761…`, new, so
+Windows takes the full installer). The engine re-release with notices contract
+v3 and the copy bar (bug-4115), the S2 default wording and the bug-4112/4113
+fixes; xOllama passes v3 through (`7c850b526`, `005345597`). The gate set ran
+on the pin (`8d542c231`, STATE_SUMMARY), plus the bug-4108 A/B (r4 and r5 0
+leaks in 48) and a v3 end-to-end check through both engine routes. G12: 8
+files match; both Linux binaries name the version (amd64 here, arm64 on the
+Pi). G9 eleven2go: `xOllamaSetup.exe` over `0.40.4-xollama.3` exit 0 in 30 s
+(the owner chose "Run now" during their session, then stopped it and had me
+unload their model); `generation_notice_v3` and `_copy_bar` listed; 3090 124.6
+to 125.1 tok/s, 9070 XT 103.1 to 103.3, iGPU 5.1, displays OK; the same
+release's `xOllamaUpdate.exe` over it exit 0, version unchanged, new server;
+11434 untouched. G11 Mac mini: the workflow's app and dmg notarized;
+qwen2.5:1.5b 127.4 to 127.7, llama3 31.0 to 31.2, qwen3.5:2b 60.9 to 62.1;
+speech 7/7; self-update from `.3`, 124.6 to 125.6. G10 amd64: opencoti 85.8 to
+86.2, llama.cpp 85.5 to 85.8, speech 4/4, 0 crash lines. G10 arm64 (Pi 5):
+opencoti 10.0 to 11.1, llama.cpp 10.9 to 11.1, speech 3/3, 0 crash lines, the
+owner's containers up, the gate's image removed. Promoted 15:16 (owner 09:17,
+"release .4 and promote when the images pass"), Discord announced; the image
+run on the tag after promotion (39035871946) moved `:latest` on Docker Hub
+(`1f455360…`) and GHCR (`2ca2cff8…`).
+
 **`v0.40.4-xollama.3`** (2026-10-16, re-release, full check; PR #34, merge
 `3421440ad`, release run 38945617558; engine c13 r4 `2610161700001`, index
 `326b49eb`, engine-only, every library r3's; payload id `7a1f2949…`, new, so
