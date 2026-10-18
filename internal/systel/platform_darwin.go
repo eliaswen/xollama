@@ -1,3 +1,5 @@
+//go:build cgo
+
 package systel
 
 func platformReaders(root int) []reader {
