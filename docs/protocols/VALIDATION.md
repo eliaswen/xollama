@@ -199,6 +199,34 @@ self-update from `.3`, 126.5 to 127.0. G10 on the tag: amd64 85.8 to 85.9
 against 85.9 to 86.2, speech 4/4; arm64 10.0 to 10.1 against 10.8 to 11.0,
 speech 3/3. Promoted.
 
+**`v0.40.4-xollama.5`** (2026-10-19, re-release, full check; PR #36, merge
+`3726e10ee`, image run 39174967989; engine c13 r6 `2610182159001`, index
+`b6334984`, vulkan `2610182214001` and macos `2610182214002` new, cuda, cuda12,
+sbsa and media r5's files; payload id `335fe3d9…`, new, so Windows takes the
+full installer). The engine re-release with Vulkan and Metal native KVarN and
+the CPU spin fix, plus `GET /api/xollama/system`. The gate set ran on the pin
+(`dfdae9d6a`, STATE_SUMMARY). G2: every hosted leg green; the one `race
+(macos-latest)` failure was upstream's `TestLoadedModelLookupConcurrent`, about
+5 % on upstream v0.40.4 too (bug-290), and passed on its rerun. G12: 8 files
+match, the amd64 binary names the version, the tag's image equals `:dev` on
+Docker Hub (`e88452a7…`) and GHCR (`9bf0887b…`), `:latest` unmoved. G9
+eleven2go: `xOllamaSetup.exe` over `0.40.4-xollama.4` exit 0 in 30 s; 3090
+124.4 to 125.3 tok/s, 9070 XT 102.9 to 103.4, iGPU 5.0 (G8's 4.8 to 4.9 not
+reproduced), displays OK, 0 ERROR lines; the same release's
+`xOllamaUpdate.exe` over it exit 0 in 4 s, version unchanged, new server;
+11434 untouched. G11 Mac mini: the workflow's app and dmg notarized and
+stapled, "metal: abi ggml bac5050ddc8c matches this engine"; qwen2.5:1.5b 128.3
+to 128.6, llama3 32.0 to 32.2, qwen3.5:2b 63.8 to 64.1; speech 7/7, 0 crash
+lines; self-update from `.4` verified and applied on a hidden start, 127.6.
+G10 amd64: opencoti 85.5 to 85.9, llama.cpp 85.4 to 85.8, speech 4/4, 0 crash
+lines. G10 arm64 (Pi 5, 46 to 72 °C): opencoti 9.9 to 10.4, llama.cpp 10.8 to
+11.2, speech 3/3, 0 crash lines, the owner's containers up; both hosts left
+without the image. Promoted 07:17 (owner 2026-10-18 23:40, "start the
+measurement if gates are passing rc and if all check again release"; 06:46
+"watch the run and do the full check"), Discord announced (39203731533); the
+image run on the tag after promotion (39203756458) moved `:latest` on Docker Hub
+(`e559d304…`) and GHCR (`ccf0c823…`).
+
 **`v0.40.4-xollama.4`** (2026-10-17, re-release, full check; PR #35, merge
 `277a5893f`, release run 39032399058; engine c13 r5 `2610170942001`, index
 `62db143f`, engine-only, every library r4's; payload id `74e96761…`, new, so
