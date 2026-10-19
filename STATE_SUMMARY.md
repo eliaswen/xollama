@@ -13,7 +13,14 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 > - `llama/compat`, `llama/server`, `LLAMA_CPP_VERSION` and the MLX versions are byte-identical to the fork's. Over the 71 patch files, the fork's lines dev lacks are the same set as before the sync, except the runner-job return (our launch's extra result).
 > - Pins: Linux amd64/arm64, macOS MLX and Windows MLX (reldir `f9bde5de`) move to `v0.40.6-thinkbudget`, inputs `83f79eeb…` = this tree. The Windows CPU runtime builds on the push (`xollama-runtime.yaml`), and its pin follows.
 > - Build, vet and `check-hooks.sh` clean; `go test ./...` passes except the MLX packages' known local `libnvrtc-builtins.so.13.0` panic (buglog).
-> - Next: the Windows runtime pin, the sync gates (G1–G5, G10 on `:dev`), then `v0.40.6-rc.1.xollama` (RELEASE.md rule 7).
+> - Windows CPU runtime pin: `runtime-windows-amd64-b11669-5bdf15ab97bf` (`ffe0116a…`, inputs = this tree), `252cddde7`.
+> - Gates on the synced tree (`/srv/ml/x0406`, payload assembled from the new pins):
+>   - G3 opencoti: compat 8/8, llama3 77.6, 4 slots 303.3, overflow 3.89.
+>   - G3 stock llama.cpp b11669: 8/8, 78.2, 603.9, 2.85.
+>   - G4: decision 7/7 on opencoti; chat all pass, 0 KV refusals. `decision.sh` now takes its default expectation from the pin's `systemone_v1` row; its fixed `stock` default had failed this correct run.
+>   - G6: speech 8/8, video 33 ×2.
+>   - G5: 6/6, 0 crashes; the idle tag had 36 refusals (r6 19), correct answers.
+> - Next: `v0.40.6-rc.1.xollama` (RELEASE.md rule 7); G9 includes the Windows MLX reldir check.
 
 > **2026-10-19 — Release protocol: xollama follows the fork to every new upstream with a release (RELEASE.md rule 7, FORK-SYNC step 6).**
 > - Owner 10:49, after `.5` shipped on v0.40.4 while the fork had been on v0.40.6 since 10-17: "you should have synced to 0.40.6 with the latest release already … if the ollama fork has synced to a new upstream version also xollama must sync to it with a new release unless I explicitely ask not to".
