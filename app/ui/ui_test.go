@@ -537,7 +537,7 @@ func TestGetErrorServerResponse(t *testing.T) {
 				json.NewEncoder(w).Encode(map[string]string{"error": tt.message})
 			}))
 			defer ts.Close()
-			t.Setenv("OLLAMA_HOST", ts.URL)
+			t.Setenv("XOLLAMA_HOST", ts.URL)
 
 			server := &Server{}
 			client := server.inferenceClient()
