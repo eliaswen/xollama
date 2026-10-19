@@ -5,6 +5,16 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-19 — `dev` is on upstream v0.40.6 (fork manifest `33e6af53`, 27 patches, llama.cpp b11669, MLX `bebd6422`).**
+> - `c91637c4d` merges the upstream tag (27 commits, 87 files). Two conflicts:
+>   - `llm/llama_server.go`: upstream's new `AddRunnerToJob` (every runner in one kill-on-close Windows job) is taken as written. The `engine-lifetime` hook there is retired: Registry row removed, the media engine keeps its own binding, engine doc updated.
+>   - `server/routes.go`: the tokenize routes beside the cloud-guarded `/v1/systemone`.
+> - Then 27 `--no-ff` merges at the manifest's shas (`d9dbea6ec`…`784d930d5`, table in CARRIED-PATCHES); none retires (all 13 carried PRs still open).
+> - `llama/compat`, `llama/server`, `LLAMA_CPP_VERSION` and the MLX versions are byte-identical to the fork's. Over the 71 patch files, the fork's lines dev lacks are the same set as before the sync, except the runner-job return (our launch's extra result).
+> - Pins: Linux amd64/arm64, macOS MLX and Windows MLX (reldir `f9bde5de`) move to `v0.40.6-thinkbudget`, inputs `83f79eeb…` = this tree. The Windows CPU runtime builds on the push (`xollama-runtime.yaml`), and its pin follows.
+> - Build, vet and `check-hooks.sh` clean; `go test ./...` passes except the MLX packages' known local `libnvrtc-builtins.so.13.0` panic (buglog).
+> - Next: the Windows runtime pin, the sync gates (G1–G5, G10 on `:dev`), then `v0.40.6-rc.1.xollama` (RELEASE.md rule 7).
+
 > **2026-10-19 — Release protocol: xollama follows the fork to every new upstream with a release (RELEASE.md rule 7, FORK-SYNC step 6).**
 > - Owner 10:49, after `.5` shipped on v0.40.4 while the fork had been on v0.40.6 since 10-17: "you should have synced to 0.40.6 with the latest release already … if the ollama fork has synced to a new upstream version also xollama must sync to it with a new release unless I explicitely ask not to".
 > - Standing from now on, with no new word needed. Before any release, compare the fork's base (`git describe --tags --abbrev=0 fork/think-budget`) with dev's.
