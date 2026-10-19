@@ -5,6 +5,22 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-19 — `v0.40.6-xollama` released and promoted (Latest, 15:36): upstream v0.40.6, llama.cpp b11669, opencoti c13 r6.**
+> - `v0.40.6-rc.1.xollama` (PR #37, merge `05fc5511d`, release run 39239784139) passed the full check on its published bytes (numbers in `docs/protocols/VALIDATION.md`):
+>   - G2 green after bug-292.
+>   - G12 8 files match.
+>   - G9 eleven2go: full installer 203 s including the MLX download; 3090 125, 9070 XT 103, iGPU 4.9; MLX without system cuDNN 105/109.
+>   - G11 Mac: notarized; 126.7, MLX 78, speech 7/7; self-update from `.5`.
+>   - G10: amd64 86 / 85; Pi 11.0 / 11.0.
+> - `v0.40.6-xollama` was cut from rc.1's tree (`2d2833932`, PR #38, merge `7e7d3ce58`, run 39246145299, `tree matches`):
+>   - G12 8 files match; the image equals `:dev`.
+>   - Mac self-update from rc.1: 126.8–126.9.
+>   - eleven2go (after claude-hooks' bench released 22434): small updater over rc.1 exit 0 in 4 s; 3090 qwen3:8b 123.6 cold, 125.1–125.3 warm; 11434 untouched.
+> - Promoted under RELEASE.md rule 7 (no further word needed). Discord announced (39261549777). The image run on the tag (39261556041) moved `:latest` (Docker Hub `255dc231…`, GHCR `845f0455…`).
+> - G3's four-slot gap (303 against stock's 604) is opencoti's bug-4143. The engine's elastic tick admitted one slot per three held seconds, so a burst never went past two live slots. opencoti fixes it in a dev build (#1720); xOllama's `-np 1 --max-parallel 4` stays. G3 is rerun when the pin moves.
+> - Mails: eleven2go BEFORE/AFTER to opencoti (#1723/#1724), done to claude-hooks (#1725).
+> - Left: the bug-4143 engine build and its pin; opencoti c14; the c12 readers; the realtime proxy.
+
 > **2026-10-19 — `dev` is on upstream v0.40.6 (fork manifest `33e6af53`, 27 patches, llama.cpp b11669, MLX `bebd6422`).**
 > - `c91637c4d` merges the upstream tag (27 commits, 87 files). Two conflicts:
 >   - `llm/llama_server.go`: upstream's new `AddRunnerToJob` (every runner in one kill-on-close Windows job) is taken as written. The `engine-lifetime` hook there is retired: Registry row removed, the media engine keeps its own binding, engine doc updated.
@@ -2671,10 +2687,13 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.5` is the latest release (2026-10-19): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r6 (`2610182159001`, Vulkan and Metal
-native KVarN, the CPU spin fix), and `GET /api/xollama/system`. `dev` is the
-release's tree and pins the same engine. It carries generation notices v2 and
+`v0.40.6-xollama` is the latest release (2026-10-19): upstream v0.40.6 (fork
+manifest `33e6af53`, 27 carried patches, llama.cpp b11669, MLX `bebd6422`),
+opencoti c13 r6 (`2610182159001`, Vulkan and Metal native KVarN, the CPU spin
+fix), and `GET /api/xollama/system`. `dev` is the release's tree and pins the
+same engine. xollama follows the fork to every new upstream with a release
+(RELEASE.md rule 7). The engine's four-slot admission bug (bug-4143) is fixed
+in an opencoti dev build, not pinned yet. It carries generation notices v2 and
 v3 with per-model templates, `num_ctx_hold`, the gemma4 re-opened channel fix
 (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread memory, the
 shared-store anchor, the template-swallowed refusal and the Qwen3.5 tool-path
@@ -2745,11 +2764,12 @@ Council Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. Sync `dev` to upstream v0.40.6, which the fork reached on 2026-10-17
-   (`v0.40.6-thinkbudget`, PATCHES.json `33e6af53c`), and release on it:
-   `v0.40.6-rc.1.xollama`, then `v0.40.6-xollama`. This is due now under
-   RELEASE.md rule 7. opencoti c14 is the next engine: the pin moves on a
-   measurement once it is published (owner, 2026-10-16: "c14 is next").
+1. opencoti's bug-4143 build (elastic slots admitted at once; #1720): when it
+   is published, measure G3's four slots on the 3090 (expected about 675
+   against 303) and move the pin on that measurement. opencoti c14 is the next
+   engine, under the same rule (owner, 2026-10-16: "c14 is next"). The next
+   release name is `v0.40.6-xollama.1`, unless the fork moves to a newer
+   upstream first (RELEASE.md rule 7).
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.
