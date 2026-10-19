@@ -288,16 +288,20 @@ loopback dial to a live engine timed out, the engine answered three seconds
 later, and a council turn was lost. Stock llama.cpp keeps upstream's single
 failure.
 
-On Windows an opencoti engine is tied to the server that started it
-(`engine-lifetime` hook, `engine.BindLifetime` in
-`llm/engine/lifetime_windows.go`): every engine, LLM or media, goes into one
-job object with kill-on-close, so a server that is killed or crashes takes its
-engines with it. Windows does not do that by itself, and an orphaned engine
-holding a model on an AMD discrete card through Vulkan hung the display driver
-within seconds (eleven2go, 2026-10-04: watchdog dump `0x141`, once the card
-gone until a reboot, once the machine frozen), while an engine terminated at
-once left the card fine. A binding that fails is a Warn, never a failed load.
-Stock llama.cpp is started as upstream starts it.
+On Windows every engine is tied to the server that started it: a server that
+is killed or crashes takes its engines with it. Windows does not do that by
+itself, and an orphaned engine holding a model on an AMD discrete card through
+Vulkan hung the display driver within seconds (eleven2go, 2026-10-04: watchdog
+dump `0x141`, once the card gone until a reboot, once the machine frozen),
+while an engine terminated at once left the card fine. Since upstream v0.40.6,
+upstream does this for every runner it starts, stock or opencoti
+(`AddRunnerToJob`, `llm/runner_job_windows.go`: one kill-on-close job, and a
+load fails if the runner cannot join it). The media engine is ours, so its
+start in `llm/engine_media.go` binds it through `engine.BindLifetime`
+(`llm/engine/lifetime_windows.go`, the same kind of job). A media engine that
+cannot be bound is a Warn, never a failed load. Up to v0.40.4 the LLM launch
+used the same binding through the `engine-lifetime` hook, which the v0.40.6
+sync retired.
 
 ## Packaging
 

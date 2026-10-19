@@ -396,6 +396,10 @@ of working around it.
    refuses two pins on different fork releases.
 5. Never hand-copy a hunk from `think-budget`. If something is needed before the
    manifest exists, ask for the branch and sha.
+6. Release on the new base: `v<upstream>-rc.1.xollama`, then
+   `v<upstream>-xollama` (`RELEASE.md`, rule 7). A bump that moves `base` is a
+   standing go for that sync and release. Only the owner saying not to holds it,
+   and no further release is cut on the old base once the fork has moved.
 
 ## Identifiers
 

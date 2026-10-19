@@ -2578,7 +2578,7 @@ func (s *Server) GenerateRoutes() (http.Handler, error) {
 	r.POST("/api/embeddings", s.EmbeddingsHandler)
 	r.POST("/api/tokenize", s.TokenizeHandler)
 	r.POST("/api/detokenize", s.DetokenizeHandler)
-	r.POST("/v1/systemone", s.SystemOneHandler)
+	r.POST("/v1/systemone", cloudPassthroughMiddleware(cloudErrRemoteInferenceUnavailable), s.SystemOneHandler)
 
 	// Inference (OpenAI compatibility)
 	// TODO(cloud-stage-a): apply Modelfile overlay deltas for local models with cloud

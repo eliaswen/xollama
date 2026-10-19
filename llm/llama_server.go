@@ -678,9 +678,11 @@ func startLlamaServer(launch llamaServerLaunchConfig, out io.Writer) (cmd *exec.
 	if err = cmd.Start(); err != nil {
 		return nil, 0, false, err
 	}
-	// xollama-hook: engine-lifetime — an opencoti engine ends with this server.
-	if usedOpencoti {
-		bindEngineLifetime(cmd)
+
+	if err = AddRunnerToJob(cmd.Process.Pid); err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return nil, 0, false, fmt.Errorf("assign llama-server to runner job: %w", err)
 	}
 	return cmd, port, usedOpencoti, nil
 }

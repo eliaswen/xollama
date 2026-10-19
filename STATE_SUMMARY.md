@@ -5,6 +5,38 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-19 — `dev` is on upstream v0.40.6 (fork manifest `33e6af53`, 27 patches, llama.cpp b11669, MLX `bebd6422`).**
+> - `c91637c4d` merges the upstream tag (27 commits, 87 files). Two conflicts:
+>   - `llm/llama_server.go`: upstream's new `AddRunnerToJob` (every runner in one kill-on-close Windows job) is taken as written. The `engine-lifetime` hook there is retired: Registry row removed, the media engine keeps its own binding, engine doc updated.
+>   - `server/routes.go`: the tokenize routes beside the cloud-guarded `/v1/systemone`.
+> - Then 27 `--no-ff` merges at the manifest's shas (`d9dbea6ec`…`784d930d5`, table in CARRIED-PATCHES); none retires (all 13 carried PRs still open).
+> - `llama/compat`, `llama/server`, `LLAMA_CPP_VERSION` and the MLX versions are byte-identical to the fork's. Over the 71 patch files, the fork's lines dev lacks are the same set as before the sync, except the runner-job return (our launch's extra result).
+> - Pins: Linux amd64/arm64, macOS MLX and Windows MLX (reldir `f9bde5de`) move to `v0.40.6-thinkbudget`, inputs `83f79eeb…` = this tree. The Windows CPU runtime builds on the push (`xollama-runtime.yaml`), and its pin follows.
+> - Build, vet and `check-hooks.sh` clean; `go test ./...` passes except the MLX packages' known local `libnvrtc-builtins.so.13.0` panic (buglog).
+> - Windows CPU runtime pin: `runtime-windows-amd64-b11669-5bdf15ab97bf` (`ffe0116a…`, inputs = this tree), `252cddde7`.
+> - Gates on the synced tree (`/srv/ml/x0406`, payload assembled from the new pins):
+>   - G3 opencoti: compat 8/8, llama3 77.6, 4 slots 303.3, overflow 3.89.
+>   - G3 stock llama.cpp b11669: 8/8, 78.2, 603.9, 2.85.
+>   - G4: decision 7/7 on opencoti; chat all pass, 0 KV refusals. `decision.sh` now takes its default expectation from the pin's `systemone_v1` row; its fixed `stock` default had failed this correct run.
+>   - G6: speech 8/8, video 33 ×2.
+>   - G5: 6/6, 0 crashes; the idle tag had 36 refusals (r6 19), correct answers.
+> - Next: `v0.40.6-rc.1.xollama` (RELEASE.md rule 7); G9 includes the Windows MLX reldir check.
+
+> **2026-10-19 — Release protocol: xollama follows the fork to every new upstream with a release (RELEASE.md rule 7, FORK-SYNC step 6).**
+> - Owner 10:49, after `.5` shipped on v0.40.4 while the fork had been on v0.40.6 since 10-17: "you should have synced to 0.40.6 with the latest release already … if the ollama fork has synced to a new upstream version also xollama must sync to it with a new release unless I explicitely ask not to".
+> - Standing from now on, with no new word needed. Before any release, compare the fork's base (`git describe --tags --abbrev=0 fork/think-budget`) with dev's.
+> - Next: the v0.40.6 sync, then `v0.40.6-rc.1.xollama`.
+
+> **2026-10-19 — `v0.40.4-xollama.5` released and promoted (Latest, 07:17): opencoti c13 r6, `GET /api/xollama/system`.**
+> - PR #36 merged at `3726e10ee`; pre-release and `:dev` image (run 39174967989). Full check on the published bytes, all pass (numbers in `docs/protocols/VALIDATION.md`):
+>   - G12: 8 files match; payload id `335fe3d9…` (new, so Windows takes the full installer); the tag's image equals `:dev`, `:latest` was unmoved.
+>   - G9 eleven2go: full installer over `.4` exit 0 in 30 s; 3090 124.4–125.3, 9070 XT 102.9–103.4, iGPU 5.0 (G8's 4.8–4.9 not reproduced, so it was that run's state; told opencoti, #1694); update installer exit 0 in 4 s.
+>   - G11 Mac mini: workflow app and dmg notarized; qwen2.5:1.5b 128.3–128.6, llama3 32.0–32.2, qwen3.5:2b 63.8–64.1, speech 7/7; self-update from `.4` applied, 127.6.
+>   - G10: amd64 opencoti 85.5–85.9 / llama.cpp 85.4–85.8, speech 4/4; Pi 5 opencoti 9.9–10.4 / llama.cpp 10.8–11.2, speech 3/3; no image left on either host.
+> - Promoted on the owner's word ("if all check again release", 06:46 "watch the run and do the full check"); Discord announced (39203731533); the image run on the tag (39203756458) moved `:latest` (Docker Hub `e559d304…`, GHCR `ccf0c823…`).
+> - Mails to opencoti: BEFORE/AFTER for eleven2go (#1693/#1694), the Mac (#1695/#1696) and the 3090 (#1697/#1698).
+> - Left: opencoti c14; the v0.40.6 move is the owner's call; xOllama does not pass `yield_when_idle` (`kv_reservation_yield_v1`) yet.
+
 > **2026-10-19 — `dev` pins opencoti's c13 r6 (index `b6334984`, engine `2610182159001`); every gate passes on solidPC, eleven2go and the Mac mini.**
 > - opencoti mail #1683 announced r6 on the owner's 23:10 word. Owner 23:40: "start the measurement if gates are passing rc and if all check again release". New against r5:
 >   - engine 2610182159001;
@@ -2639,15 +2671,15 @@ indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
 ## Where we are
 
-`v0.40.4-xollama.4` is the latest release (2026-10-17): upstream v0.40.4, the
-fork's carried patches, opencoti c13 r5 (`2610170942001`), the engine
-re-release with notices contract v3 (plain lines, records per line) and the
-copy bar. `dev` pins the same engine and carries generation
-notices v2 and v3 with per-model templates, `num_ctx_hold`, the gemma4 re-opened
-channel fix (`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread
-memory, the shared-store anchor, the template-swallowed refusal and the
-Qwen3.5 tool-path fix. Next: opencoti c14, the c12 readers, the realtime
-proxy. The Agentic Council Chat is in Phase 11.
+`v0.40.4-xollama.5` is the latest release (2026-10-19): upstream v0.40.4, the
+fork's carried patches, opencoti c13 r6 (`2610182159001`, Vulkan and Metal
+native KVarN, the CPU spin fix), and `GET /api/xollama/system`. `dev` is the
+release's tree and pins the same engine. It carries generation notices v2 and
+v3 with per-model templates, `num_ctx_hold`, the gemma4 re-opened channel fix
+(`up-gemma4-channel-in-thinking`), the batch kept at 512 on unread memory, the
+shared-store anchor, the template-swallowed refusal and the Qwen3.5 tool-path
+fix. Next: opencoti c14, the c12 readers, the realtime proxy. The Agentic
+Council Chat is in Phase 11.
 
 ## What exists today
 
@@ -2713,10 +2745,11 @@ proxy. The Agentic Council Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. opencoti c14: the pin moves on a measurement once it is published (owner,
-   2026-10-16: "c14 is next"); the next release on this base needs the
-   owner's word. Moving dev to upstream v0.40.6 (the fork is synced, mails
-   #1586/#1588) is also the owner's call.
+1. Sync `dev` to upstream v0.40.6, which the fork reached on 2026-10-17
+   (`v0.40.6-thinkbudget`, PATCHES.json `33e6af53c`), and release on it:
+   `v0.40.6-rc.1.xollama`, then `v0.40.6-xollama`. This is due now under
+   RELEASE.md rule 7. opencoti c14 is the next engine: the pin moves on a
+   measurement once it is published (owner, 2026-10-16: "c14 is next").
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.

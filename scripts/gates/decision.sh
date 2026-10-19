@@ -4,8 +4,10 @@
 # engine (llama.cpp b11521 native). nimble and a Clef model (clef-flash, which
 # also lists `vision`), both in the format v0.40.4 pulls, must be served: by
 # opencoti when the pin declares systemone_v1, else by stock llama-server, each
-# routing logged (server/decision_engine.go). WANT=opencoti|stock (default
-# stock: no pinned engine declares systemone_v1 yet).
+# routing logged (server/decision_engine.go). WANT=opencoti|stock defaults to
+# what this tree's pin says: opencoti when llm/engine/pin/engine.txt has a
+# `feature systemone_v1` row (every pin since c13 r2), else stock. A fixed
+# default went stale once and failed a correct run.
 #   STORE=<scratch store with nimble and clef-flash, pulled by v0.40.4> [X=<xollama in an assembled rootfs>] [W=] [WANT=] scripts/gates/decision.sh
 . "$(dirname "$0")/side.sh"
 D=$here/decision
@@ -23,7 +25,9 @@ ask clef-flash req-image.json '"choice":"red"'
 stock=$(grep -a 'starting llama-server' serve-decision.log | grep -c 'lib/ollama/llama-server')
 routed=$(grep -a -c "decision model is served by stock llama-server" serve-decision.log)
 echo "engines: opencoti loads $(grep -a -c 'opencoti build' serve-decision.log), stock loads $stock, routed to stock (logged) $routed"
-if [ "${WANT:-stock}" = stock ]; then
+want=stock; grep -Eq '^feature[[:space:]]+systemone_v1([[:space:]]|$)' "$repo/llm/engine/pin/engine.txt" && want=opencoti
+echo "want: ${WANT:-$want}"
+if [ "${WANT:-$want}" = stock ]; then
   [ "$stock" -gt 0 ] && [ "$routed" -eq 2 ] && echo "PASS served by stock, both routings logged" || echo "FAIL want stock loads and 2 routing lines"
 else
   [ "$stock" -eq 0 ] && [ "$routed" -eq 0 ] && echo "PASS served by opencoti" || echo "FAIL want no stock load"

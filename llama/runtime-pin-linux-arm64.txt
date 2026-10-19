@@ -20,12 +20,12 @@
 # v0.40.2 (2026-10-10): the runtime is v0.40.1-thinkbudget's file, reused byte
 # for byte under the new tag; the gpu rows are upstream v0.40.2's.
 repo      mann1x/ollama
-tag       v0.40.4-thinkbudget
+tag       v0.40.6-thinkbudget
 asset     ollama-linux-arm64-runtime.tgz
-sha256    57b6b2a7cc61573408447a3d172a1b2a945c824fa1465f62fe818b791f81339d
-inputs    fd08a01da6f77eecece73d58ba8688123a4fbf6bcf662ddeee9139051899ccb6
-built     eda37d24ef4a7ae355f5c7f15904ea0d15ce717e
-upstream  v0.40.4
-gpu       ollama-linux-arm64.tar.zst           1a314ac530d2c23bf6d2aaaf4a4aba8cc0b2a4ee8bc8fae3f3aa88bff7f7177b
-gpu       ollama-linux-arm64-jetpack5.tar.zst  6b5376c82b16ea2a0e755079bb58b7229fe8ca246c37401c4fcf1064aaaff9b4
-gpu       ollama-linux-arm64-jetpack6.tar.zst  554a573ac283815673efa329ecf4a9c1b6e3f0566b4ae4d98d41d1903e4f6864
+sha256    60aaa4ec88025dcda0ee1dee3709adea920521c06ded26af5312cc6cf39034dd
+inputs    83f79eeb4fc4d7e3582375adac7327aaf15d79b57cdfa1b32250e95db7291bfa
+built     83e2e0cdea8a3ecf2d7513cdaaac008272036036
+upstream  v0.40.6
+gpu       ollama-linux-arm64.tar.zst           0a279d9428ad17b06fdb7dddf3b059b2c148433585fa3b30676a102fc459bb9f
+gpu       ollama-linux-arm64-jetpack5.tar.zst  29ad9de0dece97a21d452ffbbd38231d1ae02c627195d67a1158dc5ac73309e5
+gpu       ollama-linux-arm64-jetpack6.tar.zst  a01193f70ead22ce0adae54a7164df9fef587869ab58616eaa657eb9436c1c4d
