@@ -42,6 +42,21 @@ it an update, stop. That is the procedure this replaces.**
 6. **Verify the artifact, not the build log.** A green run means the steps
    exited 0. It does not mean the installer carries what it should. Steps 5 and
    7 exist for that.
+7. **When the fork moves to a new upstream, xollama follows with a release.**
+   Once `mann1x/ollama` has synced to a new upstream version (its
+   `think-budget` branch on the new tag and `PATCHES.json` updated, usually
+   with a `v<upstream>-thinkbudget` release), xollama syncs `dev` to it
+   (`FORK-SYNC.md`) and releases on the new base: `v<upstream>-rc.1.xollama`,
+   then `v<upstream>-xollama`. This is standing. It needs no new word from the
+   owner, and it applies unless the owner explicitly says not to. Nothing else
+   is cut on the old base after the fork has moved: a release pending at that
+   moment either goes out on the new base or ships first and the sync follows
+   at once. Before cutting any release, check the fork's base
+   (`git fetch fork && git describe --tags --abbrev=0 fork/think-budget`)
+   against `dev`'s. Owner, 2026-10-19, after `v0.40.4-xollama.5` shipped on
+   v0.40.4 two days after the fork reached v0.40.6: "if the ollama fork has
+   synced to a new upstream version also xollama must sync to it with a new
+   release unless I explicitely ask not to".
 
 ## Versions and tags
 

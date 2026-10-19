@@ -5,6 +5,11 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-19 — Release protocol: xollama follows the fork to every new upstream with a release (RELEASE.md rule 7, FORK-SYNC step 6).**
+> - Owner 10:49, after `.5` shipped on v0.40.4 while the fork had been on v0.40.6 since 10-17: "you should have synced to 0.40.6 with the latest release already … if the ollama fork has synced to a new upstream version also xollama must sync to it with a new release unless I explicitely ask not to".
+> - Standing from now on, with no new word needed. Before any release, compare the fork's base (`git describe --tags --abbrev=0 fork/think-budget`) with dev's.
+> - Next: the v0.40.6 sync, then `v0.40.6-rc.1.xollama`.
+
 > **2026-10-19 — `v0.40.4-xollama.5` released and promoted (Latest, 07:17): opencoti c13 r6, `GET /api/xollama/system`.**
 > - PR #36 merged at `3726e10ee`; pre-release and `:dev` image (run 39174967989). Full check on the published bytes, all pass (numbers in `docs/protocols/VALIDATION.md`):
 >   - G12: 8 files match; payload id `335fe3d9…` (new, so Windows takes the full installer); the tag's image equals `:dev`, `:latest` was unmoved.
@@ -2723,10 +2728,11 @@ Council Chat is in Phase 11.
 
 ## Immediate next steps (in order)
 
-1. opencoti c14: the pin moves on a measurement once it is published (owner,
-   2026-10-16: "c14 is next"); the next release on this base needs the
-   owner's word. Moving dev to upstream v0.40.6 (the fork is synced, mails
-   #1586/#1588) is also the owner's call.
+1. Sync `dev` to upstream v0.40.6, which the fork reached on 2026-10-17
+   (`v0.40.6-thinkbudget`, PATCHES.json `33e6af53c`), and release on it:
+   `v0.40.6-rc.1.xollama`, then `v0.40.6-xollama`. This is due now under
+   RELEASE.md rule 7. opencoti c14 is the next engine: the pin moves on a
+   measurement once it is published (owner, 2026-10-16: "c14 is next").
 2. Why the free-memory refresh fails through a model swap on Windows
    (pandorum 2026-10-16), when it is seen again with the engine's listing
    output.
