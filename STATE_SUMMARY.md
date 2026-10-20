@@ -5,6 +5,14 @@ release tags, measurements) and what is left. The fixed sections below the
 entries are rewritten in place so they always describe *now*. Plans are
 indexed in [`plans/MASTER_PLAN.md`](plans/MASTER_PLAN.md).
 
+> **2026-10-20 — `repeat_last_n = -1` reaches stock llama.cpp as `num_ctx` (`repeat-last-n` hook; for the next release).**
+> - The owner hit a 400 on eleven2go: "Field 'repeat_last_n': Value must be between 0 <= value <= 2147483647, but got -1". It came from their stock Ollama on 11434 (`0.40.0-thinkbudget`, stock `llama-server`), not xOllama. xOllama on 22434 with opencoti c13 r6 resolved -1 to 32768 (checked live).
+> - Stock `llama-server`'s schema accepts only 0 and up, while opencoti takes -1 (the slot's context). Owner 07:39: "yes map -1 to num_ctx for stock llama.cpp. will go in the next release".
+> - `llm/engine_repeat_last_n.go` (`stockRepeatLastN`): a negative value becomes `num_ctx` on stock only. One trailing-comment hook line in each request body of `llm/llama_server.go`; Registry row `repeat-last-n`; engine doc section. A deliberate departure from upstream's stock path, so `XOLLAMA_ENGINE=llamacpp` with -1 now succeeds where upstream fails.
+> - Tests: `TestStockRepeatLastN`, `TestChatBodyRepeatLastNOnStockAndOpencoti`; `llm` and `server` pass; vet, lint and `check-hooks.sh` (55) clean.
+> - Live on solidPC (CPU, side port 22498, `ollama` user, `/srv/ml/xrln`): this tree gave 200 on `/api/chat` and `/api/generate` with -1, and the engine logged `repeat_last_n = 4096`. The installed `0.40.3-xollama.2` as control gave the owner's exact 400 on both.
+> - The owner's Ollama on 11434 keeps the 400 until the fork carries the same mapping (the fork's call).
+
 > **2026-10-19 — `v0.40.6-xollama` released and promoted (Latest, 15:36): upstream v0.40.6, llama.cpp b11669, opencoti c13 r6.**
 > - `v0.40.6-rc.1.xollama` (PR #37, merge `05fc5511d`, release run 39239784139) passed the full check on its published bytes (numbers in `docs/protocols/VALIDATION.md`):
 >   - G2 green after bug-292.

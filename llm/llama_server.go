@@ -2197,7 +2197,7 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
 		MinP:            req.Options.MinP,
 		Stop:            req.Options.Stop,
 		RepeatPenalty:   req.Options.RepeatPenalty,
-		RepeatLastN:     req.Options.RepeatLastN,
+		RepeatLastN:     stockRepeatLastN(req.Options.RepeatLastN, s.options.NumCtx, s.usedOpencoti), // xollama-hook: repeat-last-n
 		FreqPenalty:     req.Options.FrequencyPenalty,
 		PresPenalty:     req.Options.PresencePenalty,
 		TypicalP:        req.Options.TypicalP,
@@ -2938,7 +2938,7 @@ func (s *llamaServerRunner) llamaServerChatRequest(req ChatRequest, stream bool)
 		"min_p":             req.Options.MinP,
 		"stop":              req.Options.Stop,
 		"repeat_penalty":    req.Options.RepeatPenalty,
-		"repeat_last_n":     req.Options.RepeatLastN,
+		"repeat_last_n":     stockRepeatLastN(req.Options.RepeatLastN, s.options.NumCtx, s.usedOpencoti), // xollama-hook: repeat-last-n
 		"frequency_penalty": req.Options.FrequencyPenalty,
 		"presence_penalty":  req.Options.PresencePenalty,
 		"typical_p":         req.Options.TypicalP,
